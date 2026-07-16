@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Продажи Unidream — Битрикс24</title>
+<title>Sales Pulse — дашборд продаж для Битрикс24</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -24,12 +24,12 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
   .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
-
+ 
   .topbar{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:26px;}
   .brand-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px;}
   h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:30px;margin:0;letter-spacing:-0.01em;}
   .sub{color:var(--ink-soft);font-size:14px;margin-top:6px;}
-
+ 
   .connect-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;min-width:340px;}
   .connect-box input{flex:1;min-width:220px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink);background:#FBFBFC;}
   .connect-box input:focus{outline:none;border-color:var(--blue);}
@@ -40,45 +40,68 @@
   .btn-primary:disabled{opacity:.5;cursor:default;}
   .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
   .btn-ghost:hover{background:#EFF1F4;}
-
+  select.btn-ghost{font-family:'Inter',sans-serif;}
+ 
   .status-line{font-size:12.5px;color:var(--ink-soft);margin-top:8px;}
   .status-line.err{color:var(--red-bad);}
   .status-line.ok{color:var(--green-good);}
-
+ 
   .help{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:24px;font-size:13.5px;line-height:1.65;color:var(--ink-soft);}
   .help b{color:var(--ink);}
   .help code{background:#EFF1F4;padding:1px 6px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);}
   .help ol{margin:8px 0 0;padding-left:20px;}
-
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+ 
+  .warning-banner{background:#FFF7ED;border:1px solid var(--amber);color:#92400E;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;line-height:1.55;}
+  .warning-banner b{display:block;margin-bottom:4px;}
+ 
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
   .kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px;}
   .kpi .label{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);margin-bottom:10px;}
   .kpi .value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:26px;letter-spacing:-0.01em;}
   .kpi .value small{font-size:14px;font-weight:500;color:var(--ink-soft);margin-left:3px;}
-
+  .delta{font-size:12px;font-weight:600;margin-top:6px;font-family:'JetBrains Mono',monospace;}
+  .delta.up{color:var(--green-good);}
+  .delta.down{color:var(--red-bad);}
+  .delta.flat{color:var(--ink-soft);}
+ 
   .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px;margin:0 0 14px;display:flex;align-items:center;gap:8px;}
   .section-title .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);}
-
+ 
+  .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:24px;overflow-x:auto;}
+  .dbar{cursor:pointer;transition:height .6s cubic-bezier(.16,1,.3,1), y .6s cubic-bezier(.16,1,.3,1), opacity .15s ease;transform-box:fill-box;}
+  .dbar:hover{opacity:1 !important;}
+  .dline{fill:none;stroke:var(--blue);stroke-width:2;opacity:.55;}
+ 
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:30px;}
   .fcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px 22px 18px;}
   .fcard-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
   .fcard-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16.5px;}
   .fcard-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;}
-  .fcard-metrics{display:flex;gap:22px;margin:8px 0 14px;}
+  .fcard-id{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);opacity:.6;}
+  .fcard-metrics{display:flex;gap:22px;margin:8px 0 14px;flex-wrap:wrap;}
   .fcard-metrics div .m-label{font-size:11px;color:var(--ink-soft);}
   .fcard-metrics div .m-value{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:15px;margin-top:2px;}
-
+ 
   .funnel-svg-wrap{margin:6px 0 10px;}
   .stage-table{width:100%;border-collapse:collapse;font-size:12.5px;}
   .stage-table td{padding:5px 0;border-top:1px solid var(--line);}
   .stage-table td.sname{color:var(--ink-soft);}
   .stage-table td.scount{text-align:right;font-family:'JetBrains Mono',monospace;width:40px;color:var(--ink-soft);}
   .stage-table td.ssum{text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;width:110px;}
-
+ 
+  .managers-wrap{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:24px;}
+  .managers-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .managers-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:500;padding:0 0 10px;border-bottom:1px solid var(--line);}
+  .managers-table th.num, .managers-table td.num{text-align:right;}
+  .managers-table td{padding:9px 0;border-top:1px solid var(--line);}
+  .managers-table td.mname{font-weight:600;}
+  .managers-table td.num{font-family:'JetBrains Mono',monospace;}
+  .managers-note{font-size:11.5px;color:var(--ink-soft);margin-top:10px;}
+ 
   .empty-state{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:50px 20px;text-align:center;color:var(--ink-soft);font-size:14px;}
-
+ 
   footer{text-align:center;color:var(--ink-soft);font-size:11.5px;margin-top:30px;font-family:'JetBrains Mono',monospace;}
-
+ 
   @media (max-width: 860px){
     .kpis{grid-template-columns:repeat(2,1fr);}
     .funnels{grid-template-columns:1fr;}
@@ -86,50 +109,90 @@
   @media (max-width: 520px){
     .kpis{grid-template-columns:1fr;}
   }
-
+ 
   .spinner{width:14px;height:14px;border-radius:50%;border:2px solid #ffffff55;border-top-color:#fff;display:inline-block;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
   @keyframes spin{to{transform:rotate(360deg);}}
+ 
+  .periodbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 20px;}
+  .pbtn{font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:7px 14px;cursor:pointer;transition:all .15s ease;}
+  .pbtn:hover{border-color:var(--blue);color:var(--blue);}
+  .pbtn.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .custom-range{display:inline-flex;align-items:center;gap:6px;}
+  .custom-range input[type=date]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);background:#FBFBFC;}
+  .custom-range .sep{color:var(--ink-soft);}
+  .btn-sm{padding:6px 12px;font-size:12px;border-radius:8px;}
+  .period-hint{font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;margin-left:4px;}
+ 
+  .toolbar2{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 20px;}
+  .toolbar2 select{border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--ink-soft);background:var(--surface);cursor:pointer;}
+ 
+  .bar{cursor:pointer;transition:height .7s cubic-bezier(.16,1,.3,1), y .7s cubic-bezier(.16,1,.3,1), opacity .15s ease, transform .15s ease;transform-box:fill-box;transform-origin:center bottom;}
+  .bar:hover{opacity:1 !important;transform:scaleY(1.05);}
+  .bar-label{transition:opacity .5s ease;}
 </style>
 </head>
 <body>
 <div class="wrap">
-
+ 
   <div class="topbar">
     <div>
-      <p class="brand-eyebrow">Unidream · CRM аналитика</p>
-      <h1>Продажи по 4 воронкам</h1>
-      <p class="sub">Живые данные из Битрикс24 через бесплатный входящий вебхук</p>
+      <p class="brand-eyebrow">Sales Pulse · CRM аналитика для Битрикс24</p>
+      <h1>Все продажи по воронкам — в одном окне</h1>
+      <p class="sub">Живые данные напрямую из Битрикс24 через бесплатный вебхук, без программистов и подписок</p>
     </div>
     <div class="connect-box">
       <input id="webhookInput" type="text" placeholder="https://ваш-портал.bitrix24.ru/rest/1/xxxxxxxxxxxxxxxx/">
       <button class="btn btn-primary" id="connectBtn">Подключить</button>
       <button class="btn btn-ghost" id="refreshBtn" style="display:none;">Обновить</button>
-      <button class="btn btn-ghost" id="shareBtn" style="display:none;">Скопировать ссылку для руководителя</button>
     </div>
   </div>
   <div id="statusLine" class="status-line">Ещё не подключено — вставьте вебхук выше.</div>
-  <div id="shareNote" class="status-line" style="display:none;color:var(--amber);">Ссылка скопирована. В ней зашит вебхук — отправляйте её только тем, кому можно видеть данные CRM.</div>
-
+ 
+  <div class="periodbar" id="periodBar" style="display:none;">
+    <button class="pbtn active" data-period="all">Всё время</button>
+    <button class="pbtn" data-period="today">Сегодня</button>
+    <button class="pbtn" data-period="week">Эта неделя</button>
+    <button class="pbtn" data-period="month">Этот месяц</button>
+    <button class="pbtn" data-period="custom">Диапазон дат</button>
+    <span id="customRange" class="custom-range" style="display:none;">
+      <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
+      <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
+    </span>
+    <span class="period-hint">период — по дате создания сделки</span>
+  </div>
+ 
+  <div class="toolbar2" id="toolbar2" style="display:none;">
+    <select id="autoRefreshSelect">
+      <option value="0">Автообновление: выкл</option>
+      <option value="5">Обновлять каждые 5 мин</option>
+      <option value="10">Обновлять каждые 10 мин</option>
+      <option value="30">Обновлять каждые 30 мин</option>
+    </select>
+    <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
+  </div>
+ 
+  <div id="dupWarning" class="warning-banner" style="display:none;"></div>
+ 
   <div class="help" id="helpBox">
     <b>Как получить бесплатный вебхук (5 минут, без платных тарифов):</b>
     <ol>
       <li>В Битрикс24 откройте <b>Разработчикам → Другое → Входящий вебхук</b> (или через поиск: «вебхук»).</li>
-      <li>Отметьте право доступа <code>crm</code> (CRM) и сохраните. Если нужен только просмотр — есть отдельные права на чтение сделок.</li>
+      <li>Отметьте право доступа <code>crm</code> (CRM) и сохраните. Для разбивки по менеджерам добавьте ещё право <code>user</code> (Пользователи) — иначе покажем только ID сотрудника.</li>
       <li>Скопируйте ссылку вида <code>https://ваш-портал.bitrix24.ru/rest/1/xxxxxxxxxxxxxxxx/</code> и вставьте её в поле выше.</li>
-      <li>Нажмите «Подключить». После успешного подключения появится кнопка «Скопировать ссылку для руководителя» — она откроет дашборд уже с данными, без ручного ввода вебхука.</li>
+      <li>Нажмите «Подключить» — дашборд сам найдёт все воронки сделок и построит отчёт.</li>
     </ol>
     <b style="display:block;margin-top:10px;">Важно про постоянную ссылку:</b>
-    Эта страница — обычный файл. Чтобы у неё был постоянный адрес (а не файл на вашем компьютере), разместите его на бесплатном хостинге (GitHub Pages, Cloudflare Pages, Netlify) — попросите об этом отдельно, дам пошаговую инструкцию. Если открывать файл прямо с компьютера (двойным щелчком), часть браузеров блокирует запросы к Битрикс24 — это самая частая причина, почему подключение «не работает».
+    Эта страница — обычный файл. Чтобы у неё был постоянный адрес, разместите его на бесплатном хостинге (GitHub Pages, Cloudflare Pages, Netlify). Если открывать файл прямо с компьютера (двойным щелчком), часть браузеров блокирует запросы к Битрикс24 — это самая частая причина, почему подключение «не работает».
   </div>
-
+ 
   <div id="content"></div>
-
+ 
   <footer>обновлено: <span id="updatedAt">—</span></footer>
 </div>
-
+ 
 <script>
 const PALETTE = ['#2F6FED', '#14B8A6', '#F59E0B', '#EF4444', '#8B5CF6', '#0EA5E9'];
-
+ 
 const webhookInput = document.getElementById('webhookInput');
 const connectBtn = document.getElementById('connectBtn');
 const refreshBtn = document.getElementById('refreshBtn');
@@ -137,31 +200,120 @@ const statusLine = document.getElementById('statusLine');
 const helpBox = document.getElementById('helpBox');
 const content = document.getElementById('content');
 const updatedAt = document.getElementById('updatedAt');
-
+const periodBar = document.getElementById('periodBar');
+const customRange = document.getElementById('customRange');
+const dateFrom = document.getElementById('dateFrom');
+const dateTo = document.getElementById('dateTo');
+const toolbar2 = document.getElementById('toolbar2');
+const autoRefreshSelect = document.getElementById('autoRefreshSelect');
+const exportBtn = document.getElementById('exportBtn');
+const dupWarning = document.getElementById('dupWarning');
+ 
+let currentPeriod = {type: 'all', from: null, to: null};
+let lastFunnels = [];
+let lastManagers = [];
+let autoRefreshTimer = null;
+ 
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtDateISO(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+ 
+function computePeriod(type){
+  const now = new Date();
+  if(type === 'today'){
+    return {from: fmtDateISO(now), to: fmtDateISO(now)};
+  }
+  if(type === 'week'){
+    const day = now.getDay();
+    const diffToMonday = (day === 0) ? -6 : 1 - day;
+    const monday = new Date(now); monday.setDate(now.getDate() + diffToMonday);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+    return {from: fmtDateISO(monday), to: fmtDateISO(sunday)};
+  }
+  if(type === 'month'){
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
+    return {from: fmtDateISO(first), to: fmtDateISO(last)};
+  }
+  return {from: null, to: null};
+}
+ 
+function computePrevPeriod(period){
+  if(!period || period.type === 'all' || !period.from || !period.to) return null;
+  if(period.type === 'today'){
+    const d = new Date(period.from+'T00:00:00'); d.setDate(d.getDate()-1);
+    return {from: fmtDateISO(d), to: fmtDateISO(d)};
+  }
+  if(period.type === 'week'){
+    const from = new Date(period.from+'T00:00:00'); from.setDate(from.getDate()-7);
+    const to = new Date(period.to+'T00:00:00'); to.setDate(to.getDate()-7);
+    return {from: fmtDateISO(from), to: fmtDateISO(to)};
+  }
+  if(period.type === 'month'){
+    const [y,m] = period.from.split('-').map(Number);
+    const prevFirst = new Date(y, m-2, 1);
+    const prevLast = new Date(y, m-1, 0);
+    return {from: fmtDateISO(prevFirst), to: fmtDateISO(prevLast)};
+  }
+  // custom: тот же по длине период, идущий прямо перед выбранным
+  const from = new Date(period.from+'T00:00:00');
+  const to = new Date(period.to+'T00:00:00');
+  const lengthDays = Math.round((to-from)/86400000);
+  const prevTo = new Date(from); prevTo.setDate(prevTo.getDate()-1);
+  const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-lengthDays);
+  return {from: fmtDateISO(prevFrom), to: fmtDateISO(prevTo)};
+}
+document.querySelectorAll('.pbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const type = btn.dataset.period;
+    document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if(type === 'custom'){
+      customRange.style.display = 'inline-flex';
+      if(!dateFrom.value || !dateTo.value){
+        const today = fmtDateISO(new Date());
+        dateFrom.value = today; dateTo.value = today;
+      }
+      return; // ждём нажатия "Показать"
+    }
+    customRange.style.display = 'none';
+    const range = computePeriod(type);
+    currentPeriod = {type, from: range.from, to: range.to};
+    loadDashboard();
+  });
+});
+ 
+document.getElementById('applyRangeBtn').addEventListener('click', () => {
+  if(!dateFrom.value || !dateTo.value) return;
+  currentPeriod = {type: 'custom', from: dateFrom.value, to: dateTo.value};
+  loadDashboard();
+});
+ 
 function normalizeWebhook(url){
   url = url.trim();
   if(!url.endsWith('/')) url += '/';
   return url;
 }
-
+ 
+function appendParams(qs, prefix, value){
+  if(Array.isArray(value)){
+    value.forEach(v => qs.append(`${prefix}[]`, v));
+  } else if(value !== null && value !== undefined && typeof value === 'object'){
+    for(const k in value) appendParams(qs, `${prefix}[${k}]`, value[k]);
+  } else if(value !== null && value !== undefined){
+    qs.append(prefix, value);
+  }
+}
+ 
 async function callMethod(webhook, method, params){
   const qs = new URLSearchParams();
-  for(const k in params){
-    if(Array.isArray(params[k])){
-      params[k].forEach(v => qs.append(k, v));
-    } else if(typeof params[k] === 'object'){
-      for(const kk in params[k]) qs.append(`${k}[${kk}]`, params[k][kk]);
-    } else {
-      qs.append(k, params[k]);
-    }
-  }
+  for(const k in params) appendParams(qs, k, params[k]);
   const res = await fetch(`${webhook}${method}.json?${qs.toString()}`);
   if(!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if(data.error) throw new Error(data.error_description || data.error);
   return data;
 }
-
+ 
 async function fetchAllPaged(webhook, method, params){
   let all = [];
   let start = 0;
@@ -172,17 +324,17 @@ async function fetchAllPaged(webhook, method, params){
   }
   return all;
 }
-
+ 
 async function fetchCategories(webhook){
   const data = await callMethod(webhook, 'crm.category.list', {entityTypeId: 2});
   return (data.result && data.result.categories) ? data.result.categories : [];
 }
-
+ 
 async function fetchStages(webhook, categoryId){
   const data = await callMethod(webhook, 'crm.dealcategory.stage.list', {id: categoryId});
   return data.result || [];
 }
-
+ 
 async function fetchSemantics(webhook, categoryId){
   const entityId = (String(categoryId) === '0') ? 'DEAL_STAGE' : `DEAL_STAGE_${categoryId}`;
   try{
@@ -194,7 +346,7 @@ async function fetchSemantics(webhook, categoryId){
     return {};
   }
 }
-
+ 
 function guessSemantic(statusId, map){
   if(map[statusId]) return map[statusId];
   const id = String(statusId).toUpperCase();
@@ -202,21 +354,44 @@ function guessSemantic(statusId, map){
   if(id.includes('LOSE') || id.includes('LOST')) return 'F';
   return 'P';
 }
-
-async function fetchDealsForCategory(webhook, categoryId){
+ 
+async function fetchDealsForCategory(webhook, categoryId, period){
+  const filter = {CATEGORY_ID: categoryId};
+  if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
+  if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   return fetchAllPaged(webhook, 'crm.deal.list', {
-    filter: {CATEGORY_ID: categoryId},
-    select: ['ID','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED']
+    filter,
+    select: ['ID','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','ASSIGNED_BY_ID']
   });
 }
-
+ 
+async function fetchUserNames(webhook, ids){
+  const data = await callMethod(webhook, 'user.get', {FILTER: {ID: ids}});
+  const map = {};
+  (data.result || []).forEach(u => {
+    const name = `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim();
+    map[u.ID] = name || `Сотрудник ID ${u.ID}`;
+  });
+  return map;
+}
+ 
 function fmtMoney(n, currency){
   const num = Math.round(n).toLocaleString('ru-RU');
   return `${num}${currency ? ' ' + currency : ''}`;
 }
-
-function buildFunnelSVG(stages, color){
-  const w = 320, h = 118, pad = 6;
+ 
+function deltaBadge(current, prev, hasPrev){
+  if(!hasPrev) return '';
+  if(prev === 0 && current === 0) return `<div class="delta flat">— нет данных за прошлый период</div>`;
+  if(prev === 0) return `<div class="delta up">▲ новые продажи (прошлый период пуст)</div>`;
+  const pct = Math.round(((current - prev) / prev) * 100);
+  if(pct > 0) return `<div class="delta up">▲ +${pct}% к прошлому периоду</div>`;
+  if(pct < 0) return `<div class="delta down">▼ ${pct}% к прошлому периоду</div>`;
+  return `<div class="delta flat">— без изменений к прошлому периоду</div>`;
+}
+ 
+function buildFunnelSVG(stages, color, uid){
+  const w = 320, h = 118, pad = 6, baseline = h - 24;
   const maxCount = Math.max(1, ...stages.map(s => s.count));
   const n = stages.length || 1;
   const segW = (w - pad*2) / n;
@@ -225,14 +400,52 @@ function buildFunnelSVG(stages, color){
     const ratio = s.count / maxCount;
     const barH = 26 + ratio * (h - 26 - 24);
     const x = pad + i*segW;
-    const y = h - 24 - barH;
+    const y = baseline - barH;
     const opacity = 0.35 + 0.65 * ratio;
-    shapes += `<rect x="${x+2}" y="${y}" width="${segW-4}" height="${barH}" rx="4" fill="${color}" opacity="${opacity.toFixed(2)}"></rect>`;
-    shapes += `<text x="${x + segW/2}" y="${h-8}" text-anchor="middle" font-size="9" font-family="JetBrains Mono, monospace" fill="#5B6478">${s.count}</text>`;
+    const sumLabel = fmtMoney(s.sum, '');
+    shapes += `<rect class="bar" data-target-h="${barH}" data-target-y="${y}"
+        x="${x+2}" y="${baseline}" width="${segW-4}" height="0" rx="4"
+        fill="${color}" opacity="${opacity.toFixed(2)}">
+        <title>${s.name}: ${s.count} сделок, ${sumLabel}</title>
+      </rect>`;
+    shapes += `<text class="bar-label" x="${x + segW/2}" y="${h-8}" text-anchor="middle" font-size="9" font-family="JetBrains Mono, monospace" fill="#5B6478">${s.count}</text>`;
   });
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
+  return `<svg class="funnel-svg" data-uid="${uid}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
 }
-
+ 
+function buildDailyChartSVG(entries, currency){
+  if(entries.length === 0) return `<div class="managers-note">За выбранный период нет закрытых успешных сделок.</div>`;
+  const barW = 30, gap = 10, padL = 8, padR = 8, h = 160, baseline = h - 28;
+  const w = padL + padR + entries.length * (barW + gap) - gap;
+  const maxSum = Math.max(1, ...entries.map(e => e.sum));
+  let shapes = '';
+  entries.forEach((e, i) => {
+    const ratio = e.sum / maxSum;
+    const barH = Math.max(3, ratio * (baseline - 20));
+    const x = padL + i * (barW + gap);
+    const y = baseline - barH;
+    shapes += `<rect class="dbar" data-target-h="${barH}" data-target-y="${y}"
+        x="${x}" y="${baseline}" width="${barW}" height="0" rx="5" fill="var(--blue)" opacity="0.85">
+        <title>${e.label}: ${fmtMoney(e.sum, currency)}, сделок: ${e.count}</title>
+      </rect>`;
+    shapes += `<text x="${x + barW/2}" y="${h-8}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="#5B6478">${e.shortLabel}</text>`;
+  });
+  return `<svg class="funnel-svg" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
+}
+ 
+function animateBars(selector){
+  requestAnimationFrame(() => {
+    document.querySelectorAll(selector).forEach(rect => {
+      const targetH = rect.dataset.targetH;
+      const targetY = rect.dataset.targetY;
+      requestAnimationFrame(() => {
+        rect.setAttribute('height', targetH);
+        rect.setAttribute('y', targetY);
+      });
+    });
+  });
+}
+ 
 function renderError(msg, raw){
   statusLine.className = 'status-line err';
   let hint = '';
@@ -241,12 +454,12 @@ function renderError(msg, raw){
   }
   statusLine.innerHTML = `Ошибка: ${msg}.${hint}`;
 }
-
+ 
 function renderLoading(msg){
   statusLine.className = 'status-line';
   statusLine.innerHTML = `<span class="spinner" style="border-color:#5B6478aa;border-top-color:#14213D;"></span>${msg}`;
 }
-
+ 
 async function loadDashboard(){
   const raw = webhookInput.value;
   if(!raw || !raw.includes('bitrix24') && !raw.includes('/rest/')){
@@ -257,29 +470,49 @@ async function loadDashboard(){
   connectBtn.disabled = true;
   connectBtn.textContent = 'Подключение…';
   renderLoading('получаю список воронок…');
-
+ 
   try{
     const categories = await fetchCategories(webhook);
-    const allCats = [{id: 0, name: 'Общая воронка'}].concat(
+    const rawCats = [{id: 0, name: 'Общая воронка'}].concat(
       categories.map(c => ({id: c.id, name: c.name}))
     );
-
+    const seenIds = new Set();
+    const allCats = rawCats.filter(c => {
+      const key = String(c.id);
+      if(seenIds.has(key)) return false;
+      seenIds.add(key);
+      return true;
+    });
+ 
+    const prevPeriod = computePrevPeriod(currentPeriod);
+    const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
+    const dailyMap = {};     // dateKey -> {sum, count}
+    const isAllTime = currentPeriod.type === 'all';
+ 
     const funnels = [];
     for(let i = 0; i < allCats.length; i++){
       const cat = allCats[i];
       renderLoading(`загружаю сделки — ${cat.name} (${i+1}/${allCats.length})…`);
-      const [stagesRaw, semMap, deals] = await Promise.all([
+ 
+      const promises = [
         fetchStages(webhook, cat.id),
         fetchSemantics(webhook, cat.id),
-        fetchDealsForCategory(webhook, cat.id)
-      ]);
-
+        fetchDealsForCategory(webhook, cat.id, currentPeriod)
+      ];
+      if(prevPeriod) promises.push(fetchDealsForCategory(webhook, cat.id, prevPeriod));
+      const results = await Promise.all(promises);
+      const stagesRaw = results[0], semMap = results[1], deals = results[2];
+      const prevDeals = prevPeriod ? results[3] : [];
+ 
       const stageOrder = stagesRaw.map(s => ({id: s.STATUS_ID, name: s.NAME}));
       const stageMap = {};
       stageOrder.forEach(s => stageMap[s.id] = {name: s.name, count: 0, sum: 0});
-
+ 
       let totalSum = 0, wonSum = 0, wonCount = 0, lostCount = 0, currency = '';
+      const dealIds = new Set();
+ 
       deals.forEach(d => {
+        dealIds.add(d.ID);
         const opp = parseFloat(d.OPPORTUNITY) || 0;
         currency = d.CURRENCY_ID || currency;
         if(!stageMap[d.STAGE_ID]) stageMap[d.STAGE_ID] = {name: d.STAGE_ID, count: 0, sum: 0};
@@ -287,33 +520,112 @@ async function loadDashboard(){
         stageMap[d.STAGE_ID].sum += opp;
         totalSum += opp;
         const sem = guessSemantic(d.STAGE_ID, semMap);
-        if(sem === 'S'){ wonSum += opp; wonCount += 1; }
-        if(sem === 'F'){ lostCount += 1; }
+ 
+        // разбивка по менеджерам
+        const mgr = d.ASSIGNED_BY_ID || 'unknown';
+        if(!managerMap[mgr]) managerMap[mgr] = {dealsCount: 0, wonSum: 0, wonCount: 0, lostCount: 0};
+        managerMap[mgr].dealsCount += 1;
+ 
+        if(sem === 'S'){
+          wonSum += opp; wonCount += 1;
+          managerMap[mgr].wonSum += opp;
+          managerMap[mgr].wonCount += 1;
+          // динамика по дням/месяцам — только закрытые успешные сделки
+          const rawDate = d.CLOSEDATE || d.DATE_CREATE;
+          if(rawDate){
+            const dateKey = isAllTime ? rawDate.slice(0,7) : rawDate.slice(0,10);
+            if(!dailyMap[dateKey]) dailyMap[dateKey] = {sum: 0, count: 0};
+            dailyMap[dateKey].sum += opp;
+            dailyMap[dateKey].count += 1;
+          }
+        }
+        if(sem === 'F'){ lostCount += 1; managerMap[mgr].lostCount += 1; }
       });
-
+ 
+      let prevWonSum = 0;
+      prevDeals.forEach(d => {
+        const opp = parseFloat(d.OPPORTUNITY) || 0;
+        const sem = guessSemantic(d.STAGE_ID, semMap);
+        if(sem === 'S') prevWonSum += opp;
+      });
+ 
       const stages = stageOrder
         .map(s => ({name: s.name, count: stageMap[s.id].count, sum: stageMap[s.id].sum}))
         .filter(s => s.count > 0 || stageOrder.length <= 8);
-
+ 
       if(deals.length > 0 || categories.length > 0 || cat.id === 0){
         funnels.push({
           id: cat.id, name: cat.name, deals: deals.length, totalSum, wonSum,
-          wonCount, lostCount, currency, stages
+          wonCount, lostCount, currency, stages, dealIds,
+          prevWonSum, hasPrevPeriod: !!prevPeriod
         });
       }
     }
-
+ 
     const activeFunnels = funnels.filter(f => f.deals > 0);
     const displayFunnels = activeFunnels.length > 0 ? activeFunnels : funnels;
-
-    renderDashboard(displayFunnels);
+ 
+    // резолвим имена менеджеров
+    const managerIds = Object.keys(managerMap).filter(id => id !== 'unknown');
+    let nameMap = {};
+    let namesResolved = true;
+    if(managerIds.length > 0){
+      try{
+        nameMap = await fetchUserNames(webhook, managerIds);
+      }catch(e){
+        namesResolved = false;
+      }
+    }
+    const managers = Object.keys(managerMap).map(id => ({
+      id,
+      name: id === 'unknown' ? 'Без ответственного' : (nameMap[id] || `Сотрудник ID ${id}`),
+      ...managerMap[id]
+    })).sort((a,b) => b.wonSum - a.wonSum);
+ 
+    // дневная/месячная динамика продаж
+    const dailyEntries = Object.keys(dailyMap).sort().map(key => {
+      const label = isAllTime
+        ? new Date(key+'-01').toLocaleDateString('ru-RU', {month:'short', year:'numeric'})
+        : new Date(key).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
+      const shortLabel = isAllTime ? key.slice(2) : key.slice(8,10);
+      return {label, shortLabel, sum: dailyMap[key].sum, count: dailyMap[key].count};
+    });
+ 
+    // проверка на задвоенные воронки (одинаковый набор сделок в двух воронках)
+    const dupPairs = [];
+    for(let a = 0; a < activeFunnels.length; a++){
+      for(let b = a+1; b < activeFunnels.length; b++){
+        const fa = activeFunnels[a], fb = activeFunnels[b];
+        if(fa.dealIds.size > 0 && fa.dealIds.size === fb.dealIds.size){
+          let identical = true;
+          for(const id of fa.dealIds){ if(!fb.dealIds.has(id)){ identical = false; break; } }
+          if(identical) dupPairs.push([fa.name, fb.name, fa.id, fb.id]);
+        }
+      }
+    }
+ 
+    lastFunnels = displayFunnels;
+    lastManagers = managers;
+ 
+    renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0);
+ 
+    if(dupPairs.length > 0){
+      dupWarning.style.display = 'block';
+      dupWarning.innerHTML = `<b>⚠ Похоже на задвоенные воронки</b>` + dupPairs.map(p =>
+        `«${p[0]}» (ID ${p[2]}) и «${p[1]}» (ID ${p[3]}) показывают абсолютно одинаковый набор сделок.`
+      ).join('<br>') + ` Проверьте настройки воронок в Битрикс24 — вероятно, это одна и та же воронка под разными названиями.`;
+    } else {
+      dupWarning.style.display = 'none';
+    }
+ 
     statusLine.className = 'status-line ok';
     statusLine.textContent = `Подключено · найдено воронок: ${displayFunnels.length}`;
     helpBox.style.display = 'none';
     refreshBtn.style.display = 'inline-block';
-    document.getElementById('shareBtn').style.display = 'inline-block';
+    periodBar.style.display = 'flex';
+    toolbar2.style.display = 'flex';
     updatedAt.textContent = new Date().toLocaleString('ru-RU');
-
+ 
   }catch(e){
     renderError(e.message || 'не удалось получить данные. Проверьте ссылку и права доступа (crm) у вебхука.', e);
   }finally{
@@ -321,31 +633,41 @@ async function loadDashboard(){
     connectBtn.textContent = 'Подключить';
   }
 }
-
-function renderDashboard(funnels){
+ 
+function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasManagers){
   if(funnels.length === 0){
     content.innerHTML = `<div class="empty-state">Сделки не найдены ни в одной воронке.</div>`;
     return;
   }
-
+ 
   const totalRevenue = funnels.reduce((a,f) => a + f.wonSum, 0);
+  const totalPrevRevenue = funnels.reduce((a,f) => a + f.prevWonSum, 0);
+  const hasPrev = funnels.some(f => f.hasPrevPeriod);
   const totalDeals = funnels.reduce((a,f) => a + f.deals, 0);
   const totalWon = funnels.reduce((a,f) => a + f.wonCount, 0);
   const totalLost = funnels.reduce((a,f) => a + f.lostCount, 0);
   const winRate = (totalWon + totalLost) > 0 ? Math.round(100 * totalWon / (totalWon + totalLost)) : 0;
   const currency = funnels.find(f => f.currency)?.currency || '';
-
+ 
   let html = `
     <div class="kpis">
-      <div class="kpi"><div class="label">Продажи (выиграно)</div><div class="value">${fmtMoney(totalRevenue, currency)}</div></div>
+      <div class="kpi">
+        <div class="label">Продажи (выиграно)</div>
+        <div class="value">${fmtMoney(totalRevenue, currency)}</div>
+        ${deltaBadge(totalRevenue, totalPrevRevenue, hasPrev)}
+      </div>
       <div class="kpi"><div class="label">Сделок всего</div><div class="value">${totalDeals.toLocaleString('ru-RU')}</div></div>
       <div class="kpi"><div class="label">Выиграно сделок</div><div class="value">${totalWon.toLocaleString('ru-RU')}</div></div>
       <div class="kpi"><div class="label">Конверсия в продажу</div><div class="value">${winRate}<small>%</small></div></div>
     </div>
+ 
+    <p class="section-title">Динамика продаж</p>
+    <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
+ 
     <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
     <div class="funnels">
   `;
-
+ 
   funnels.forEach((f, i) => {
     const color = PALETTE[i % PALETTE.length];
     const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
@@ -356,42 +678,95 @@ function renderDashboard(funnels){
         <td class="ssum">${fmtMoney(s.sum, '')}</td>
       </tr>
     `).join('');
-
+ 
     html += `
       <div class="fcard">
         <div class="fcard-head">
-          <div class="fcard-name"><span class="fcard-dot" style="background:${color}"></span>${f.name}</div>
+          <div class="fcard-name"><span class="fcard-dot" style="background:${color}"></span>${f.name} <span class="fcard-id">ID ${f.id}</span></div>
         </div>
         <div class="fcard-metrics">
-          <div><div class="m-label">Продажи</div><div class="m-value">${fmtMoney(f.wonSum, f.currency)}</div></div>
+          <div><div class="m-label">Продажи</div><div class="m-value">${fmtMoney(f.wonSum, f.currency)}</div>${deltaBadge(f.wonSum, f.prevWonSum, f.hasPrevPeriod)}</div>
           <div><div class="m-label">Сделок</div><div class="m-value">${f.deals}</div></div>
           <div><div class="m-label">Конверсия</div><div class="m-value">${fWinRate}%</div></div>
         </div>
-        <div class="funnel-svg-wrap">${buildFunnelSVG(f.stages, color)}</div>
+        <div class="funnel-svg-wrap">${buildFunnelSVG(f.stages, color, f.id)}</div>
         <table class="stage-table"><tbody>${stageRows}</tbody></table>
       </div>
     `;
   });
-
+ 
   html += `</div>`;
+ 
+  if(hasManagers){
+    const rows = managers.map(m => {
+      const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
+      return `
+        <tr>
+          <td class="mname">${m.name}</td>
+          <td class="num">${m.dealsCount}</td>
+          <td class="num">${fmtMoney(m.wonSum, currency)}</td>
+          <td class="num">${conv}%</td>
+        </tr>
+      `;
+    }).join('');
+    html += `
+      <p class="section-title">По менеджерам</p>
+      <div class="managers-wrap">
+        <table class="managers-table">
+          <thead><tr><th>Менеджер</th><th class="num">Сделок</th><th class="num">Продажи</th><th class="num">Конверсия</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${namesResolved ? '' : '<div class="managers-note">Не удалось получить имена сотрудников — добавьте вебхуку право доступа <b>user</b> (Пользователи), пока показаны ID.</div>'}
+      </div>
+    `;
+  }
+ 
   content.innerHTML = html;
+  animateBars('.bar');
+  animateBars('.dbar');
 }
-
+ 
+exportBtn.addEventListener('click', () => {
+  if(lastFunnels.length === 0) return;
+  const rows = [];
+  rows.push(['Воронка','Стадия','Сделок','Сумма'].join(';'));
+  lastFunnels.forEach(f => {
+    f.stages.forEach(s => rows.push([f.name, s.name, s.count, Math.round(s.sum)].join(';')));
+  });
+  rows.push('');
+  if(lastManagers.length > 0){
+    rows.push(['Менеджер','Сделок','Продажи (выиграно)','Конверсия %'].join(';'));
+    lastManagers.forEach(m => {
+      const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
+      rows.push([m.name, m.dealsCount, Math.round(m.wonSum), conv].join(';'));
+    });
+  }
+  const csv = rows.join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sales-report-${fmtDateISO(new Date())}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+ 
+autoRefreshSelect.addEventListener('change', () => {
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  const minutes = parseInt(autoRefreshSelect.value, 10);
+  if(minutes > 0){
+    autoRefreshTimer = setInterval(() => {
+      if(webhookInput.value) loadDashboard();
+    }, minutes * 60 * 1000);
+  }
+});
+ 
 connectBtn.addEventListener('click', loadDashboard);
 refreshBtn.addEventListener('click', loadDashboard);
 webhookInput.addEventListener('keydown', e => { if(e.key === 'Enter') loadDashboard(); });
-
-const shareBtn = document.getElementById('shareBtn');
-const shareNote = document.getElementById('shareNote');
-shareBtn.addEventListener('click', () => {
-  const url = new URL(window.location.href);
-  url.searchParams.set('wh', btoa(webhookInput.value.trim()));
-  navigator.clipboard.writeText(url.toString()).then(() => {
-    shareNote.style.display = 'block';
-    setTimeout(() => shareNote.style.display = 'none', 6000);
-  });
-});
-
+ 
 (function initFromUrl(){
   const params = new URLSearchParams(window.location.search);
   const wh = params.get('wh');
