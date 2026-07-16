@@ -43,7 +43,6 @@
   }
   html[data-theme="dark"] .connect-box input,
   html[data-theme="dark"] .custom-range input[type=date]{background:#FFFFFF14;color:var(--ink);}
-  html[data-theme="dark"] .spinner{border-color:var(--line-soft);border-top-color:var(--ink);}
   html[data-theme="dark"] .warning-banner{background:#3A2A0F;color:#FBBF6B;}
   html{transition:background .2s ease;}
   body{transition:background .2s ease, color .2s ease;}
@@ -148,8 +147,27 @@
     .kpis{grid-template-columns:1fr;}
   }
  
-  .spinner{width:14px;height:14px;border-radius:50%;border:2px solid #14151A33;border-top-color:var(--ink);display:inline-block;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:8px;}
-  @keyframes spin{to{transform:rotate(360deg);}}
+  .loader-bars{display:inline-flex;align-items:flex-end;gap:3px;height:14px;margin-right:8px;vertical-align:-3px;}
+  .loader-bars span{width:3px;height:4px;background:var(--accent-strong);border-radius:2px;animation:loaderBar .9s ease-in-out infinite;}
+  .loader-bars span:nth-child(1){animation-delay:0s;}
+  .loader-bars span:nth-child(2){animation-delay:.12s;}
+  .loader-bars span:nth-child(3){animation-delay:.24s;}
+  .loader-bars span:nth-child(4){animation-delay:.36s;}
+  .loader-bars span:nth-child(5){animation-delay:.48s;}
+  @keyframes loaderBar{0%,100%{height:4px;}50%{height:14px;}}
+ 
+  .skel-line, .skel-bar{background:linear-gradient(90deg, var(--overlay-1) 25%, var(--overlay-2) 42%, var(--overlay-1) 60%);background-size:300% 100%;animation:shimmer 1.5s ease infinite;border-radius:6px;}
+  @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-100% 0;}}
+  .kpi.skeleton .skel-label{height:10px;width:55%;margin-bottom:14px;}
+  .kpi.skeleton .skel-value{height:24px;width:80%;}
+  .daily-chart .skel-bars{display:flex;align-items:flex-end;gap:8px;width:100%;height:118px;}
+  .daily-chart .skel-bar{flex:1;border-radius:5px 5px 0 0;}
+  .fcard.skeleton .skel-title{height:15px;width:50%;margin-bottom:14px;}
+  .fcard.skeleton .skel-sub{height:9px;width:90%;margin-bottom:10px;}
+ 
+  .confetti-container{position:fixed;inset:0;pointer-events:none;z-index:300;overflow:hidden;}
+  .confetti-piece{position:absolute;top:-24px;width:8px;height:14px;border-radius:2px;opacity:.9;animation-name:confettiFall;animation-timing-function:cubic-bezier(.36,.5,.66,1);animation-fill-mode:forwards;}
+  @keyframes confettiFall{to{transform:translateY(105vh) rotate(560deg);opacity:0;}}
  
   .periodbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0 24px;background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:16px;padding:12px 16px;}
   .pbtn{font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:8px 16px;cursor:pointer;transition:all .15s ease;}
@@ -163,6 +181,17 @@
   .btn-sm{padding:6px 12px;font-size:12px;border-radius:8px;}
   .period-hint{font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;margin-left:8px;}
  
+  .filter-wrap{position:relative;margin-left:auto;}
+  .icon-btn{width:34px;height:34px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s ease;padding:0;}
+  .icon-btn svg{width:17px;height:17px;}
+  .icon-btn:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .icon-btn.expanded{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .filter-panel{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:220px;box-shadow:0 8px 24px var(--shadow-color);z-index:20;}
+  .filter-item{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:12.5px;cursor:pointer;border-radius:6px;}
+  .filter-item:hover{background:var(--overlay-1);}
+  .filter-item input{cursor:pointer;}
+  .filter-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);}
+ 
   .toolbar2{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 24px;}
   .toolbar2 select{border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--ink-soft);background:var(--surface);cursor:pointer;}
  
@@ -170,11 +199,21 @@
   .theme-toggle:hover{background:var(--overlay-1);}
   .theme-toggle:active{transform:scale(0.9);}
   .theme-toggle svg{width:20px;height:20px;}
+  .shortcuts-panel{position:fixed;top:104px;right:20px;min-width:200px;}
+  .shortcut-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 4px;font-size:12.5px;color:var(--ink-soft);}
+  .shortcut-row kbd{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--overlay-2);color:var(--ink);border-radius:5px;padding:2px 7px;min-width:16px;text-align:center;}
   .bar{cursor:pointer;transition:height .7s cubic-bezier(.16,1,.3,1), y .7s cubic-bezier(.16,1,.3,1), opacity .15s ease, transform .15s ease;transform-box:fill-box;transform-origin:center bottom;}
   .bar:hover{opacity:1 !important;transform:scaleY(1.05);}
   .bar-label{transition:opacity .5s ease;}
  
   .goal-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:24px;}
+  .goal-hero{padding:28px 32px;border-width:1.5px;}
+  .goal-hero .goal-title{font-size:16px;}
+  .goal-hero .goal-title b{font-family:'Space Grotesk',sans-serif;font-size:19px;}
+  .goal-track-lg{height:16px;}
+  .goal-caption-lg{font-size:15px;font-weight:600;color:var(--ink);margin-top:14px;}
+  .goal-caption-lg span{font-weight:500;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;font-size:12.5px;margin-left:4px;}
+  .goal-hero.goal-empty{padding:28px 32px;font-size:14.5px;}
   .goal-card.goal-empty{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--ink-soft);font-size:13px;}
   .goal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px;}
   .goal-edit{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11.5px;padding:5px 10px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
@@ -197,6 +236,19 @@
 </head>
 <body>
 <button id="themeToggleBtn" class="theme-toggle" title="Переключить тему" aria-label="Переключить тему"></button>
+<button id="shortcutsBtn" class="theme-toggle" style="top:64px;" title="Горячие клавиши" aria-label="Горячие клавиши">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
+</button>
+<div id="shortcutsPanel" class="filter-panel shortcuts-panel" style="display:none;">
+  <div class="shortcut-row"><kbd>R</kbd><span>Обновить данные</span></div>
+  <div class="shortcut-row"><kbd>T</kbd><span>Переключить тему</span></div>
+  <div class="shortcut-row"><kbd>1</kbd><span>Период: всё время</span></div>
+  <div class="shortcut-row"><kbd>2</kbd><span>Период: сегодня</span></div>
+  <div class="shortcut-row"><kbd>3</kbd><span>Период: неделя</span></div>
+  <div class="shortcut-row"><kbd>4</kbd><span>Период: месяц</span></div>
+  <div class="shortcut-row"><kbd>5</kbd><span>Свой диапазон дат</span></div>
+  <div class="shortcut-row"><kbd>?</kbd><span>Показать эту подсказку</span></div>
+</div>
 <div class="wrap">
   <div class="glow"></div>
  
@@ -211,6 +263,7 @@
       <div id="connFields" style="display:contents"></div>
       <button class="btn btn-primary" id="connectBtn">Подключить</button>
       <button class="btn btn-ghost" id="refreshBtn" style="display:none;">Обновить</button>
+      <button class="btn btn-ghost" id="disconnectBtn" style="display:none;" title="Забыть сохранённое подключение">Отключить</button>
     </div>
   </div>
   <div id="statusLine" class="status-line">Ещё не подключено — выберите CRM и введите данные для подключения.</div>
@@ -226,6 +279,12 @@
       <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
     </span>
     <span class="period-hint">период — по дате создания сделки</span>
+    <div class="filter-wrap">
+      <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
+      </button>
+      <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
+    </div>
   </div>
  
   <div class="toolbar2" id="toolbar2" style="display:none;">
@@ -255,6 +314,7 @@ const connFields = document.getElementById('connFields');
 const subText = document.getElementById('subText');
 const connectBtn = document.getElementById('connectBtn');
 const refreshBtn = document.getElementById('refreshBtn');
+const disconnectBtn = document.getElementById('disconnectBtn');
 const statusLine = document.getElementById('statusLine');
 const helpBox = document.getElementById('helpBox');
 const content = document.getElementById('content');
@@ -298,6 +358,9 @@ let autoRefreshTimer = null;
 let currentAdapter = null;
 let currentConn = null;
 let goalAmount = null; // цель на период — задаётся вручную, хранится на время сессии
+let goalCelebrated = false; // чтобы конфетти не запускалось повторно на каждый рендер
+let availableFunnels = []; // [{id,name}] — список воронок для панели фильтра
+let selectedFunnelIds = null; // null = показывать все; иначе Set выбранных id
  
 function pad2(n){ return String(n).padStart(2,'0'); }
 function fmtDateISO(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
@@ -396,6 +459,87 @@ document.getElementById('applyRangeBtn').addEventListener('click', () => {
   if(!dateFrom.value || !dateTo.value) return;
   currentPeriod = {type: 'custom', from: dateFrom.value, to: dateTo.value};
   loadDashboard();
+});
+ 
+const funnelFilterBtn = document.getElementById('funnelFilterBtn');
+const funnelFilterPanel = document.getElementById('funnelFilterPanel');
+ 
+function renderFunnelFilterPanel(){
+  if(availableFunnels.length === 0){
+    funnelFilterPanel.innerHTML = `<div class="filter-item" style="cursor:default;">воронки ещё не загружены</div>`;
+    return;
+  }
+  const rows = availableFunnels.map(f => {
+    const checked = !selectedFunnelIds || selectedFunnelIds.has(String(f.id));
+    return `<label class="filter-item"><input type="checkbox" data-funnel-id="${f.id}" ${checked ? 'checked' : ''}> ${f.name}</label>`;
+  }).join('');
+  funnelFilterPanel.innerHTML = `
+    ${rows}
+    <div class="filter-actions">
+      <button class="btn btn-ghost btn-sm" id="filterSelectAllBtn" type="button">Выбрать все</button>
+      <button class="btn btn-primary btn-sm" id="filterApplyBtn" type="button">Показать</button>
+    </div>
+  `;
+  document.getElementById('filterSelectAllBtn').addEventListener('click', () => {
+    funnelFilterPanel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+  });
+  document.getElementById('filterApplyBtn').addEventListener('click', () => {
+    const checkboxes = Array.from(funnelFilterPanel.querySelectorAll('input[type=checkbox]'));
+    const checkedIds = checkboxes.filter(cb => cb.checked).map(cb => cb.dataset.funnelId);
+    selectedFunnelIds = (checkedIds.length === 0 || checkedIds.length === availableFunnels.length)
+      ? null
+      : new Set(checkedIds);
+    toggleExpandable(funnelFilterBtn, funnelFilterPanel);
+    loadDashboard();
+  });
+}
+ 
+funnelFilterBtn.addEventListener('click', () => {
+  toggleExpandable(funnelFilterBtn, funnelFilterPanel, () => renderFunnelFilterPanel());
+});
+ 
+const shortcutsBtn = document.getElementById('shortcutsBtn');
+const shortcutsPanel = document.getElementById('shortcutsPanel');
+ 
+shortcutsBtn.addEventListener('click', () => {
+  toggleExpandable(shortcutsBtn, shortcutsPanel);
+});
+ 
+document.addEventListener('click', (e) => {
+  if(funnelFilterPanel.style.display !== 'none' &&
+     !funnelFilterPanel.contains(e.target) && e.target !== funnelFilterBtn && !funnelFilterBtn.contains(e.target)){
+    funnelFilterPanel.style.display = 'none';
+    funnelFilterBtn.classList.remove('expanded');
+  }
+  if(shortcutsPanel.style.display !== 'none' &&
+     !shortcutsPanel.contains(e.target) && e.target !== shortcutsBtn && !shortcutsBtn.contains(e.target)){
+    shortcutsPanel.style.display = 'none';
+    shortcutsBtn.classList.remove('expanded');
+  }
+});
+ 
+const PERIOD_SHORTCUTS = {'1': 'all', '2': 'today', '3': 'week', '4': 'month'};
+ 
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'select' || tag === 'textarea') return;
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+ 
+  if(e.key === 'r' || e.key === 'R'){
+    if(currentConn){ e.preventDefault(); loadDashboard(); }
+  } else if(e.key === 't' || e.key === 'T'){
+    e.preventDefault();
+    themeToggleBtn.click();
+  } else if(PERIOD_SHORTCUTS[e.key] && periodBar.style.display !== 'none'){
+    const btn = document.querySelector(`.pbtn[data-period="${PERIOD_SHORTCUTS[e.key]}"]`);
+    if(btn){ e.preventDefault(); btn.click(); }
+  } else if(e.key === '5' && periodBar.style.display !== 'none'){
+    const btn = document.querySelector('.pbtn[data-period="custom"]');
+    if(btn){ e.preventDefault(); btn.click(); }
+  } else if(e.key === '?'){
+    e.preventDefault();
+    shortcutsBtn.click();
+  }
 });
  
 function normalizeWebhook(url){
@@ -651,24 +795,25 @@ function buildGoalSection(totalRevenue, currency){
     const pct = Math.min(100, Math.round((totalRevenue / goalAmount) * 100));
     const done = totalRevenue >= goalAmount;
     return `
-      <div class="goal-card">
+      <div class="goal-card goal-hero">
         <div class="goal-head">
-          <span>Цель на период: ${fmtMoney(goalAmount, currency)}</span>
+          <span class="goal-title">Цель на период: <b>${fmtMoney(goalAmount, currency)}</b></span>
           <button class="goal-edit" data-action="edit-goal" type="button">Изменить</button>
         </div>
-        <div class="goal-track"><div class="goal-fill" style="width:${pct}%"></div></div>
-        <div class="goal-caption">${done ? 'цель выполнена — ' : 'выполнено '}${pct}% (${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</div>
+        <div class="goal-track goal-track-lg"><div class="goal-fill" style="width:${pct}%"></div></div>
+        <div class="goal-caption goal-caption-lg">${done ? 'План выполнен — ' : 'Выполнено '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</span></div>
       </div>
     `;
   }
   return `
-    <div class="goal-card goal-empty">
-      <span>Задайте цель по продажам на этот период, чтобы видеть прогресс</span>
+    <div class="goal-card goal-empty goal-hero">
+      <span>Задайте план продаж на этот период, чтобы видеть прогресс</span>
       <input type="number" id="goalInput" placeholder="например, 50000000" min="0">
-      <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Установить</button>
+      <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Утвердить план</button>
     </div>
   `;
 }
+ 
  
 function buildLossReasonsSection(lostReasons){
   if(!lostReasons || lostReasons.length === 0) return '';
@@ -778,7 +923,25 @@ function renderError(msg, raw){
  
 function renderLoading(msg){
   statusLine.className = 'status-line';
-  statusLine.innerHTML = `<span class="spinner" style="border-color:#5B6478aa;border-top-color:#14213D;"></span>${msg}`;
+  statusLine.innerHTML = `<span class="loader-bars"><span></span><span></span><span></span><span></span><span></span></span>${msg}`;
+  renderSkeleton();
+}
+ 
+function renderSkeleton(){
+  if(content.innerHTML.trim() !== '') return; // не мигаем поверх уже показанных данных при обновлении
+  content.innerHTML = `
+    <div class="kpis">
+      ${Array(4).fill(`<div class="kpi skeleton"><div class="skel-line skel-label"></div><div class="skel-line skel-value"></div></div>`).join('')}
+    </div>
+    <div class="daily-chart">
+      <div class="skel-bars">
+        ${[40,65,50,80,55,90,60,45,75,35].map(h => `<div class="skel-bar" style="height:${h}%"></div>`).join('')}
+      </div>
+    </div>
+    <div class="funnels">
+      ${Array(2).fill(`<div class="fcard skeleton"><div class="skel-line skel-title"></div><div class="skel-line skel-sub"></div><div class="skel-line skel-sub" style="width:60%"></div></div>`).join('')}
+    </div>
+  `;
 }
  
 async function loadDashboard(){
@@ -802,6 +965,13 @@ async function loadDashboard(){
       return true;
     });
  
+    availableFunnels = allFunnels;
+    if(funnelFilterPanel.style.display !== 'none') renderFunnelFilterPanel();
+ 
+    const funnelsToLoad = selectedFunnelIds
+      ? allFunnels.filter(f => selectedFunnelIds.has(String(f.id)))
+      : allFunnels;
+ 
     const prevPeriod = computePrevPeriod(currentPeriod);
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
     const dailyMap = {};     // dateKey -> {sum, count}
@@ -810,9 +980,9 @@ async function loadDashboard(){
     const now = Date.now();
  
     const funnels = [];
-    for(let i = 0; i < allFunnels.length; i++){
-      const fn = allFunnels[i];
-      renderLoading(`загружаю сделки — ${fn.name} (${i+1}/${allFunnels.length})…`);
+    for(let i = 0; i < funnelsToLoad.length; i++){
+      const fn = funnelsToLoad[i];
+      renderLoading(`загружаю сделки — ${fn.name} (${i+1}/${funnelsToLoad.length})…`);
  
       const promises = [
         adapter.fetchStages(conn, fn.id),
@@ -965,6 +1135,7 @@ async function loadDashboard(){
     statusLine.textContent = `Подключено (${adapter.name}) · найдено воронок: ${displayFunnels.length}`;
     helpBox.style.display = 'none';
     refreshBtn.style.display = 'inline-block';
+    disconnectBtn.style.display = 'inline-block';
     periodBar.style.display = 'flex';
     toolbar2.style.display = 'flex';
     updatedAt.textContent = new Date().toLocaleString('ru-RU');
@@ -993,6 +1164,8 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const currency = funnels.find(f => f.currency)?.currency || '';
  
   let html = `
+    ${buildGoalSection(totalRevenue, currency)}
+ 
     <div class="kpis">
       <div class="kpi">
         <div class="label">Продажи (выиграно)</div>
@@ -1004,8 +1177,6 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       <div class="kpi"><div class="label">Выиграно сделок</div><div class="value" data-countup="${totalWon}">0</div></div>
       <div class="kpi"><div class="label">Конверсия в продажу</div><div class="value" data-countup="${winRate}" data-suffix-html="<small>%</small>">0<small>%</small></div></div>
     </div>
- 
-    ${buildGoalSection(totalRevenue, currency)}
  
     <p class="section-title">Динамика продаж</p>
     <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
@@ -1074,6 +1245,33 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   animateBars('.bar');
   animateBars('.dbar');
   animateCountUps();
+ 
+  if(goalAmount && goalAmount > 0 && totalRevenue >= goalAmount){
+    if(!goalCelebrated){
+      goalCelebrated = true;
+      celebrateGoal();
+    }
+  } else {
+    goalCelebrated = false;
+  }
+}
+ 
+function celebrateGoal(){
+  const colors = ['#C6F135', '#14B8A6', '#2F6FED', '#F59E0B', '#EF4444'];
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  for(let i = 0; i < 40; i++){
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    piece.style.left = (Math.random() * 100) + 'vw';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = (Math.random() * 0.4) + 's';
+    piece.style.animationDuration = (2.2 + Math.random() * 1.3) + 's';
+    piece.style.transform = `rotate(${Math.round(Math.random() * 360)}deg)`;
+    container.appendChild(piece);
+  }
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), 3900);
 }
  
 exportBtn.addEventListener('click', () => {
@@ -1113,6 +1311,27 @@ autoRefreshSelect.addEventListener('change', () => {
   }
 });
  
+const CONN_STORAGE_KEY = 'salesPulseConnection_v1';
+ 
+function saveConnection(crmId, raw){
+  try{
+    localStorage.setItem(CONN_STORAGE_KEY, JSON.stringify({crmId, raw}));
+  }catch(e){ /* хранилище недоступно (приватный режим и т.п.) — просто не сохраняем */ }
+}
+ 
+function loadSavedConnection(){
+  try{
+    const raw = localStorage.getItem(CONN_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){
+    return null;
+  }
+}
+ 
+function clearSavedConnection(){
+  try{ localStorage.removeItem(CONN_STORAGE_KEY); }catch(e){ /* игнорируем */ }
+}
+ 
 function attemptConnect(){
   const adapter = CRM_ADAPTERS[crmSelect.value];
   const raw = {};
@@ -1124,8 +1343,29 @@ function attemptConnect(){
   }
   currentAdapter = adapter;
   currentConn = adapter.buildConnection(raw);
+  if(adapter.status === 'ready') saveConnection(adapter.id, raw);
   loadDashboard();
 }
+ 
+disconnectBtn.addEventListener('click', () => {
+  clearSavedConnection();
+  currentAdapter = null;
+  currentConn = null;
+  goalAmount = null;
+  selectedFunnelIds = null;
+  availableFunnels = [];
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
+  content.innerHTML = '';
+  dupWarning.style.display = 'none';
+  periodBar.style.display = 'none';
+  toolbar2.style.display = 'none';
+  refreshBtn.style.display = 'none';
+  disconnectBtn.style.display = 'none';
+  helpBox.style.display = 'block';
+  statusLine.className = 'status-line';
+  statusLine.textContent = 'Подключение забыто — введите данные заново.';
+});
  
 function rerenderCached(){
   renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
@@ -1139,10 +1379,12 @@ content.addEventListener('click', (e) => {
     const val = parseFloat(input.value);
     if(val > 0){
       goalAmount = val;
+      goalCelebrated = false;
       rerenderCached();
     }
   } else if(btn.dataset.action === 'edit-goal'){
     goalAmount = null;
+    goalCelebrated = false;
     rerenderCached();
   }
 });
@@ -1153,6 +1395,7 @@ content.addEventListener('keydown', (e) => {
     const val = parseFloat(e.target.value);
     if(val > 0){
       goalAmount = val;
+      goalCelebrated = false;
       rerenderCached();
     }
   }
@@ -1180,6 +1423,19 @@ onCrmChange();
         attemptConnect();
       }
     }catch(e){ /* игнорируем некорректный параметр */ }
+    return;
+  }
+ 
+  // ссылки со встроенным вебхуком нет — пробуем сохранённое ранее подключение
+  const saved = loadSavedConnection();
+  if(saved && CRM_ADAPTERS[saved.crmId] && CRM_ADAPTERS[saved.crmId].status === 'ready'){
+    crmSelect.value = saved.crmId;
+    onCrmChange();
+    Object.keys(saved.raw || {}).forEach(key => {
+      const field = connFields.querySelector(`[data-field="${key}"]`);
+      if(field) field.value = saved.raw[key];
+    });
+    attemptConnect();
   }
 })();
 </script>
