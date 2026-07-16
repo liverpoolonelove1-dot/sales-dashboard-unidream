@@ -220,33 +220,39 @@
   .bar-label{transition:opacity .5s ease;}
  
   .goal-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:24px;}
-  .goal-hero{padding:28px 32px;border-width:1.5px;}
+  .goal-hero{padding:0;border-width:1.5px;min-height:220px;}
   .goal-hero .goal-title{font-size:16px;}
   .goal-hero .goal-title b{font-family:'Space Grotesk',sans-serif;font-size:19px;}
-  .goal-track-lg{height:16px;}
   .goal-caption-lg{font-size:15px;font-weight:600;color:var(--ink);margin-top:14px;}
   .goal-caption-lg span{font-weight:500;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;font-size:12.5px;margin-left:4px;}
-  .goal-hero.goal-empty{padding:28px 32px;font-size:14.5px;}
-  .goal-card.goal-empty{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--ink-soft);font-size:13px;}
   .goal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px;}
-  .goal-edit{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11.5px;padding:5px 10px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
+  .goal-edit{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11.5px;padding:5px 10px;border-radius:20px;cursor:pointer;transition:all .15s ease;position:relative;z-index:2;}
   .goal-edit:hover{border-color:var(--ink-soft);color:var(--ink);}
   #goalInput{width:180px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--surface);color:var(--ink);}
   #goalInput:focus{outline:none;border-color:var(--accent-strong);}
-  .goal-track{background:var(--overlay-2);border-radius:20px;height:10px;overflow:hidden;}
-  .goal-fill{height:100%;background:var(--accent);border-radius:20px;width:0%;transition:width .8s cubic-bezier(.16,1,.3,1);}
-  .goal-caption{margin-top:10px;font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
   .forecast-line{font-size:11.5px;color:var(--ink-soft);margin-top:8px;font-family:'JetBrains Mono',monospace;}
  
-  .water-glass{position:relative;overflow:hidden;}
+  .goal-split{display:flex;align-items:stretch;}
+  .goal-left{flex:1.2;padding:28px 32px;position:relative;overflow:hidden;min-width:0;}
+  .goal-empty-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--ink-soft);font-size:13px;}
+  .goal-right{flex:1;padding:24px 28px;border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0;}
+  .goal-right-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin-bottom:10px;}
+  .goal-right-chart{flex:1;display:flex;align-items:center;}
+  .goal-right-chart .funnel-svg{width:100%;}
+  @media (max-width: 720px){
+    .goal-split{flex-direction:column;}
+    .goal-right{border-left:none;border-top:1px solid var(--line);}
+  }
+ 
+  .water-glass-h{position:relative;overflow:hidden;}
   .goal-content{position:relative;z-index:2;}
-  .water-fill{position:absolute;left:0;right:0;bottom:0;height:0%;z-index:1;background:linear-gradient(180deg, rgba(198,241,53,.22), rgba(198,241,53,.48));transition:height 1.1s cubic-bezier(.16,1,.3,1);}
-  .water-fill.over{background:linear-gradient(180deg, rgba(22,163,74,.2), rgba(22,163,74,.42));}
-  .water-wave{position:absolute;left:0;top:-9px;width:200%;height:18px;background-repeat:repeat-x;background-size:50% 100%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20'%3E%3Cpath d='M0,10 C25,20 25,0 50,10 C75,20 75,0 100,10 L100,20 L0,20 Z' fill='%23C6F135' fill-opacity='0.55'/%3E%3C/svg%3E");}
-  .water-wave-1{animation:waveMove 5s linear infinite;}
-  .water-wave-2{top:-5px;opacity:.5;animation:waveMove 8s linear infinite reverse;}
-  .water-fill.over .water-wave{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 20'%3E%3Cpath d='M0,10 C25,20 25,0 50,10 C75,20 75,0 100,10 L100,20 L0,20 Z' fill='%2316A34A' fill-opacity='0.5'/%3E%3C/svg%3E");}
-  @keyframes waveMove{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+  .water-fill-h{position:absolute;top:0;bottom:0;left:0;width:0%;z-index:1;background:linear-gradient(90deg, rgba(198,241,53,.48), rgba(198,241,53,.2));transition:width 1.1s cubic-bezier(.16,1,.3,1);}
+  .water-fill-h.over{background:linear-gradient(90deg, rgba(22,163,74,.42), rgba(22,163,74,.18));}
+  .water-wave-v{position:absolute;top:-50%;right:-8px;width:16px;height:200%;background-repeat:repeat-y;background-size:100% 50%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 100'%3E%3Cpath d='M10,0 C20,12 0,12 10,25 C20,38 0,38 10,50 C20,62 0,62 10,75 C20,88 0,88 10,100 L20,100 L20,0 Z' fill='%23C6F135' fill-opacity='0.55'/%3E%3C/svg%3E");}
+  .water-wave-v1{animation:waveMoveV 5s linear infinite;}
+  .water-wave-v2{right:-3px;opacity:.5;animation:waveMoveV 8s linear infinite reverse;}
+  .water-fill-h.over .water-wave-v{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 100'%3E%3Cpath d='M10,0 C20,12 0,12 10,25 C20,38 0,38 10,50 C20,62 0,62 10,75 C20,88 0,88 10,100 L20,100 L20,0 Z' fill='%2316A34A' fill-opacity='0.5'/%3E%3C/svg%3E");}
+  @keyframes waveMoveV{from{transform:translateY(0);}to{transform:translateY(-50%);}}
  
   .loss-row, .dwell-row{display:grid;grid-template-columns:1fr 2fr auto;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:12.5px;}
   .loss-row:first-child, .dwell-row:first-child{border-top:none;}
@@ -857,31 +863,48 @@ function forecastLine(totalRevenue, currency){
   return `<div class="forecast-line">на этом темпе к концу периода: ~${fmtMoney(f.projected, currency)}</div>`;
 }
  
-function buildGoalSection(totalRevenue, currency){
+function buildGoalSection(totalRevenue, currency, dailyEntries){
+  const chartHtml = dailyEntries && dailyEntries.length > 0
+    ? buildDailyChartSVG(dailyEntries, currency)
+    : `<div class="managers-note">Пока нет закрытых успешных сделок за период.</div>`;
+ 
+  const rightPanel = `
+    <div class="goal-right">
+      <div class="goal-right-label">Динамика продаж</div>
+      <div class="goal-right-chart">${chartHtml}</div>
+    </div>
+  `;
+ 
   if(goalAmount && goalAmount > 0){
     const pct = Math.min(100, Math.round((totalRevenue / goalAmount) * 100));
     const done = totalRevenue >= goalAmount;
     return `
-      <div class="goal-card goal-hero water-glass">
-        <div class="water-fill ${done ? 'over' : ''}" data-target-height="${pct}%" style="height:0%">
-          <span class="water-wave water-wave-1"></span>
-          <span class="water-wave water-wave-2"></span>
-        </div>
-        <div class="goal-content">
-          <div class="goal-head">
-            <span class="goal-title">Цель на период: <b>${fmtMoney(goalAmount, currency)}</b></span>
-            <button class="goal-edit" data-action="edit-goal" type="button">Изменить</button>
+      <div class="goal-card goal-hero goal-split">
+        <div class="goal-left water-glass-h">
+          <div class="water-fill-h ${done ? 'over' : ''}" data-target-width="${pct}%" style="width:0%">
+            <span class="water-wave-v water-wave-v1"></span>
+            <span class="water-wave-v water-wave-v2"></span>
           </div>
-          <div class="goal-caption goal-caption-lg">${done ? 'План выполнен — ' : 'Выполнено '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</span></div>
+          <div class="goal-content">
+            <div class="goal-head">
+              <span class="goal-title">Цель на период: <b>${fmtMoney(goalAmount, currency)}</b></span>
+              <button class="goal-edit" data-action="edit-goal" type="button">Изменить</button>
+            </div>
+            <div class="goal-caption goal-caption-lg">${done ? 'План выполнен — ' : 'Выполнено '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</span></div>
+          </div>
         </div>
+        ${rightPanel}
       </div>
     `;
   }
   return `
-    <div class="goal-card goal-empty goal-hero">
-      <span>Задайте план продаж на этот период, чтобы видеть прогресс</span>
-      <input type="number" id="goalInput" placeholder="например, 50000000" min="0">
-      <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Утвердить план</button>
+    <div class="goal-card goal-hero goal-split">
+      <div class="goal-left goal-empty-left">
+        <span>Задайте план продаж на этот период, чтобы видеть прогресс</span>
+        <input type="number" id="goalInput" placeholder="например, 50000000" min="0">
+        <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Утвердить план</button>
+      </div>
+      ${rightPanel}
     </div>
   `;
 }
@@ -1229,12 +1252,12 @@ async function loadDashboard(){
   }
 }
  
-function renderGoalBanner(totalRevenue, currency){
-  document.getElementById('goalBannerContainer').innerHTML = buildGoalSection(totalRevenue, currency);
+function renderGoalBanner(totalRevenue, currency, dailyEntries){
+  document.getElementById('goalBannerContainer').innerHTML = buildGoalSection(totalRevenue, currency, dailyEntries || []);
   requestAnimationFrame(() => {
-    document.querySelectorAll('.water-fill').forEach(el => {
-      const target = el.dataset.targetHeight;
-      requestAnimationFrame(() => { el.style.height = target; });
+    document.querySelectorAll('.water-fill-h').forEach(el => {
+      const target = el.dataset.targetWidth;
+      requestAnimationFrame(() => { el.style.width = target; });
     });
   });
 }
@@ -1242,7 +1265,7 @@ function renderGoalBanner(totalRevenue, currency){
 function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasManagers, lostReasons){
   if(funnels.length === 0){
     content.innerHTML = `<div class="empty-state">Сделки не найдены ни в одной воронке.</div>`;
-    renderGoalBanner(0, '');
+    renderGoalBanner(0, '', dailyEntries);
     return;
   }
  
@@ -1255,7 +1278,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const winRate = (totalWon + totalLost) > 0 ? Math.round(100 * totalWon / (totalWon + totalLost)) : 0;
   const currency = funnels.find(f => f.currency)?.currency || '';
  
-  renderGoalBanner(totalRevenue, currency);
+  renderGoalBanner(totalRevenue, currency, dailyEntries);
  
   let html = `
     <div class="kpis">
@@ -1269,9 +1292,6 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       <div class="kpi"><div class="label">Выиграно сделок</div><div class="value" data-countup="${totalWon}">0</div></div>
       <div class="kpi"><div class="label">Конверсия в продажу</div><div class="value" data-countup="${winRate}" data-suffix-html="<small>%</small>">0<small>%</small></div></div>
     </div>
- 
-    <p class="section-title">Динамика продаж</p>
-    <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
  
     <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
     <div class="funnels">
