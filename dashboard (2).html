@@ -25,7 +25,28 @@
     --violet: #8B5CF6;
     --green-good: #16A34A;
     --red-bad: #DC2626;
+    --shadow-color: rgba(20,21,26,0.06);
+    --overlay-1: rgba(0,0,0,0.03);
+    --overlay-2: rgba(0,0,0,0.05);
   }
+  html[data-theme="dark"]{
+    --bg: #101114;
+    --surface: #1A1B1F;
+    --surface-glass: rgba(26,27,31,0.62);
+    --ink: #F1F0EA;
+    --ink-soft: #9A9CA3;
+    --line: #2C2D33;
+    --line-soft: rgba(255,255,255,0.08);
+    --shadow-color: rgba(0,0,0,0.4);
+    --overlay-1: rgba(255,255,255,0.06);
+    --overlay-2: rgba(255,255,255,0.09);
+  }
+  html[data-theme="dark"] .connect-box input,
+  html[data-theme="dark"] .custom-range input[type=date]{background:#FFFFFF14;color:var(--ink);}
+  html[data-theme="dark"] .spinner{border-color:var(--line-soft);border-top-color:var(--ink);}
+  html[data-theme="dark"] .warning-banner{background:#3A2A0F;color:#FBBF6B;}
+  html{transition:background .2s ease;}
+  body{transition:background .2s ease, color .2s ease;}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
   .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px;position:relative;}
@@ -48,7 +69,7 @@
   .btn-primary:hover{background:var(--accent-strong);box-shadow:0 4px 14px rgba(198,241,53,0.35);}
   .btn-primary:disabled{opacity:.5;cursor:default;box-shadow:none;}
   .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
-  .btn-ghost:hover{background:#00000006;border-color:var(--ink-soft);}
+  .btn-ghost:hover{background:var(--overlay-1);border-color:var(--ink-soft);}
   select.btn-ghost{font-family:'Inter',sans-serif;}
  
   .status-line{font-size:12.5px;color:var(--ink-soft);margin-top:8px;}
@@ -57,7 +78,7 @@
  
   .help{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:24px;font-size:13.5px;line-height:1.65;color:var(--ink-soft);}
   .help b{color:var(--ink);}
-  .help code{background:#00000008;padding:1px 6px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);}
+  .help code{background:var(--overlay-2);padding:1px 6px;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);}
   .help ol{margin:8px 0 0;padding-left:20px;}
  
   .warning-banner{background:#FFF7ED;border:1px solid var(--amber);color:#92400E;border-radius:16px;padding:16px 24px;margin-bottom:24px;font-size:13px;line-height:1.55;}
@@ -65,27 +86,27 @@
  
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;}
   .kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;}
-  .kpi:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(20,21,26,0.06);border-color:var(--line-soft);}
+  .kpi:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow-color);border-color:var(--line-soft);}
   .kpi .label{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);margin-bottom:12px;}
   .kpi .value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:26px;letter-spacing:-0.01em;transition:opacity .3s ease;}
   .kpi .value small{font-size:14px;font-weight:500;color:var(--ink-soft);margin-left:3px;}
   .delta{display:inline-block;font-size:11.5px;font-weight:600;margin-top:8px;font-family:'JetBrains Mono',monospace;padding:3px 8px;border-radius:20px;}
   .delta.up{color:var(--accent-ink);background:rgba(198,241,53,0.35);}
   .delta.down{color:var(--red-bad);background:rgba(220,38,38,0.08);}
-  .delta.flat{color:var(--ink-soft);background:#00000006;}
+  .delta.flat{color:var(--ink-soft);background:var(--overlay-1);}
  
   .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16px;margin:0 0 16px;display:flex;align-items:center;gap:8px;}
   .section-title .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);}
  
   .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:32px;overflow-x:auto;transition:box-shadow .2s ease;}
-  .daily-chart:hover{box-shadow:0 8px 24px rgba(20,21,26,0.05);}
+  .daily-chart:hover{box-shadow:0 8px 24px var(--shadow-color);}
   .dbar{cursor:pointer;transition:height .6s cubic-bezier(.16,1,.3,1), y .6s cubic-bezier(.16,1,.3,1), opacity .15s ease;transform-box:fill-box;}
   .dbar:hover{opacity:1 !important;}
   .dline{fill:none;stroke:var(--blue);stroke-width:2;opacity:.55;}
  
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
   .fcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;transition:transform .2s ease, box-shadow .2s ease;}
-  .fcard:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(20,21,26,0.06);}
+  .fcard:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow-color);}
   .fcard-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
   .fcard-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16.5px;}
   .fcard-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;}
@@ -95,14 +116,16 @@
   .fcard-metrics div .m-value{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:15px;margin-top:2px;}
  
   .funnel-svg-wrap{margin:8px 0 8px;}
+  .bottleneck-note{font-size:11.5px;color:var(--ink-soft);background:var(--overlay-1);border-radius:9px;padding:8px 10px;margin:0 0 12px;}
   .stage-table{width:100%;border-collapse:collapse;font-size:12.5px;}
   .stage-table td{padding:6px 0;border-top:1px solid var(--line);}
   .stage-table td.sname{color:var(--ink-soft);}
+  .age-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);background:var(--overlay-1);padding:1px 6px;border-radius:10px;}
   .stage-table td.scount{text-align:right;font-family:'JetBrains Mono',monospace;width:40px;color:var(--ink-soft);}
   .stage-table td.ssum{text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;width:110px;}
  
   .managers-wrap{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:32px;transition:box-shadow .2s ease;}
-  .managers-wrap:hover{box-shadow:0 8px 24px rgba(20,21,26,0.05);}
+  .managers-wrap:hover{box-shadow:0 8px 24px var(--shadow-color);}
   .managers-table{width:100%;border-collapse:collapse;font-size:13px;}
   .managers-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:500;padding:0 0 12px;border-bottom:1px solid var(--line);}
   .managers-table th.num, .managers-table td.num{text-align:right;}
@@ -132,6 +155,8 @@
   .pbtn{font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:8px 16px;cursor:pointer;transition:all .15s ease;}
   .pbtn:hover{border-color:var(--ink-soft);color:var(--ink);}
   .pbtn.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .toggle-btn::after{content:'\25BE';display:inline-block;margin-left:6px;transition:transform .2s ease;}
+  .toggle-btn.expanded::after{transform:rotate(180deg);}
   .custom-range{display:inline-flex;align-items:center;gap:8px;}
   .custom-range input[type=date]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);background:#FFFFFFAA;}
   .custom-range .sep{color:var(--ink-soft);}
@@ -141,19 +166,44 @@
   .toolbar2{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 24px;}
   .toolbar2 select{border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--ink-soft);background:var(--surface);cursor:pointer;}
  
+  .theme-toggle{position:fixed;top:20px;right:20px;width:38px;height:38px;border:none;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;transition:background .15s ease, transform .15s ease;z-index:50;padding:0;}
+  .theme-toggle:hover{background:var(--overlay-1);}
+  .theme-toggle:active{transform:scale(0.9);}
+  .theme-toggle svg{width:20px;height:20px;}
   .bar{cursor:pointer;transition:height .7s cubic-bezier(.16,1,.3,1), y .7s cubic-bezier(.16,1,.3,1), opacity .15s ease, transform .15s ease;transform-box:fill-box;transform-origin:center bottom;}
   .bar:hover{opacity:1 !important;transform:scaleY(1.05);}
   .bar-label{transition:opacity .5s ease;}
+ 
+  .goal-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:24px;}
+  .goal-card.goal-empty{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--ink-soft);font-size:13px;}
+  .goal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px;}
+  .goal-edit{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11.5px;padding:5px 10px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
+  .goal-edit:hover{border-color:var(--ink-soft);color:var(--ink);}
+  #goalInput{width:180px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--surface);color:var(--ink);}
+  #goalInput:focus{outline:none;border-color:var(--accent-strong);}
+  .goal-track{background:var(--overlay-2);border-radius:20px;height:10px;overflow:hidden;}
+  .goal-fill{height:100%;background:var(--accent);border-radius:20px;width:0%;transition:width .8s cubic-bezier(.16,1,.3,1);}
+  .goal-caption{margin-top:10px;font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+  .forecast-line{font-size:11.5px;color:var(--ink-soft);margin-top:8px;font-family:'JetBrains Mono',monospace;}
+ 
+  .loss-row, .dwell-row{display:grid;grid-template-columns:1fr 2fr auto;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:12.5px;}
+  .loss-row:first-child, .dwell-row:first-child{border-top:none;}
+  .loss-label, .dwell-label{color:var(--ink-soft);}
+  .loss-track, .dwell-track{background:var(--overlay-2);border-radius:20px;height:8px;overflow:hidden;}
+  .loss-fill{height:100%;background:rgba(220,38,38,0.55);border-radius:20px;}
+  .dwell-fill{height:100%;background:var(--amber);border-radius:20px;}
+  .loss-count, .dwell-value{font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap;text-align:right;}
 </style>
 </head>
 <body>
+<button id="themeToggleBtn" class="theme-toggle" title="Переключить тему" aria-label="Переключить тему"></button>
 <div class="wrap">
   <div class="glow"></div>
  
   <div class="topbar">
     <div>
       <p class="brand-eyebrow">Sales Pulse · CRM аналитика</p>
-      <h1>Все продажи по воронкам — в одном окне</h1>
+      <h1>Все воронки продаж — в одном окне, обновляются сами</h1>
       <p class="sub" id="subText">Живые данные напрямую из Битрикс24 через бесплатный вебхук, без программистов и подписок</p>
     </div>
     <div class="connect-box">
@@ -170,7 +220,7 @@
     <button class="pbtn" data-period="today">Сегодня</button>
     <button class="pbtn" data-period="week">Эта неделя</button>
     <button class="pbtn" data-period="month">Этот месяц</button>
-    <button class="pbtn" data-period="custom">Диапазон дат</button>
+    <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
     <span id="customRange" class="custom-range" style="display:none;">
       <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
       <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
@@ -217,13 +267,37 @@ const toolbar2 = document.getElementById('toolbar2');
 const autoRefreshSelect = document.getElementById('autoRefreshSelect');
 const exportBtn = document.getElementById('exportBtn');
 const dupWarning = document.getElementById('dupWarning');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+ 
+const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>`;
+const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
+ 
+function applyThemeIcon(){
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  themeToggleBtn.innerHTML = isDark ? SUN_ICON : MOON_ICON;
+  themeToggleBtn.title = isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему';
+}
+ 
+themeToggleBtn.addEventListener('click', () => {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  applyThemeIcon();
+});
+ 
+applyThemeIcon();
  
 let currentPeriod = {type: 'all', from: null, to: null};
 let lastFunnels = [];
 let lastManagers = [];
+let lastDailyEntries = [];
+let lastNamesResolved = true;
+let lastHasManagers = false;
+let lastLostReasons = [];
 let autoRefreshTimer = null;
 let currentAdapter = null;
 let currentConn = null;
+let goalAmount = null; // цель на период — задаётся вручную, хранится на время сессии
  
 function pad2(n){ return String(n).padStart(2,'0'); }
 function fmtDateISO(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
@@ -273,19 +347,44 @@ function computePrevPeriod(period){
   const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate()-lengthDays);
   return {from: fmtDateISO(prevFrom), to: fmtDateISO(prevTo)};
 }
+// Универсальный toggle: клик по раскрывающей кнопке открывает панель,
+// повторный клик по той же кнопке — закрывает её обратно.
+function toggleExpandable(btn, panel, onOpen){
+  const isClosed = panel.style.display === 'none' || panel.style.display === '';
+  if(isClosed){
+    panel.style.display = 'inline-flex';
+    btn.classList.add('expanded');
+    if(onOpen) onOpen();
+    return true;
+  } else {
+    panel.style.display = 'none';
+    btn.classList.remove('expanded');
+    return false;
+  }
+}
+ 
 document.querySelectorAll('.pbtn').forEach(btn => {
   btn.addEventListener('click', () => {
     const type = btn.dataset.period;
-    document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+ 
     if(type === 'custom'){
-      customRange.style.display = 'inline-flex';
-      if(!dateFrom.value || !dateTo.value){
-        const today = fmtDateISO(new Date());
-        dateFrom.value = today; dateTo.value = today;
+      const isOpen = toggleExpandable(btn, customRange, () => {
+        document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if(!dateFrom.value || !dateTo.value){
+          const today = fmtDateISO(new Date());
+          dateFrom.value = today; dateTo.value = today;
+        }
+      });
+      if(!isOpen){
+        // при закрытии подсвечиваем ту кнопку, которая реально сейчас применена
+        document.querySelectorAll('.pbtn').forEach(b => b.classList.toggle('active', b.dataset.period === currentPeriod.type));
       }
-      return; // ждём нажатия "Показать"
+      return; // ждём нажатия "Показать", если панель открыта
     }
+ 
+    document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('active', 'expanded'));
+    btn.classList.add('active');
     customRange.style.display = 'none';
     const range = computePeriod(type);
     currentPeriod = {type, from: range.from, to: range.to};
@@ -372,7 +471,7 @@ async function fetchDealsForCategory(webhook, categoryId, period){
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   return fetchAllPaged(webhook, 'crm.deal.list', {
     filter,
-    select: ['ID','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','ASSIGNED_BY_ID']
+    select: ['ID','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID']
   });
 }
  
@@ -390,16 +489,18 @@ async function fetchUserNames(webhook, ids){
 // Каждый адаптер приводит свою CRM к общему виду, который понимает остальной код:
 // fetchFunnels -> [{id, name}]
 // fetchStages(conn, funnelId) -> [{id, name}]
-// fetchDeals(conn, funnelId, period) -> [{id, stageId, amount, currency, assignedTo, createdAt, closedAt, semantic}]
+// fetchDeals(conn, funnelId, period) -> [{id, stageId, amount, currency, assignedTo, createdAt, closedAt, updatedAt, semantic}]
 //   semantic: 'S' (успешна), 'F' (провалена), 'P' (в процессе) — считает сам адаптер,
 //   т.к. у каждой CRM свой способ понять, выиграна сделка или нет.
+//   updatedAt используется как приближение "с этого момента сделка не двигалась" —
+//   точная история переходов по стадиям не запрашивается, чтобы не перегружать API лишними вызовами.
 // fetchUserNames(conn, ids) -> {id: 'Имя Фамилия'}
 // Чтобы добавить новую CRM — реализовать этот же набор методов, ничего в остальном коде менять не нужно.
  
 const CRM_ADAPTERS = {
   bitrix24: {
     id: 'bitrix24', name: 'Bitrix24', status: 'ready',
-    subText: 'Живые данные напрямую из Битрикс24 через бесплатный вебхук, без программистов и подписок',
+    subText: 'Подключается за 2 минуты через вебхук Bitrix24 — без интеграторов и лишних настроек',
     fields: [
       {key: 'webhook', label: 'Вебхук', placeholder: 'https://ваш-портал.bitrix24.ru/rest/1/xxxxxxxxxxxxxxxx/', type: 'text'}
     ],
@@ -445,6 +546,7 @@ const CRM_ADAPTERS = {
         assignedTo: d.ASSIGNED_BY_ID || null,
         createdAt: d.DATE_CREATE,
         closedAt: d.CLOSEDATE,
+        updatedAt: d.DATE_MODIFY,
         semantic: guessSemantic(d.STAGE_ID, semMap)
       }));
     },
@@ -525,7 +627,69 @@ function deltaBadge(current, prev, hasPrev){
   return `<div class="delta flat">— без изменений к прошлому периоду</div>`;
 }
  
-function buildFunnelSVG(stages, color, uid){
+function computeForecast(period, revenue){
+  if(!period || period.type === 'all' || period.type === 'today' || !period.from || !period.to) return null;
+  const from = new Date(period.from+'T00:00:00');
+  const to = new Date(period.to+'T00:00:00');
+  const now = new Date();
+  if(now < from) return null; // период ещё не начался
+  const daysTotal = Math.round((to - from) / 86400000) + 1;
+  if(daysTotal <= 1) return null;
+  let daysElapsed = Math.round((now - from) / 86400000) + 1;
+  daysElapsed = Math.max(1, Math.min(daysElapsed, daysTotal));
+  return {projected: (revenue / daysElapsed) * daysTotal, daysElapsed, daysTotal};
+}
+ 
+function forecastLine(totalRevenue, currency){
+  const f = computeForecast(currentPeriod, totalRevenue);
+  if(!f) return '';
+  return `<div class="forecast-line">на этом темпе к концу периода: ~${fmtMoney(f.projected, currency)}</div>`;
+}
+ 
+function buildGoalSection(totalRevenue, currency){
+  if(goalAmount && goalAmount > 0){
+    const pct = Math.min(100, Math.round((totalRevenue / goalAmount) * 100));
+    const done = totalRevenue >= goalAmount;
+    return `
+      <div class="goal-card">
+        <div class="goal-head">
+          <span>Цель на период: ${fmtMoney(goalAmount, currency)}</span>
+          <button class="goal-edit" data-action="edit-goal" type="button">Изменить</button>
+        </div>
+        <div class="goal-track"><div class="goal-fill" style="width:${pct}%"></div></div>
+        <div class="goal-caption">${done ? 'цель выполнена — ' : 'выполнено '}${pct}% (${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="goal-card goal-empty">
+      <span>Задайте цель по продажам на этот период, чтобы видеть прогресс</span>
+      <input type="number" id="goalInput" placeholder="например, 50000000" min="0">
+      <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Установить</button>
+    </div>
+  `;
+}
+ 
+function buildLossReasonsSection(lostReasons){
+  if(!lostReasons || lostReasons.length === 0) return '';
+  const maxCount = Math.max(1, ...lostReasons.map(r => r.count));
+  const rows = lostReasons.map(r => `
+    <div class="loss-row">
+      <div class="loss-label">${r.name}</div>
+      <div class="loss-track"><div class="loss-fill" style="width:${Math.round(r.count/maxCount*100)}%"></div></div>
+      <div class="loss-count">${r.count}</div>
+    </div>
+  `).join('');
+  return `
+    <p class="section-title">Причины отказов</p>
+    <div class="managers-wrap">
+      ${rows}
+      <div class="managers-note">Показаны стадии, помеченные как «провал». Если в CRM есть отдельное поле причины отказа — со временем добавим и его.</div>
+    </div>
+  `;
+}
+ 
+function buildFunnelSVG(stages, uid){
   const w = 320, h = 118, pad = 6, baseline = h - 24;
   const maxCount = Math.max(1, ...stages.map(s => s.count));
   const n = stages.length || 1;
@@ -536,14 +700,17 @@ function buildFunnelSVG(stages, color, uid){
     const barH = 26 + ratio * (h - 26 - 24);
     const x = pad + i*segW;
     const y = baseline - barH;
-    const opacity = 0.35 + 0.65 * ratio;
+    const opacity = 0.4 + 0.6 * ratio;
     const sumLabel = fmtMoney(s.sum, '');
+    let fill = '#D9D7CF'; // обычная стадия — нейтральный серый
+    if(s.semantic === 'S') fill = 'var(--accent)';       // успешная — акцент
+    else if(s.semantic === 'F') fill = 'rgba(220,38,38,0.32)'; // провальная — приглушённый красный
     shapes += `<rect class="bar" data-target-h="${barH}" data-target-y="${y}"
         x="${x+2}" y="${baseline}" width="${segW-4}" height="0" rx="4"
-        fill="${color}" opacity="${opacity.toFixed(2)}">
+        fill="${fill}" opacity="${opacity.toFixed(2)}">
         <title>${s.name}: ${s.count} сделок, ${sumLabel}</title>
       </rect>`;
-    shapes += `<text class="bar-label" x="${x + segW/2}" y="${h-8}" text-anchor="middle" font-size="9" font-family="JetBrains Mono, monospace" fill="#5B6478">${s.count}</text>`;
+    shapes += `<text class="bar-label" x="${x + segW/2}" y="${h-8}" text-anchor="middle" font-size="9" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${s.count}</text>`;
   });
   return `<svg class="funnel-svg" data-uid="${uid}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
 }
@@ -560,10 +727,10 @@ function buildDailyChartSVG(entries, currency){
     const x = padL + i * (barW + gap);
     const y = baseline - barH;
     shapes += `<rect class="dbar" data-target-h="${barH}" data-target-y="${y}"
-        x="${x}" y="${baseline}" width="${barW}" height="0" rx="5" fill="var(--blue)" opacity="0.85">
+        x="${x}" y="${baseline}" width="${barW}" height="0" rx="5" fill="var(--accent)" opacity="${(0.55 + 0.45*ratio).toFixed(2)}">
         <title>${e.label}: ${fmtMoney(e.sum, currency)}, сделок: ${e.count}</title>
       </rect>`;
-    shapes += `<text x="${x + barW/2}" y="${h-8}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="#5B6478">${e.shortLabel}</text>`;
+    shapes += `<text x="${x + barW/2}" y="${h-8}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${e.shortLabel}</text>`;
   });
   return `<svg class="funnel-svg" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="xMinYMid meet" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
 }
@@ -638,7 +805,9 @@ async function loadDashboard(){
     const prevPeriod = computePrevPeriod(currentPeriod);
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
     const dailyMap = {};     // dateKey -> {sum, count}
+    const lostReasonMap = {}; // stageName -> {count, sum} — причины отказов
     const isAllTime = currentPeriod.type === 'all';
+    const now = Date.now();
  
     const funnels = [];
     for(let i = 0; i < allFunnels.length; i++){
@@ -655,7 +824,7 @@ async function loadDashboard(){
       const prevDeals = prevPeriod ? results[2] : [];
  
       const stageMap = {};
-      stageOrder.forEach(s => stageMap[s.id] = {name: s.name, count: 0, sum: 0});
+      stageOrder.forEach(s => stageMap[s.id] = {name: s.name, count: 0, sum: 0, semantic: 'P', ageSum: 0, ageCount: 0});
  
       let totalSum = 0, wonSum = 0, wonCount = 0, lostCount = 0, currency = '';
       const dealIds = new Set();
@@ -664,9 +833,10 @@ async function loadDashboard(){
         dealIds.add(d.id);
         const amount = d.amount || 0;
         currency = d.currency || currency;
-        if(!stageMap[d.stageId]) stageMap[d.stageId] = {name: d.stageId, count: 0, sum: 0};
+        if(!stageMap[d.stageId]) stageMap[d.stageId] = {name: d.stageId, count: 0, sum: 0, semantic: 'P', ageSum: 0, ageCount: 0};
         stageMap[d.stageId].count += 1;
         stageMap[d.stageId].sum += amount;
+        stageMap[d.stageId].semantic = d.semantic;
         totalSum += amount;
  
         // разбивка по менеджерам
@@ -687,20 +857,39 @@ async function loadDashboard(){
             dailyMap[dateKey].count += 1;
           }
         }
-        if(d.semantic === 'F'){ lostCount += 1; managerMap[mgr].lostCount += 1; }
+        if(d.semantic === 'F'){
+          lostCount += 1; managerMap[mgr].lostCount += 1;
+          const reasonName = stageMap[d.stageId].name;
+          if(!lostReasonMap[reasonName]) lostReasonMap[reasonName] = {count: 0, sum: 0};
+          lostReasonMap[reasonName].count += 1;
+          lostReasonMap[reasonName].sum += amount;
+        }
+        if(d.semantic === 'P' && (d.updatedAt || d.createdAt)){
+          const refDate = d.updatedAt || d.createdAt;
+          const ageDays = Math.max(0, Math.round((now - new Date(refDate).getTime()) / 86400000));
+          stageMap[d.stageId].ageSum += ageDays;
+          stageMap[d.stageId].ageCount += 1;
+        }
       });
  
       let prevWonSum = 0;
       prevDeals.forEach(d => { if(d.semantic === 'S') prevWonSum += (d.amount || 0); });
  
       const stages = stageOrder
-        .map(s => ({name: s.name, count: stageMap[s.id].count, sum: stageMap[s.id].sum}))
+        .map(s => ({
+          name: s.name, count: stageMap[s.id].count, sum: stageMap[s.id].sum, semantic: stageMap[s.id].semantic,
+          avgAgeDays: stageMap[s.id].ageCount > 0 ? Math.round(stageMap[s.id].ageSum / stageMap[s.id].ageCount) : null
+        }))
         .filter(s => s.count > 0 || stageOrder.length <= 8);
+ 
+      const bottleneck = stages
+        .filter(s => s.semantic === 'P' && s.avgAgeDays !== null)
+        .sort((a,b) => b.avgAgeDays - a.avgAgeDays)[0] || null;
  
       if(deals.length > 0 || rawFunnels.length > 0 || fn.id === 0){
         funnels.push({
           id: fn.id, name: fn.name, deals: deals.length, totalSum, wonSum,
-          wonCount, lostCount, currency, stages, dealIds,
+          wonCount, lostCount, currency, stages, dealIds, bottleneck,
           prevWonSum, hasPrevPeriod: !!prevPeriod
         });
       }
@@ -735,6 +924,12 @@ async function loadDashboard(){
       return {label, shortLabel, sum: dailyMap[key].sum, count: dailyMap[key].count};
     });
  
+    // причины отказов — топ стадий, помеченных как провал
+    const lostReasons = Object.keys(lostReasonMap)
+      .map(name => ({name, ...lostReasonMap[name]}))
+      .sort((a,b) => b.count - a.count)
+      .slice(0, 6);
+ 
     // проверка на задвоенные воронки (одинаковый набор сделок в двух воронках)
     const dupPairs = [];
     for(let a = 0; a < activeFunnels.length; a++){
@@ -750,8 +945,12 @@ async function loadDashboard(){
  
     lastFunnels = displayFunnels;
     lastManagers = managers;
+    lastDailyEntries = dailyEntries;
+    lastNamesResolved = namesResolved;
+    lastHasManagers = managerIds.length > 0;
+    lastLostReasons = lostReasons;
  
-    renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0);
+    renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
  
     if(dupPairs.length > 0){
       dupWarning.style.display = 'block';
@@ -778,7 +977,7 @@ async function loadDashboard(){
   }
 }
  
-function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasManagers){
+function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasManagers, lostReasons){
   if(funnels.length === 0){
     content.innerHTML = `<div class="empty-state">Сделки не найдены ни в одной воронке.</div>`;
     return;
@@ -799,11 +998,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="label">Продажи (выиграно)</div>
         <div class="value" data-countup="${totalRevenue}" data-suffix=" ${currency}">0 ${currency}</div>
         ${deltaBadge(totalRevenue, totalPrevRevenue, hasPrev)}
+        ${forecastLine(totalRevenue, currency)}
       </div>
       <div class="kpi"><div class="label">Сделок всего</div><div class="value" data-countup="${totalDeals}">0</div></div>
       <div class="kpi"><div class="label">Выиграно сделок</div><div class="value" data-countup="${totalWon}">0</div></div>
       <div class="kpi"><div class="label">Конверсия в продажу</div><div class="value" data-countup="${winRate}" data-suffix-html="<small>%</small>">0<small>%</small></div></div>
     </div>
+ 
+    ${buildGoalSection(totalRevenue, currency)}
  
     <p class="section-title">Динамика продаж</p>
     <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
@@ -817,7 +1019,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
     const stageRows = f.stages.map(s => `
       <tr>
-        <td class="sname">${s.name}</td>
+        <td class="sname">${s.name}${s.avgAgeDays !== null ? ` <span class="age-tag">~${s.avgAgeDays} дн</span>` : ''}</td>
         <td class="scount">${s.count}</td>
         <td class="ssum">${fmtMoney(s.sum, '')}</td>
       </tr>
@@ -833,13 +1035,16 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div><div class="m-label">Сделок</div><div class="m-value">${f.deals}</div></div>
           <div><div class="m-label">Конверсия</div><div class="m-value">${fWinRate}%</div></div>
         </div>
-        <div class="funnel-svg-wrap">${buildFunnelSVG(f.stages, color, f.id)}</div>
+        <div class="funnel-svg-wrap">${buildFunnelSVG(f.stages, f.id)}</div>
         <table class="stage-table"><tbody>${stageRows}</tbody></table>
+        ${f.bottleneck ? `<div class="bottleneck-note">⏱ Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.</div>` : ''}
       </div>
     `;
   });
  
   html += `</div>`;
+ 
+  html += buildLossReasonsSection(lostReasons);
  
   if(hasManagers){
     const rows = managers.map(m => {
@@ -921,6 +1126,37 @@ function attemptConnect(){
   currentConn = adapter.buildConnection(raw);
   loadDashboard();
 }
+ 
+function rerenderCached(){
+  renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
+}
+ 
+content.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  if(btn.dataset.action === 'set-goal'){
+    const input = document.getElementById('goalInput');
+    const val = parseFloat(input.value);
+    if(val > 0){
+      goalAmount = val;
+      rerenderCached();
+    }
+  } else if(btn.dataset.action === 'edit-goal'){
+    goalAmount = null;
+    rerenderCached();
+  }
+});
+ 
+content.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && e.target.id === 'goalInput'){
+    e.preventDefault();
+    const val = parseFloat(e.target.value);
+    if(val > 0){
+      goalAmount = val;
+      rerenderCached();
+    }
+  }
+});
  
 crmSelect.addEventListener('change', onCrmChange);
 connectBtn.addEventListener('click', attemptConnect);
