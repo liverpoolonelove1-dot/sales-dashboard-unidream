@@ -57,7 +57,7 @@
   h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:30px;margin:0;letter-spacing:-0.01em;}
   .sub{color:var(--ink-soft);font-size:14px;margin-top:8px;}
  
-  .connect-box{background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:16px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:340px;}
+  .connect-box{background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:16px;padding:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:340px;margin-bottom:16px;}
   .connect-box input, .connect-box select{flex:1;min-width:160px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink);background:#FFFFFFAA;}
   #crmSelect{min-width:150px;flex:0 0 auto;font-family:'Inter',sans-serif;font-weight:600;cursor:pointer;}
   .crm-soon{color:var(--ink-soft);}
@@ -122,6 +122,9 @@
   .age-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);background:var(--overlay-1);padding:1px 6px;border-radius:10px;}
   .stage-table td.scount{text-align:right;font-family:'JetBrains Mono',monospace;width:40px;color:var(--ink-soft);}
   .stage-table td.ssum{text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;width:110px;}
+  .stage-row{transition:background .12s ease;}
+  .stage-row.stage-hover{background:var(--overlay-2);}
+  .bar.stage-hover{opacity:1 !important;transform:scaleY(1.05);}
  
   .managers-wrap{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:32px;transition:box-shadow .2s ease;}
   .managers-wrap:hover{box-shadow:0 8px 24px var(--shadow-color);}
@@ -186,14 +189,23 @@
   .icon-btn svg{width:17px;height:17px;}
   .icon-btn:hover{border-color:var(--ink-soft);color:var(--ink);}
   .icon-btn.expanded{background:var(--ink);border-color:var(--ink);color:#fff;}
-  .filter-panel{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:220px;box-shadow:0 8px 24px var(--shadow-color);z-index:20;}
-  .filter-item{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:12.5px;cursor:pointer;border-radius:6px;}
+  .filter-panel{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;width:240px;box-shadow:0 8px 24px var(--shadow-color);z-index:20;display:flex;flex-direction:column;gap:8px;}
+  .filter-panel.pop-in{animation:popIn .18s cubic-bezier(.16,1,.3,1);}
+  @keyframes popIn{from{opacity:0;transform:scale(.94) translateY(-6px);}to{opacity:1;transform:scale(1) translateY(0);}}
+  .filter-heading{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);}
+  .filter-list{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow-y:auto;}
+  .filter-item{display:flex;align-items:center;gap:8px;padding:7px 6px;font-size:12.5px;cursor:pointer;border-radius:6px;flex:none;}
   .filter-item:hover{background:var(--overlay-1);}
-  .filter-item input{cursor:pointer;}
-  .filter-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);}
+  .filter-item input{cursor:pointer;flex:none;}
+  .filter-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .filter-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:8px;border-top:1px solid var(--line);flex:none;}
  
-  .toolbar2{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 24px;}
-  .toolbar2 select{border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--ink-soft);background:var(--surface);cursor:pointer;}
+  .toolbar2{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 12px;}
+  .toolbar2 .btn-ghost{padding:7px 12px;font-size:12px;}
+ 
+  .loading-toast{position:fixed;bottom:20px;left:20px;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:12px;color:var(--ink-soft);box-shadow:0 8px 24px var(--shadow-color);z-index:100;max-width:320px;}
+  .loading-toast .loader-bars{margin-right:0;}
+  .toolbar2 select{border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:11.5px;color:var(--ink-soft);background:var(--surface);cursor:pointer;}
  
   .theme-toggle{position:fixed;top:20px;right:20px;width:38px;height:38px;border:none;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;transition:background .15s ease, transform .15s ease;z-index:50;padding:0;}
   .theme-toggle:hover{background:var(--overlay-1);}
@@ -202,6 +214,7 @@
   .shortcuts-panel{position:fixed;top:104px;right:20px;min-width:200px;}
   .shortcut-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 4px;font-size:12.5px;color:var(--ink-soft);}
   .shortcut-row kbd{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--overlay-2);color:var(--ink);border-radius:5px;padding:2px 7px;min-width:16px;text-align:center;}
+ 
   .bar{cursor:pointer;transition:height .7s cubic-bezier(.16,1,.3,1), y .7s cubic-bezier(.16,1,.3,1), opacity .15s ease, transform .15s ease;transform-box:fill-box;transform-origin:center bottom;}
   .bar:hover{opacity:1 !important;transform:scaleY(1.05);}
   .bar-label{transition:opacity .5s ease;}
@@ -239,6 +252,9 @@
 <button id="shortcutsBtn" class="theme-toggle" style="top:64px;" title="Горячие клавиши" aria-label="Горячие клавиши">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
 </button>
+<button id="settingsBtn" class="theme-toggle" style="top:108px;" title="Настройки подключения" aria-label="Настройки подключения">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+</button>
 <div id="shortcutsPanel" class="filter-panel shortcuts-panel" style="display:none;">
   <div class="shortcut-row"><kbd>R</kbd><span>Обновить данные</span></div>
   <div class="shortcut-row"><kbd>T</kbd><span>Переключить тему</span></div>
@@ -252,12 +268,15 @@
 <div class="wrap">
   <div class="glow"></div>
  
-  <div class="topbar">
-    <div>
-      <p class="brand-eyebrow">Sales Pulse · CRM аналитика</p>
-      <h1>Все воронки продаж — в одном окне, обновляются сами</h1>
-      <p class="sub" id="subText">Живые данные напрямую из Битрикс24 через бесплатный вебхук, без программистов и подписок</p>
+  <div id="landingView">
+    <div class="topbar">
+      <div>
+        <p class="brand-eyebrow">Sales Pulse · CRM аналитика</p>
+        <h1>Все воронки продаж — в одном окне, обновляются сами</h1>
+        <p class="sub" id="subText">Живые данные напрямую из Битрикс24 через бесплатный вебхук, без программистов и подписок</p>
+      </div>
     </div>
+ 
     <div class="connect-box">
       <select id="crmSelect"></select>
       <div id="connFields" style="display:contents"></div>
@@ -265,45 +284,55 @@
       <button class="btn btn-ghost" id="refreshBtn" style="display:none;">Обновить</button>
       <button class="btn btn-ghost" id="disconnectBtn" style="display:none;" title="Забыть сохранённое подключение">Отключить</button>
     </div>
-  </div>
-  <div id="statusLine" class="status-line">Ещё не подключено — выберите CRM и введите данные для подключения.</div>
  
-  <div class="periodbar" id="periodBar" style="display:none;">
-    <button class="pbtn active" data-period="all">Всё время</button>
-    <button class="pbtn" data-period="today">Сегодня</button>
-    <button class="pbtn" data-period="week">Эта неделя</button>
-    <button class="pbtn" data-period="month">Этот месяц</button>
-    <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
-    <span id="customRange" class="custom-range" style="display:none;">
-      <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
-      <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
-    </span>
-    <span class="period-hint">период — по дате создания сделки</span>
-    <div class="filter-wrap">
-      <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
-      </button>
-      <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
+    <div id="statusLine" class="status-line">Ещё не подключено — заполните поля выше.</div>
+ 
+    <div class="help" id="helpBox"></div>
+  </div>
+ 
+  <div id="dashboardView" style="display:none;">
+    <div id="goalBannerContainer"></div>
+ 
+    <div class="periodbar" id="periodBar" style="display:none;">
+      <button class="pbtn active" data-period="all">Всё время</button>
+      <button class="pbtn" data-period="today">Сегодня</button>
+      <button class="pbtn" data-period="week">Эта неделя</button>
+      <button class="pbtn" data-period="month">Этот месяц</button>
+      <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
+      <span id="customRange" class="custom-range" style="display:none;">
+        <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
+        <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
+      </span>
+      <span class="period-hint">период — по дате создания сделки</span>
+      <div class="filter-wrap">
+        <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
+        </button>
+        <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
+      </div>
     </div>
+ 
+    <div id="dupWarning" class="warning-banner" style="display:none;"></div>
+ 
+    <div class="toolbar2" id="toolbar2" style="display:none;">
+      <select id="autoRefreshSelect">
+        <option value="0">Автообновление: выкл</option>
+        <option value="5">Обновлять каждые 5 мин</option>
+        <option value="10">Обновлять каждые 10 мин</option>
+        <option value="30">Обновлять каждые 30 мин</option>
+      </select>
+      <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
+    </div>
+ 
+    <div id="content"></div>
+ 
+    <footer><span class="live-dot"></span>обновлено: <span id="updatedAt">—</span></footer>
   </div>
+</div>
  
-  <div class="toolbar2" id="toolbar2" style="display:none;">
-    <select id="autoRefreshSelect">
-      <option value="0">Автообновление: выкл</option>
-      <option value="5">Обновлять каждые 5 мин</option>
-      <option value="10">Обновлять каждые 10 мин</option>
-      <option value="30">Обновлять каждые 30 мин</option>
-    </select>
-    <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
-  </div>
- 
-  <div id="dupWarning" class="warning-banner" style="display:none;"></div>
- 
-  <div class="help" id="helpBox"></div>
- 
-  <div id="content"></div>
- 
-  <footer><span class="live-dot"></span>обновлено: <span id="updatedAt">—</span></footer>
+<div id="loadingToast" class="loading-toast" style="display:none;">
+  <span class="loader-bars"><span></span><span></span><span></span><span></span><span></span></span>
+  <span id="loadingToastText"></span>
 </div>
  
 <script>
@@ -414,8 +443,12 @@ function computePrevPeriod(period){
 // повторный клик по той же кнопке — закрывает её обратно.
 function toggleExpandable(btn, panel, onOpen){
   const isClosed = panel.style.display === 'none' || panel.style.display === '';
+  const displayValue = panel.classList.contains('filter-panel') ? 'flex' : 'inline-flex';
   if(isClosed){
-    panel.style.display = 'inline-flex';
+    panel.style.display = displayValue;
+    panel.classList.remove('pop-in');
+    void panel.offsetWidth; // форсируем reflow, чтобы анимация перезапускалась при каждом открытии
+    panel.classList.add('pop-in');
     btn.classList.add('expanded');
     if(onOpen) onOpen();
     return true;
@@ -471,10 +504,11 @@ function renderFunnelFilterPanel(){
   }
   const rows = availableFunnels.map(f => {
     const checked = !selectedFunnelIds || selectedFunnelIds.has(String(f.id));
-    return `<label class="filter-item"><input type="checkbox" data-funnel-id="${f.id}" ${checked ? 'checked' : ''}> ${f.name}</label>`;
+    return `<label class="filter-item"><input type="checkbox" data-funnel-id="${f.id}" ${checked ? 'checked' : ''}> <span title="${f.name}">${f.name}</span></label>`;
   }).join('');
   funnelFilterPanel.innerHTML = `
-    ${rows}
+    <div class="filter-heading">Воронки</div>
+    <div class="filter-list">${rows}</div>
     <div class="filter-actions">
       <button class="btn btn-ghost btn-sm" id="filterSelectAllBtn" type="button">Выбрать все</button>
       <button class="btn btn-primary btn-sm" id="filterApplyBtn" type="button">Показать</button>
@@ -503,6 +537,29 @@ const shortcutsPanel = document.getElementById('shortcutsPanel');
  
 shortcutsBtn.addEventListener('click', () => {
   toggleExpandable(shortcutsBtn, shortcutsPanel);
+});
+ 
+const settingsBtn = document.getElementById('settingsBtn');
+const landingView = document.getElementById('landingView');
+const dashboardView = document.getElementById('dashboardView');
+ 
+function showLanding(){
+  landingView.style.display = 'block';
+  dashboardView.style.display = 'none';
+}
+ 
+function showDashboard(){
+  landingView.style.display = 'none';
+  dashboardView.style.display = 'block';
+}
+ 
+settingsBtn.addEventListener('click', () => {
+  const onDashboard = dashboardView.style.display !== 'none';
+  if(onDashboard){
+    showLanding();
+  } else if(currentConn && lastFunnels.length > 0){
+    showDashboard();
+  }
 });
  
 document.addEventListener('click', (e) => {
@@ -850,7 +907,7 @@ function buildFunnelSVG(stages, uid){
     let fill = '#D9D7CF'; // обычная стадия — нейтральный серый
     if(s.semantic === 'S') fill = 'var(--accent)';       // успешная — акцент
     else if(s.semantic === 'F') fill = 'rgba(220,38,38,0.32)'; // провальная — приглушённый красный
-    shapes += `<rect class="bar" data-target-h="${barH}" data-target-y="${y}"
+    shapes += `<rect class="bar" data-target-h="${barH}" data-target-y="${y}" data-idx="${i}"
         x="${x+2}" y="${baseline}" width="${segW-4}" height="0" rx="4"
         fill="${fill}" opacity="${opacity.toFixed(2)}">
         <title>${s.name}: ${s.count} сделок, ${sumLabel}</title>
@@ -919,12 +976,19 @@ function renderError(msg, raw){
     hint = ' Похоже на блокировку запроса браузером. Частые причины: 1) файл открыт с компьютера (file://) — разместите его на https-хостинге; 2) в ссылке вебхука нет "https://" или лишние пробелы; 3) у вебхука не включено право доступа crm.';
   }
   statusLine.innerHTML = `Ошибка: ${msg}.${hint}`;
+  hideLoadingToast();
+  showLanding();
 }
  
 function renderLoading(msg){
-  statusLine.className = 'status-line';
-  statusLine.innerHTML = `<span class="loader-bars"><span></span><span></span><span></span><span></span><span></span></span>${msg}`;
+  const toast = document.getElementById('loadingToast');
+  document.getElementById('loadingToastText').textContent = msg;
+  toast.style.display = 'flex';
   renderSkeleton();
+}
+ 
+function hideLoadingToast(){
+  document.getElementById('loadingToast').style.display = 'none';
 }
  
 function renderSkeleton(){
@@ -1139,18 +1203,21 @@ async function loadDashboard(){
     periodBar.style.display = 'flex';
     toolbar2.style.display = 'flex';
     updatedAt.textContent = new Date().toLocaleString('ru-RU');
+    showDashboard();
  
   }catch(e){
     renderError(e.message || 'не удалось получить данные. Проверьте данные подключения и права доступа.', e);
   }finally{
     connectBtn.disabled = false;
     connectBtn.textContent = 'Подключить';
+    hideLoadingToast();
   }
 }
  
 function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasManagers, lostReasons){
   if(funnels.length === 0){
     content.innerHTML = `<div class="empty-state">Сделки не найдены ни в одной воронке.</div>`;
+    document.getElementById('goalBannerContainer').innerHTML = buildGoalSection(0, '');
     return;
   }
  
@@ -1163,9 +1230,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const winRate = (totalWon + totalLost) > 0 ? Math.round(100 * totalWon / (totalWon + totalLost)) : 0;
   const currency = funnels.find(f => f.currency)?.currency || '';
  
-  let html = `
-    ${buildGoalSection(totalRevenue, currency)}
+  document.getElementById('goalBannerContainer').innerHTML = buildGoalSection(totalRevenue, currency);
  
+  let html = `
     <div class="kpis">
       <div class="kpi">
         <div class="label">Продажи (выиграно)</div>
@@ -1188,8 +1255,8 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   funnels.forEach((f, i) => {
     const color = PALETTE[i % PALETTE.length];
     const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
-    const stageRows = f.stages.map(s => `
-      <tr>
+    const stageRows = f.stages.map((s, idx) => `
+      <tr class="stage-row" data-idx="${idx}">
         <td class="sname">${s.name}${s.avgAgeDays !== null ? ` <span class="age-tag">~${s.avgAgeDays} дн</span>` : ''}</td>
         <td class="scount">${s.count}</td>
         <td class="ssum">${fmtMoney(s.sum, '')}</td>
@@ -1357,6 +1424,7 @@ disconnectBtn.addEventListener('click', () => {
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
   connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
   content.innerHTML = '';
+  document.getElementById('goalBannerContainer').innerHTML = '';
   dupWarning.style.display = 'none';
   periodBar.style.display = 'none';
   toolbar2.style.display = 'none';
@@ -1365,11 +1433,30 @@ disconnectBtn.addEventListener('click', () => {
   helpBox.style.display = 'block';
   statusLine.className = 'status-line';
   statusLine.textContent = 'Подключение забыто — введите данные заново.';
+  showLanding();
 });
  
 function rerenderCached(){
   renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
 }
+ 
+content.addEventListener('mouseover', (e) => {
+  const target = e.target.closest('.bar, .stage-row');
+  if(!target) return;
+  const card = target.closest('.fcard');
+  if(!card) return;
+  const idx = target.dataset.idx;
+  card.querySelectorAll(`[data-idx="${idx}"]`).forEach(el => el.classList.add('stage-hover'));
+});
+ 
+content.addEventListener('mouseout', (e) => {
+  const target = e.target.closest('.bar, .stage-row');
+  if(!target) return;
+  const card = target.closest('.fcard');
+  if(!card) return;
+  const idx = target.dataset.idx;
+  card.querySelectorAll(`[data-idx="${idx}"]`).forEach(el => el.classList.remove('stage-hover'));
+});
  
 content.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action]');
@@ -1420,6 +1507,7 @@ onCrmChange();
       const webhookField = connFields.querySelector('[data-field="webhook"]');
       if(webhookField){
         webhookField.value = atob(wh);
+        landingView.style.display = 'none'; // не мигаем формой — сразу пробуем подключиться
         attemptConnect();
       }
     }catch(e){ /* игнорируем некорректный параметр */ }
@@ -1435,8 +1523,10 @@ onCrmChange();
       const field = connFields.querySelector(`[data-field="${key}"]`);
       if(field) field.value = saved.raw[key];
     });
+    landingView.style.display = 'none'; // не мигаем формой — сразу пробуем подключиться
     attemptConnect();
   }
+  // иначе — первый визит без сохранённых данных, landingView и так видна по умолчанию
 })();
 </script>
 </body>
