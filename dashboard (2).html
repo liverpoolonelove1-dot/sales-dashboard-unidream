@@ -1089,22 +1089,29 @@ function bucketPoints(points, granularity){
  
 function buildDailyChartSVG(entries, currency){
   if(entries.length === 0) return `<div class="managers-note">За выбранный период нет закрытых успешных сделок.</div>`;
-  const barW = 30, gap = 10, padL = 8, padR = 8, h = 160, baseline = h - 28;
-  const w = padL + padR + entries.length * (barW + gap) - gap;
+  const W = 400, h = 160, padL = 10, padR = 10, baseline = h - 28;
+  const n = entries.length;
+  const gap = 6;
+  const rawBarW = (W - padL - padR - gap * (n - 1)) / n;
+  const barW = Math.min(34, Math.max(4, rawBarW)); // не даём столбикам стать абсурдно широкими при малом числе точек
+  const totalContentW = n * barW + (n - 1) * gap;
+  const startX = (W - totalContentW) / 2; // центрируем, если столбиков мало и они не занимают весь холст
   const maxSum = Math.max(1, ...entries.map(e => e.sum));
   let shapes = '';
   entries.forEach((e, i) => {
     const ratio = e.sum / maxSum;
     const barH = Math.max(3, ratio * (baseline - 20));
-    const x = padL + i * (barW + gap);
+    const x = startX + i * (barW + gap);
     const y = baseline - barH;
     shapes += `<rect class="dbar" data-target-h="${barH}" data-target-y="${y}" data-detail="day" data-idx="${i}"
-        x="${x}" y="${baseline}" width="${barW}" height="0" rx="5" fill="var(--accent)" opacity="${(0.55 + 0.45*ratio).toFixed(2)}">
+        x="${x}" y="${baseline}" width="${barW}" height="0" rx="${Math.min(5, barW/2)}" fill="var(--accent)" opacity="${(0.55 + 0.45*ratio).toFixed(2)}">
         <title>${e.label}: ${fmtMoney(e.sum, currency)}, сделок: ${e.count}</title>
       </rect>`;
-    shapes += `<text x="${x + barW/2}" y="${h-8}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${e.shortLabel}</text>`;
+    if(barW >= 12){
+      shapes += `<text x="${x + barW/2}" y="${h-8}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${e.shortLabel}</text>`;
+    }
   });
-  return `<svg class="funnel-svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
+  return `<svg class="funnel-svg" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
 }
  
 function animateBars(selector){
