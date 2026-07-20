@@ -49,6 +49,23 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
   .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px;position:relative;}
+ 
+  .dash-wrap{max-width:1180px;margin:0 auto;height:100vh;box-sizing:border-box;padding:20px 24px;display:flex;flex-direction:column;gap:16px;overflow:hidden;}
+  .dash-wrap #content{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+  .dash-wrap footer{flex:none;margin-top:0;}
+  .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning, .dash-wrap #goalBannerContainer{flex:none;}
+ 
+  .kpis-row{flex:none;}
+  .dash-grid{flex:1;min-height:0;display:flex;gap:16px;overflow:hidden;}
+  .dash-col-main{flex:1.4;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+  .dash-col-main .section-title{flex:none;}
+  .funnels-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding-right:6px;}
+  .dash-col-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;overflow:hidden;}
+  .side-panel{flex:none;display:flex;flex-direction:column;min-height:0;}
+  .side-panel.grow{flex:1;}
+  .side-panel .section-title{flex:none;margin-bottom:10px;}
+  .side-panel-scroll{overflow-y:auto;min-height:0;}
+  .side-panel .daily-chart{margin-bottom:0;flex:none;height:150px;}
   .glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.16;filter:blur(80px);border-radius:50%;pointer-events:none;z-index:0;}
   .wrap > *{position:relative;z-index:1;}
  
@@ -305,45 +322,45 @@
  
     <div class="help" id="helpBox"></div>
   </div>
+</div>
  
-  <div id="dashboardView" style="display:none;">
-    <div id="goalBannerContainer"></div>
+<div id="dashboardView" class="dash-wrap" style="display:none;">
+  <div id="goalBannerContainer"></div>
  
-    <div class="periodbar" id="periodBar" style="display:none;">
-      <button class="pbtn active" data-period="all">Всё время</button>
-      <button class="pbtn" data-period="today">Сегодня</button>
-      <button class="pbtn" data-period="week">Эта неделя</button>
-      <button class="pbtn" data-period="month">Этот месяц</button>
-      <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
-      <span id="customRange" class="custom-range" style="display:none;">
-        <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
-        <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
-      </span>
-      <span class="period-hint">период — по дате создания сделки</span>
-      <div class="filter-wrap">
-        <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
-        </button>
-        <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
-      </div>
+  <div class="periodbar" id="periodBar" style="display:none;">
+    <button class="pbtn active" data-period="all">Всё время</button>
+    <button class="pbtn" data-period="today">Сегодня</button>
+    <button class="pbtn" data-period="week">Эта неделя</button>
+    <button class="pbtn" data-period="month">Этот месяц</button>
+    <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
+    <span id="customRange" class="custom-range" style="display:none;">
+      <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
+      <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
+    </span>
+    <span class="period-hint">период — по дате создания сделки</span>
+    <div class="filter-wrap">
+      <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
+      </button>
+      <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
     </div>
- 
-    <div id="dupWarning" class="warning-banner" style="display:none;"></div>
- 
-    <div class="toolbar2" id="toolbar2" style="display:none;">
-      <select id="autoRefreshSelect">
-        <option value="0">Автообновление: выкл</option>
-        <option value="5">Обновлять каждые 5 мин</option>
-        <option value="10">Обновлять каждые 10 мин</option>
-        <option value="30">Обновлять каждые 30 мин</option>
-      </select>
-      <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
-    </div>
- 
-    <div id="content"></div>
- 
-    <footer><span class="live-dot"></span>обновлено: <span id="updatedAt">—</span></footer>
   </div>
+ 
+  <div id="dupWarning" class="warning-banner" style="display:none;"></div>
+ 
+  <div class="toolbar2" id="toolbar2" style="display:none;">
+    <select id="autoRefreshSelect">
+      <option value="0">Автообновление: выкл</option>
+      <option value="5">Обновлять каждые 5 мин</option>
+      <option value="10">Обновлять каждые 10 мин</option>
+      <option value="30">Обновлять каждые 30 мин</option>
+    </select>
+    <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
+  </div>
+ 
+  <div id="content"></div>
+ 
+  <footer><span class="live-dot"></span>обновлено: <span id="updatedAt">—</span></footer>
 </div>
  
 <div id="loadingToast" class="loading-toast" style="display:none;">
@@ -353,6 +370,7 @@
  
 <script>
 const PALETTE = ['#2F6FED', '#14B8A6', '#F59E0B', '#EF4444', '#8B5CF6', '#0EA5E9'];
+ 
  
 const crmSelect = document.getElementById('crmSelect');
 const connFields = document.getElementById('connFields');
@@ -863,48 +881,39 @@ function forecastLine(totalRevenue, currency){
   return `<div class="forecast-line">на этом темпе к концу периода: ~${fmtMoney(f.projected, currency)}</div>`;
 }
  
-function buildGoalSection(totalRevenue, currency, dailyEntries){
-  const chartHtml = dailyEntries && dailyEntries.length > 0
-    ? buildDailyChartSVG(dailyEntries, currency)
-    : `<div class="managers-note">Пока нет закрытых успешных сделок за период.</div>`;
- 
-  const rightPanel = `
-    <div class="goal-right">
-      <div class="goal-right-label">Динамика продаж</div>
-      <div class="goal-right-chart">${chartHtml}</div>
-    </div>
-  `;
+function buildGoalSection(totalRevenue, currency){
+  const R = 42, C = 2 * Math.PI * R;
  
   if(goalAmount && goalAmount > 0){
     const pct = Math.min(100, Math.round((totalRevenue / goalAmount) * 100));
     const done = totalRevenue >= goalAmount;
+    const offset = C * (1 - pct / 100);
     return `
-      <div class="goal-card goal-hero goal-split">
-        <div class="goal-left water-glass-h">
-          <div class="water-fill-h ${done ? 'over' : ''}" data-target-width="${pct}%" style="width:0%">
-            <span class="water-wave-v water-wave-v1"></span>
-            <span class="water-wave-v water-wave-v2"></span>
-          </div>
-          <div class="goal-content">
-            <div class="goal-head">
-              <span class="goal-title">Цель на период: <b>${fmtMoney(goalAmount, currency)}</b></span>
-              <button class="goal-edit" data-action="edit-goal" type="button">Изменить</button>
-            </div>
-            <div class="goal-caption goal-caption-lg">${done ? 'План выполнен — ' : 'Выполнено '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</span></div>
-          </div>
+      <div class="goal-card goal-hero goal-ring-layout">
+        <div class="goal-ring-wrap">
+          <svg class="goal-ring-svg" viewBox="0 0 100 100">
+            <circle class="goal-ring-track" cx="50" cy="50" r="${R}"></circle>
+            <circle class="goal-ring-progress ${done ? 'over' : ''}" cx="50" cy="50" r="${R}"
+              stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"
+              data-target-offset="${offset.toFixed(1)}"></circle>
+          </svg>
+          <div class="goal-ring-pct">${pct}<small>%</small></div>
         </div>
-        ${rightPanel}
+        <div class="goal-ring-info">
+          <div class="goal-head">
+            <span class="goal-title">Цель на период: <b>${fmtMoney(goalAmount, currency)}</b></span>
+            <button class="goal-edit" data-action="edit-goal" type="button">Изменить</button>
+          </div>
+          <div class="goal-caption goal-caption-lg">${done ? 'План выполнен — ' : 'Выполнено '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</span></div>
+        </div>
       </div>
     `;
   }
   return `
-    <div class="goal-card goal-hero goal-split">
-      <div class="goal-left goal-empty-left">
-        <span>Задайте план продаж на этот период, чтобы видеть прогресс</span>
-        <input type="number" id="goalInput" placeholder="например, 50000000" min="0">
-        <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Утвердить план</button>
-      </div>
-      ${rightPanel}
+    <div class="goal-card goal-hero goal-empty">
+      <span>Задайте план продаж на этот период, чтобы видеть прогресс</span>
+      <input type="number" id="goalInput" placeholder="например, 50000000" min="0">
+      <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Утвердить план</button>
     </div>
   `;
 }
@@ -1252,12 +1261,12 @@ async function loadDashboard(){
   }
 }
  
-function renderGoalBanner(totalRevenue, currency, dailyEntries){
-  document.getElementById('goalBannerContainer').innerHTML = buildGoalSection(totalRevenue, currency, dailyEntries || []);
+function renderGoalBanner(totalRevenue, currency){
+  document.getElementById('goalBannerContainer').innerHTML = buildGoalSection(totalRevenue, currency);
   requestAnimationFrame(() => {
-    document.querySelectorAll('.water-fill-h').forEach(el => {
-      const target = el.dataset.targetWidth;
-      requestAnimationFrame(() => { el.style.width = target; });
+    document.querySelectorAll('.goal-ring-progress').forEach(el => {
+      const target = el.dataset.targetOffset;
+      requestAnimationFrame(() => { el.style.strokeDashoffset = target; });
     });
   });
 }
@@ -1265,7 +1274,7 @@ function renderGoalBanner(totalRevenue, currency, dailyEntries){
 function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasManagers, lostReasons){
   if(funnels.length === 0){
     content.innerHTML = `<div class="empty-state">Сделки не найдены ни в одной воронке.</div>`;
-    renderGoalBanner(0, '', dailyEntries);
+    renderGoalBanner(0, '');
     return;
   }
  
@@ -1278,26 +1287,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const winRate = (totalWon + totalLost) > 0 ? Math.round(100 * totalWon / (totalWon + totalLost)) : 0;
   const currency = funnels.find(f => f.currency)?.currency || '';
  
-  renderGoalBanner(totalRevenue, currency, dailyEntries);
+  renderGoalBanner(totalRevenue, currency);
  
-  let html = `
-    <div class="kpis">
-      <div class="kpi">
-        <div class="label">Продажи (выиграно)</div>
-        <div class="value" data-countup="${totalRevenue}" data-suffix=" ${currency}">0 ${currency}</div>
-        ${deltaBadge(totalRevenue, totalPrevRevenue, hasPrev)}
-        ${forecastLine(totalRevenue, currency)}
-      </div>
-      <div class="kpi"><div class="label">Сделок всего</div><div class="value" data-countup="${totalDeals}">0</div></div>
-      <div class="kpi"><div class="label">Выиграно сделок</div><div class="value" data-countup="${totalWon}">0</div></div>
-      <div class="kpi"><div class="label">Конверсия в продажу</div><div class="value" data-countup="${winRate}" data-suffix-html="<small>%</small>">0<small>%</small></div></div>
-    </div>
- 
-    <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
-    <div class="funnels">
-  `;
- 
-  funnels.forEach((f, i) => {
+  const funnelCards = funnels.map((f, i) => {
     const color = PALETTE[i % PALETTE.length];
     const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
     const stageRows = f.stages.map((s, idx) => `
@@ -1308,7 +1300,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       </tr>
     `).join('');
  
-    html += `
+    return `
       <div class="fcard">
         <div class="fcard-head">
           <div class="fcard-name"><span class="fcard-dot" style="background:${color}"></span>${f.name} <span class="fcard-id">ID ${f.id}</span></div>
@@ -1323,12 +1315,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         ${f.bottleneck ? `<div class="bottleneck-note">⏱ Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.</div>` : ''}
       </div>
     `;
-  });
+  }).join('');
  
-  html += `</div>`;
- 
-  html += buildLossReasonsSection(lostReasons);
- 
+  let managersHtml = '';
   if(hasManagers){
     const rows = managers.map(m => {
       const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
@@ -1341,17 +1330,52 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         </tr>
       `;
     }).join('');
-    html += `
-      <p class="section-title">По менеджерам</p>
-      <div class="managers-wrap">
-        <table class="managers-table">
-          <thead><tr><th>Менеджер</th><th class="num">Сделок</th><th class="num">Продажи</th><th class="num">Конверсия</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        ${namesResolved ? '' : '<div class="managers-note">Не удалось получить имена сотрудников — добавьте вебхуку право доступа <b>user</b> (Пользователи), пока показаны ID.</div>'}
+    managersHtml = `
+      <div class="side-panel grow">
+        <p class="section-title">По менеджерам</p>
+        <div class="managers-wrap side-panel-scroll">
+          <table class="managers-table">
+            <thead><tr><th>Менеджер</th><th class="num">Сделок</th><th class="num">Продажи</th><th class="num">Конверсия</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          ${namesResolved ? '' : '<div class="managers-note">Не удалось получить имена сотрудников — добавьте вебхуку право доступа <b>user</b> (Пользователи), пока показаны ID.</div>'}
+        </div>
       </div>
     `;
   }
+ 
+  const lossHtml = lostReasons && lostReasons.length > 0
+    ? `<div class="side-panel grow">${buildLossReasonsSection(lostReasons)}</div>`
+    : '';
+ 
+  const html = `
+    <div class="kpis kpis-row">
+      <div class="kpi">
+        <div class="label">Продажи (выиграно)</div>
+        <div class="value" data-countup="${totalRevenue}" data-suffix=" ${currency}">0 ${currency}</div>
+        ${deltaBadge(totalRevenue, totalPrevRevenue, hasPrev)}
+        ${forecastLine(totalRevenue, currency)}
+      </div>
+      <div class="kpi"><div class="label">Сделок всего</div><div class="value" data-countup="${totalDeals}">0</div></div>
+      <div class="kpi"><div class="label">Выиграно сделок</div><div class="value" data-countup="${totalWon}">0</div></div>
+      <div class="kpi"><div class="label">Конверсия в продажу</div><div class="value" data-countup="${winRate}" data-suffix-html="<small>%</small>">0<small>%</small></div></div>
+    </div>
+ 
+    <div class="dash-grid">
+      <div class="dash-col-main">
+        <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
+        <div class="funnels-scroll">${funnelCards}</div>
+      </div>
+      <div class="dash-col-side">
+        <div class="side-panel">
+          <p class="section-title">Динамика продаж</p>
+          <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
+        </div>
+        ${managersHtml}
+        ${lossHtml}
+      </div>
+    </div>
+  `;
  
   content.innerHTML = html;
   animateBars('.bar');
