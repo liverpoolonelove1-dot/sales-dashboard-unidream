@@ -56,16 +56,15 @@
   .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning, .dash-wrap #goalBannerContainer{flex:none;}
  
   .kpis-row{flex:none;}
-  .dash-tiles{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:110px;grid-auto-flow:dense;gap:10px;align-content:start;padding-right:6px;}
+  .dash-tiles{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:136px;grid-auto-flow:dense;gap:10px;align-content:start;padding-right:6px;}
   .tile{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
   .tile .section-title{flex:none;margin-bottom:8px;}
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
   .tile-chart{grid-column:span 2;grid-row:span 2;}
   .tile-chart .daily-chart{flex:1;margin-bottom:0;height:auto;min-height:0;background:none;border:none;padding:0;}
   .tile-managers{grid-row:span 3;}
-  .tile-managers .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;}
+  .tile-managers .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;overflow-y:auto;}
   .tile .managers-wrap{background:none;border:none;padding:0;}
-  .tile-managers .managers-table{flex:none;}
   .tile-loss{grid-row:span 3;}
   @media (max-width: 720px){
     .tile-chart, .tile-managers, .tile-loss{grid-column:span 1;}
@@ -130,7 +129,7 @@
  
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
   .fcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;transition:transform .2s ease, box-shadow .2s ease;}
-  .fcard-compact{padding:12px 14px;}
+  .fcard-compact{padding:12px 14px;overflow:hidden;display:flex;flex-direction:column;}
   .fcard-compact .fcard-head{margin-bottom:2px;}
   .fcard-compact .fcard-name{font-size:12.5px;font-weight:600;}
   .fcard-compact .fcard-dot{width:7px;height:7px;margin-right:6px;}
@@ -140,7 +139,7 @@
   .fcard-compact .m-value{font-size:12px;margin-top:1px;}
   .mini-funnel-bar{height:5px;background:var(--overlay-2);border-radius:10px;overflow:hidden;}
   .mini-funnel-fill{height:100%;background:var(--accent-strong);border-radius:10px;transition:width .8s cubic-bezier(.16,1,.3,1);}
-  .bottleneck-compact{font-size:10px;color:var(--ink-soft);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
+  .bottleneck-compact{font-size:10px;color:var(--ink-soft);margin-top:auto;padding-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
   .report-tile{background:var(--overlay-1);border-style:dashed;}
   .report-tile-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .report-tile-note{font-size:10px;color:var(--ink-soft);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -174,6 +173,12 @@
   .managers-table td.mname{font-weight:600;}
   .managers-table td.num{font-family:'JetBrains Mono',monospace;}
   .managers-note{font-size:11.5px;color:var(--ink-soft);margin-top:12px;}
+  .manager-row{padding:9px 0;border-top:1px solid var(--line);}
+  .manager-row:first-child{border-top:none;padding-top:2px;}
+  .manager-row-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .manager-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .manager-sum{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;white-space:nowrap;flex:none;}
+  .manager-row-bottom{font-size:10.5px;color:var(--ink-soft);margin-top:2px;}
  
   .empty-state{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:48px 24px;text-align:center;color:var(--ink-soft);font-size:14px;}
  
@@ -1379,22 +1384,20 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     const rows = managers.map(m => {
       const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
       return `
-        <tr>
-          <td class="mname">${m.name}</td>
-          <td class="num">${m.dealsCount}</td>
-          <td class="num">${fmtMoney(m.wonSum, currency)}</td>
-          <td class="num">${conv}%</td>
-        </tr>
+        <div class="manager-row">
+          <div class="manager-row-top">
+            <span class="manager-name">${m.name}</span>
+            <span class="manager-sum">${fmtMoney(m.wonSum, currency)}</span>
+          </div>
+          <div class="manager-row-bottom">${m.dealsCount} сделок · конверсия ${conv}%</div>
+        </div>
       `;
     }).join('');
     managersHtml = `
       <div class="fcard tile tile-managers">
         <p class="section-title">По менеджерам</p>
         <div class="managers-wrap tile-body-scroll">
-          <table class="managers-table">
-            <thead><tr><th>Менеджер</th><th class="num">Сделок</th><th class="num">Продажи</th><th class="num">Конверсия</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
+          ${rows}
           ${namesResolved ? '' : '<div class="managers-note">Не удалось получить имена сотрудников — добавьте вебхуку право доступа <b>user</b> (Пользователи), пока показаны ID.</div>'}
         </div>
       </div>
