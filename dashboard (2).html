@@ -56,16 +56,20 @@
   .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning, .dash-wrap #goalBannerContainer{flex:none;}
  
   .kpis-row{flex:none;}
-  .dash-grid{flex:1;min-height:0;display:flex;gap:16px;overflow:hidden;}
-  .dash-col-main{flex:1.4;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
-  .dash-col-main .section-title{flex:none;}
-  .funnels-scroll{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));grid-auto-rows:min-content;gap:10px;align-content:start;padding-right:6px;}
-  .dash-col-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;overflow:hidden;}
-  .side-panel{flex:none;display:flex;flex-direction:column;min-height:0;}
-  .side-panel.grow{flex:1;}
-  .side-panel .section-title{flex:none;margin-bottom:10px;}
-  .side-panel-scroll{overflow-y:auto;min-height:0;}
-  .side-panel .daily-chart{margin-bottom:0;flex:none;height:150px;}
+  .dash-tiles{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:110px;grid-auto-flow:dense;gap:10px;align-content:start;padding-right:6px;}
+  .tile{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+  .tile .section-title{flex:none;margin-bottom:8px;}
+  .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
+  .tile-chart{grid-column:span 2;grid-row:span 2;}
+  .tile-chart .daily-chart{flex:1;margin-bottom:0;height:auto;min-height:0;background:none;border:none;padding:0;}
+  .tile-managers{grid-row:span 3;}
+  .tile-managers .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;}
+  .tile .managers-wrap{background:none;border:none;padding:0;}
+  .tile-managers .managers-table{flex:none;}
+  .tile-loss{grid-row:span 3;}
+  @media (max-width: 720px){
+    .tile-chart, .tile-managers, .tile-loss{grid-column:span 1;}
+  }
   .glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.16;filter:blur(80px);border-radius:50%;pointer-events:none;z-index:0;}
   .wrap > *{position:relative;z-index:1;}
  
@@ -1385,9 +1389,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       `;
     }).join('');
     managersHtml = `
-      <div class="side-panel grow">
+      <div class="fcard tile tile-managers">
         <p class="section-title">По менеджерам</p>
-        <div class="managers-wrap side-panel-scroll">
+        <div class="managers-wrap tile-body-scroll">
           <table class="managers-table">
             <thead><tr><th>Менеджер</th><th class="num">Сделок</th><th class="num">Продажи</th><th class="num">Конверсия</th></tr></thead>
             <tbody>${rows}</tbody>
@@ -1399,8 +1403,15 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   }
  
   const lossHtml = lostReasons && lostReasons.length > 0
-    ? `<div class="side-panel grow">${buildLossReasonsSection(lostReasons)}</div>`
+    ? `<div class="fcard tile tile-loss">${buildLossReasonsSection(lostReasons)}</div>`
     : '';
+ 
+  const chartHtml = `
+    <div class="fcard tile tile-chart">
+      <p class="section-title">Динамика продаж</p>
+      <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
+    </div>
+  `;
  
   const html = `
     <div class="kpis kpis-row">
@@ -1424,20 +1435,8 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       </div>
     </div>
  
-    <div class="dash-grid">
-      <div class="dash-col-main">
-        <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
-        <div class="funnels-scroll">${funnelCards}${reportTiles}</div>
-      </div>
-      <div class="dash-col-side">
-        <div class="side-panel">
-          <p class="section-title">Динамика продаж</p>
-          <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
-        </div>
-        ${managersHtml}
-        ${lossHtml}
-      </div>
-    </div>
+    <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
+    <div class="dash-tiles">${chartHtml}${funnelCards}${managersHtml}${lossHtml}${reportTiles}</div>
   `;
  
   content.innerHTML = html;
