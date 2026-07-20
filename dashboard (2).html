@@ -49,6 +49,7 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;}
   .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px;position:relative;}
+  #landingView{min-height:calc(100vh - 96px);display:flex;flex-direction:column;justify-content:center;}
  
   .dash-wrap{max-width:none;margin:0;height:100vh;box-sizing:border-box;padding:20px 32px;display:flex;flex-direction:column;gap:16px;overflow:hidden;}
   .dash-wrap #content{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
@@ -182,8 +183,8 @@
   .managers-note{font-size:11.5px;color:var(--ink-soft);margin-top:12px;}
   .manager-row{padding:9px 0;border-top:1px solid var(--line);}
   .manager-row:first-child{border-top:none;padding-top:2px;}
-  .manager-row-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
-  .manager-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .manager-row-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .manager-name{font-size:12.5px;font-weight:600;white-space:normal;overflow-wrap:break-word;line-height:1.3;}
   .manager-sum{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;white-space:nowrap;flex:none;}
   .manager-row-bottom{font-size:10.5px;color:var(--ink-soft);margin-top:2px;}
  
@@ -227,8 +228,9 @@
   .confetti-piece{position:absolute;top:-24px;width:8px;height:14px;border-radius:2px;opacity:.9;animation-name:confettiFall;animation-timing-function:cubic-bezier(.36,.5,.66,1);animation-fill-mode:forwards;}
   @keyframes confettiFall{to{transform:translateY(105vh) rotate(560deg);opacity:0;}}
  
-  .periodbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0 24px;background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:16px;padding:12px 16px;}
-  .pbtn{font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:8px 16px;cursor:pointer;transition:all .15s ease;}
+  .periodbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 16px;background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:14px;padding:8px 14px;}
+  .company-badge{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;color:var(--ink);background:var(--overlay-2);padding:6px 12px;border-radius:20px;margin-right:4px;}
+  .pbtn{font-family:'Inter',sans-serif;font-weight:600;font-size:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:7px 14px;cursor:pointer;transition:all .15s ease;}
   .pbtn:hover{border-color:var(--ink-soft);color:var(--ink);}
   .pbtn.active{background:var(--ink);border-color:var(--ink);color:#fff;}
   .toggle-btn::after{content:'\25BE';display:inline-block;margin-left:6px;transition:transform .2s ease;}
@@ -315,6 +317,8 @@
   .goal-edit{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11.5px;padding:5px 10px;border-radius:20px;cursor:pointer;transition:all .15s ease;position:relative;z-index:2;}
   .goal-edit:hover{border-color:var(--ink-soft);color:var(--ink);}
   #goalInput{width:180px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--surface);color:var(--ink);}
+  #goalInput.input-error{border-color:var(--red-bad);animation:inputShake .35s ease;}
+  @keyframes inputShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
   #goalInput:focus{outline:none;border-color:var(--accent-strong);}
   .forecast-line{font-size:11.5px;color:var(--ink-soft);margin-top:8px;font-family:'JetBrains Mono',monospace;}
  
@@ -396,6 +400,7 @@
   <div id="goalBannerContainer"></div>
  
   <div class="periodbar" id="periodBar" style="display:none;">
+    <span id="companyBadge" class="company-badge" style="display:none;"></span>
     <button class="pbtn active" data-period="all">Всё время</button>
     <button class="pbtn" data-period="today">Сегодня</button>
     <button class="pbtn" data-period="week">Эта неделя</button>
@@ -498,6 +503,7 @@ let lastLostReasons = [];
 let lastBestDeal = null;
 let lastWonPoints = [];
 let chartGranularity = 'week'; // 'day' | 'week' | 'month' — группировка мини-графика продаж
+const GOAL_MAX = 1e15; // защита от случайно введённых лишних нулей
 let autoRefreshTimer = null;
 let hasLoadedOnce = false;
 let currentAdapter = null;
@@ -719,6 +725,20 @@ function normalizeWebhook(url){
   url = url.trim();
   if(!url.endsWith('/')) url += '/';
   return url;
+}
+ 
+function updateCompanyBadge(conn){
+  const badge = document.getElementById('companyBadge');
+  if(!badge) return;
+  const url = conn && conn.webhook;
+  const match = url && url.match(/^https?:\/\/([a-z0-9-]+)\.bitrix24\./i);
+  if(match){
+    const name = match[1];
+    badge.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
 }
  
 function appendParams(qs, prefix, value){
@@ -994,7 +1014,7 @@ function buildGoalSection(totalRevenue, currency){
   return `
     <div class="goal-card goal-hero goal-empty">
       <span>Задайте план продаж на этот период, чтобы видеть прогресс</span>
-      <input type="number" id="goalInput" placeholder="например, 50000000" min="0">
+      <input type="number" id="goalInput" placeholder="например, 50000000" min="0" max="1000000000000000">
       <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Утвердить план</button>
     </div>
   `;
@@ -1390,6 +1410,7 @@ async function loadDashboard(){
     periodBar.style.display = 'flex';
     toolbar2.style.display = 'flex';
     updatedAt.textContent = new Date().toLocaleString('ru-RU');
+    updateCompanyBadge(conn);
     showDashboard();
     if(hasLoadedOnce) flashUpdated();
     hasLoadedOnce = true;
@@ -1454,6 +1475,8 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
  
   const avgDeal = totalWon > 0 ? totalRevenue / totalWon : 0;
   const topManager = managers && managers.length > 0 ? managers[0] : null;
+  const pipelineValue = funnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), 0);
+  const lostValue = funnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0), 0);
  
   const reportTiles = `
     ${avgDeal > 0 ? `
@@ -1475,6 +1498,20 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Крупнейшая сделка</div></div>
         <div class="report-tile-value">${fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency)}</div>
         <div class="report-tile-note">воронка «${lastBestDeal.funnelName}»</div>
+      </div>
+    ` : ''}
+    ${pipelineValue > 0 ? `
+      <div class="fcard fcard-compact report-tile" data-detail="pipeline">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>В работе</div></div>
+        <div class="report-tile-value">${fmtMoney(pipelineValue, currency)}</div>
+        <div class="report-tile-note">сумма открытых сделок</div>
+      </div>
+    ` : ''}
+    ${lostValue > 0 ? `
+      <div class="fcard fcard-compact report-tile" data-detail="lostvalue">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Упущено</div></div>
+        <div class="report-tile-value">${fmtMoney(lostValue, currency)}</div>
+        <div class="report-tile-note">сумма проваленных сделок</div>
       </div>
     ` : ''}
   `;
@@ -1650,6 +1687,28 @@ function openBestDealDetail(){
   openModal('Крупнейшая сделка', html);
 }
  
+function openPipelineDetail(){
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const rows = lastFunnels
+    .map(f => ({name: f.name, sum: f.stages.filter(s => s.semantic === 'P').reduce((a,x) => a + x.sum, 0)}))
+    .filter(x => x.sum > 0)
+    .sort((a,b) => b.sum - a.sum)
+    .map(x => `<tr><td>${x.name}</td><td>${fmtMoney(x.sum, currency)}</td></tr>`).join('');
+  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">Сумма сделок, которые ещё не закрыты — ни выиграны, ни провалены.</div>`;
+  openModal('В работе по воронкам', html);
+}
+ 
+function openLostValueDetail(){
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const rows = lastFunnels
+    .map(f => ({name: f.name, sum: f.stages.filter(s => s.semantic === 'F').reduce((a,x) => a + x.sum, 0)}))
+    .filter(x => x.sum > 0)
+    .sort((a,b) => b.sum - a.sum)
+    .map(x => `<tr><td>${x.name}</td><td>${fmtMoney(x.sum, currency)}</td></tr>`).join('');
+  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">Сумма сделок, помеченных как провальные, по воронкам.</div>`;
+  openModal('Упущено по воронкам', html);
+}
+ 
 function openKpiDetail(type){
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   let title = '', rows = '';
@@ -1694,6 +1753,8 @@ document.addEventListener('click', (e) => {
   else if(type === 'day') openDayDetail(idx);
   else if(type === 'avgdeal') openAvgDealDetail();
   else if(type === 'bestdeal') openBestDealDetail();
+  else if(type === 'pipeline') openPipelineDetail();
+  else if(type === 'lostvalue') openLostValueDetail();
   else if(type.startsWith('kpi-')) openKpiDetail(type);
 });
  
@@ -1800,6 +1861,7 @@ disconnectBtn.addEventListener('click', () => {
   connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
   content.innerHTML = '';
   document.getElementById('goalBannerContainer').innerHTML = '';
+  document.getElementById('companyBadge').style.display = 'none';
   dupWarning.style.display = 'none';
   periodBar.style.display = 'none';
   toolbar2.style.display = 'none';
@@ -1860,10 +1922,13 @@ dashboardView.addEventListener('click', (e) => {
   if(btn.dataset.action === 'set-goal'){
     const input = document.getElementById('goalInput');
     const val = parseFloat(input.value);
-    if(val > 0){
+    if(val > 0 && val <= GOAL_MAX){
       goalAmount = val;
       goalCelebrated = false;
       rerenderCached();
+    } else if(val > GOAL_MAX){
+      input.classList.add('input-error');
+      setTimeout(() => input.classList.remove('input-error'), 900);
     }
   } else if(btn.dataset.action === 'edit-goal'){
     goalAmount = null;
@@ -1876,10 +1941,13 @@ dashboardView.addEventListener('keydown', (e) => {
   if(e.key === 'Enter' && e.target.id === 'goalInput'){
     e.preventDefault();
     const val = parseFloat(e.target.value);
-    if(val > 0){
+    if(val > 0 && val <= GOAL_MAX){
       goalAmount = val;
       goalCelebrated = false;
       rerenderCached();
+    } else if(val > GOAL_MAX){
+      e.target.classList.add('input-error');
+      setTimeout(() => e.target.classList.remove('input-error'), 900);
     }
   }
 });
