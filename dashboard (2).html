@@ -61,10 +61,15 @@
   .tile .section-title{flex:none;margin-bottom:8px;}
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
   .tile-chart{grid-column:span 2;grid-row:span 2;}
+  .tile-chart-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;margin-bottom:8px;}
+  .tile-chart-head .section-title{margin-bottom:0;}
+  .chart-granularity{display:flex;gap:4px;}
+  .chart-granularity button{background:var(--overlay-1);border:1px solid transparent;color:var(--ink-soft);font-size:10.5px;font-family:'Inter',sans-serif;font-weight:600;padding:4px 9px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
+  .chart-granularity button:hover{color:var(--ink);}
+  .chart-granularity button.active{background:var(--ink);color:#fff;}
   .tile-chart .daily-chart{flex:1;margin-bottom:0;height:auto;min-height:0;background:none;border:none;padding:0;}
   .tile-managers{grid-row:span 3;}
-  .tile-managers .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;overflow-y:auto;}
-  .tile .managers-wrap{background:none;border:none;padding:0;}
+  .tile .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;overflow-y:auto;background:none;border:none;padding:0;}
   .tile-loss{grid-row:span 3;}
   @media (max-width: 720px){
     .tile-chart, .tile-managers, .tile-loss{grid-column:span 1;}
@@ -145,6 +150,7 @@
   .report-tile-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .report-tile-note{font-size:10px;color:var(--ink-soft);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .fcard:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow-color);}
+  .tile:hover, .fcard-compact:hover{transform:none;box-shadow:0 4px 14px var(--shadow-color);}
   .fcard-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
   .fcard-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16.5px;}
   .fcard-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:8px;}
@@ -490,6 +496,8 @@ let lastNamesResolved = true;
 let lastHasManagers = false;
 let lastLostReasons = [];
 let lastBestDeal = null;
+let lastWonPoints = [];
+let chartGranularity = 'week'; // 'day' | 'week' | 'month' — группировка мини-графика продаж
 let autoRefreshTimer = null;
 let hasLoadedOnce = false;
 let currentAdapter = null;
@@ -1038,6 +1046,47 @@ function buildFunnelSVG(stages, uid){
   return `<svg class="funnel-svg" data-uid="${uid}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
 }
  
+function mondayOf(d){
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1 - day);
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diff);
+  monday.setHours(0,0,0,0);
+  return monday;
+}
+ 
+function bucketPoints(points, granularity){
+  const map = {};
+  points.forEach(p => {
+    const d = new Date(p.date);
+    if(isNaN(d.getTime())) return;
+    let key;
+    if(granularity === 'day') key = fmtDateISO(d);
+    else if(granularity === 'week') key = fmtDateISO(mondayOf(d));
+    else key = `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+    if(!map[key]) map[key] = {sum: 0, count: 0};
+    map[key].sum += p.amount;
+    map[key].count += 1;
+  });
+  return Object.keys(map).sort().map(key => {
+    let label, shortLabel;
+    if(granularity === 'day'){
+      const d = new Date(key);
+      label = d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
+      shortLabel = key.slice(8,10);
+    } else if(granularity === 'week'){
+      const d = new Date(key);
+      label = 'неделя с ' + d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
+      shortLabel = key.slice(8,10) + '.' + key.slice(5,7);
+    } else {
+      const d = new Date(key + '-01');
+      label = d.toLocaleDateString('ru-RU', {month:'short', year:'numeric'});
+      shortLabel = key.slice(2);
+    }
+    return {label, shortLabel, sum: map[key].sum, count: map[key].count};
+  });
+}
+ 
 function buildDailyChartSVG(entries, currency){
   if(entries.length === 0) return `<div class="managers-note">За выбранный период нет закрытых успешных сделок.</div>`;
   const barW = 30, gap = 10, padL = 8, padR = 8, h = 160, baseline = h - 28;
@@ -1174,8 +1223,8 @@ async function loadDashboard(){
  
     const prevPeriod = computePrevPeriod(currentPeriod);
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
-    const dailyMap = {};     // dateKey -> {sum, count}
     const lostReasonMap = {}; // stageName -> {count, sum} — причины отказов
+    const wonPoints = [];     // {date, amount} по каждой выигранной сделке — для гибкого графика
     let bestDeal = null;     // самая крупная выигранная сделка за период
     const isAllTime = currentPeriod.type === 'all';
     const now = Date.now();
@@ -1222,14 +1271,9 @@ async function loadDashboard(){
           if(!bestDeal || amount > bestDeal.amount){
             bestDeal = {amount, funnelName: fn.name, currency: d.currency || currency};
           }
-          // динамика по дням/месяцам — только закрытые успешные сделки
+          // динамика продаж — сохраняем сырую точку, группировка (день/неделя/месяц) считается отдельно
           const rawDate = d.closedAt || d.createdAt;
-          if(rawDate){
-            const dateKey = isAllTime ? rawDate.slice(0,7) : rawDate.slice(0,10);
-            if(!dailyMap[dateKey]) dailyMap[dateKey] = {sum: 0, count: 0};
-            dailyMap[dateKey].sum += amount;
-            dailyMap[dateKey].count += 1;
-          }
+          if(rawDate) wonPoints.push({date: rawDate, amount});
         }
         if(d.semantic === 'F'){
           lostCount += 1; managerMap[mgr].lostCount += 1;
@@ -1289,14 +1333,9 @@ async function loadDashboard(){
       ...managerMap[id]
     })).sort((a,b) => b.wonSum - a.wonSum);
  
-    // дневная/месячная динамика продаж
-    const dailyEntries = Object.keys(dailyMap).sort().map(key => {
-      const label = isAllTime
-        ? new Date(key+'-01').toLocaleDateString('ru-RU', {month:'short', year:'numeric'})
-        : new Date(key).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
-      const shortLabel = isAllTime ? key.slice(2) : key.slice(8,10);
-      return {label, shortLabel, sum: dailyMap[key].sum, count: dailyMap[key].count};
-    });
+    // динамика продаж — кэшируем сырые точки, чтобы можно было переключать группировку без перезагрузки
+    lastWonPoints = wonPoints;
+    const dailyEntries = bucketPoints(wonPoints, chartGranularity);
  
     // причины отказов — топ стадий, помеченных как провал
     const lostReasons = Object.keys(lostReasonMap)
@@ -1464,7 +1503,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
  
   const chartHtml = `
     <div class="fcard tile tile-chart">
-      <p class="section-title">Динамика продаж</p>
+      <div class="tile-chart-head">
+        <p class="section-title">Динамика продаж</p>
+        <div class="chart-granularity" id="chartGranularity">
+          <button type="button" data-gran="day" class="${chartGranularity === 'day' ? 'active' : ''}">День</button>
+          <button type="button" data-gran="week" class="${chartGranularity === 'week' ? 'active' : ''}">Неделя</button>
+          <button type="button" data-gran="month" class="${chartGranularity === 'month' ? 'active' : ''}">Месяц</button>
+        </div>
+      </div>
       <div class="daily-chart">${buildDailyChartSVG(dailyEntries, currency)}</div>
     </div>
   `;
@@ -1756,6 +1802,27 @@ disconnectBtn.addEventListener('click', () => {
   statusLine.className = 'status-line';
   statusLine.textContent = 'Подключение забыто — введите данные заново.';
   showLanding();
+});
+ 
+function updateChartOnly(){
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const entries = bucketPoints(lastWonPoints, chartGranularity);
+  const chartEl = document.querySelector('.tile-chart .daily-chart');
+  if(chartEl){
+    chartEl.innerHTML = buildDailyChartSVG(entries, currency);
+    animateBars('.dbar');
+  }
+  document.querySelectorAll('#chartGranularity button').forEach(b => {
+    b.classList.toggle('active', b.dataset.gran === chartGranularity);
+  });
+  lastDailyEntries = entries;
+}
+ 
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('#chartGranularity button');
+  if(!btn) return;
+  chartGranularity = btn.dataset.gran;
+  updateChartOnly();
 });
  
 function rerenderCached(){
