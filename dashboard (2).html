@@ -56,7 +56,7 @@
   .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning, .dash-wrap #goalBannerContainer{flex:none;}
  
   .kpis-row{flex:none;}
-  .dash-tiles{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:136px;grid-auto-flow:dense;gap:10px;align-content:start;padding-right:6px;}
+  .dash-tiles{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:minmax(136px, 1fr);grid-auto-flow:dense;gap:10px;align-content:stretch;padding-right:6px;}
   .tile{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
   .tile .section-title{flex:none;margin-bottom:8px;}
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
@@ -69,7 +69,7 @@
   @media (max-width: 720px){
     .tile-chart, .tile-managers, .tile-loss{grid-column:span 1;}
   }
-  .glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.16;filter:blur(80px);border-radius:50%;pointer-events:none;z-index:0;}
+  .glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.24;filter:blur(80px);border-radius:50%;pointer-events:none;z-index:0;}
   .wrap > *{position:relative;z-index:1;}
  
   .topbar{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:32px;}
@@ -281,7 +281,7 @@
   .theme-toggle:hover{background:var(--overlay-1);}
   .theme-toggle:active{transform:scale(0.9);}
   .theme-toggle svg{width:20px;height:20px;}
-  .shortcuts-panel{position:fixed;top:104px;right:20px;min-width:200px;}
+  .shortcuts-panel{position:fixed;top:60px;right:20px;min-width:200px;}
   .shortcut-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 4px;font-size:12.5px;color:var(--ink-soft);}
   .shortcut-row kbd{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--overlay-2);color:var(--ink);border-radius:5px;padding:2px 7px;min-width:16px;text-align:center;}
  
@@ -345,10 +345,10 @@
 </head>
 <body>
 <button id="themeToggleBtn" class="theme-toggle" title="Переключить тему" aria-label="Переключить тему"></button>
-<button id="shortcutsBtn" class="theme-toggle" style="top:64px;" title="Горячие клавиши" aria-label="Горячие клавиши">
+<button id="shortcutsBtn" class="theme-toggle" style="right:64px;" title="Горячие клавиши" aria-label="Горячие клавиши">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
 </button>
-<button id="settingsBtn" class="theme-toggle" style="top:108px;" title="Настройки подключения" aria-label="Настройки подключения">
+<button id="settingsBtn" class="theme-toggle" style="right:108px;" title="Настройки подключения" aria-label="Настройки подключения">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
 </button>
 <div id="shortcutsPanel" class="filter-panel shortcuts-panel" style="display:none;">
@@ -1055,7 +1055,7 @@ function buildDailyChartSVG(entries, currency){
       </rect>`;
     shapes += `<text x="${x + barW/2}" y="${h-8}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${e.shortLabel}</text>`;
   });
-  return `<svg class="funnel-svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
+  return `<svg class="funnel-svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
 }
  
 function animateBars(selector){
