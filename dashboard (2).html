@@ -59,7 +59,7 @@
   .dash-grid{flex:1;min-height:0;display:flex;gap:16px;overflow:hidden;}
   .dash-col-main{flex:1.4;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
   .dash-col-main .section-title{flex:none;}
-  .funnels-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:6px;}
+  .funnels-scroll{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));grid-auto-rows:min-content;gap:10px;align-content:start;padding-right:6px;}
   .dash-col-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;overflow:hidden;}
   .side-panel{flex:none;display:flex;flex-direction:column;min-height:0;}
   .side-panel.grow{flex:1;}
@@ -126,6 +126,20 @@
  
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
   .fcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;transition:transform .2s ease, box-shadow .2s ease;}
+  .fcard-compact{padding:12px 14px;}
+  .fcard-compact .fcard-head{margin-bottom:2px;}
+  .fcard-compact .fcard-name{font-size:12.5px;font-weight:600;}
+  .fcard-compact .fcard-dot{width:7px;height:7px;margin-right:6px;}
+  .fcard-compact .fcard-id{font-size:9px;}
+  .fcard-compact .fcard-metrics{margin:6px 0 8px;gap:12px;}
+  .fcard-compact .m-label{font-size:9px;}
+  .fcard-compact .m-value{font-size:12px;margin-top:1px;}
+  .mini-funnel-bar{height:5px;background:var(--overlay-2);border-radius:10px;overflow:hidden;}
+  .mini-funnel-fill{height:100%;background:var(--accent-strong);border-radius:10px;transition:width .8s cubic-bezier(.16,1,.3,1);}
+  .bottleneck-compact{font-size:10px;color:var(--ink-soft);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
+  .report-tile{background:var(--overlay-1);border-style:dashed;}
+  .report-tile-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .report-tile-note{font-size:10px;color:var(--ink-soft);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .fcard:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow-color);}
   .fcard-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
   .fcard-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16.5px;}
@@ -431,6 +445,7 @@ let lastDailyEntries = [];
 let lastNamesResolved = true;
 let lastHasManagers = false;
 let lastLostReasons = [];
+let lastBestDeal = null;
 let autoRefreshTimer = null;
 let currentAdapter = null;
 let currentConn = null;
@@ -1101,6 +1116,7 @@ async function loadDashboard(){
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
     const dailyMap = {};     // dateKey -> {sum, count}
     const lostReasonMap = {}; // stageName -> {count, sum} — причины отказов
+    let bestDeal = null;     // самая крупная выигранная сделка за период
     const isAllTime = currentPeriod.type === 'all';
     const now = Date.now();
  
@@ -1143,6 +1159,9 @@ async function loadDashboard(){
           wonSum += amount; wonCount += 1;
           managerMap[mgr].wonSum += amount;
           managerMap[mgr].wonCount += 1;
+          if(!bestDeal || amount > bestDeal.amount){
+            bestDeal = {amount, funnelName: fn.name, currency: d.currency || currency};
+          }
           // динамика по дням/месяцам — только закрытые успешные сделки
           const rawDate = d.closedAt || d.createdAt;
           if(rawDate){
@@ -1245,6 +1264,7 @@ async function loadDashboard(){
     lastHasManagers = managerIds.length > 0;
     lastLostReasons = lostReasons;
  
+    lastBestDeal = bestDeal;
     renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
  
     if(dupPairs.length > 0){
@@ -1306,30 +1326,50 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const funnelCards = funnels.map((f, i) => {
     const color = PALETTE[i % PALETTE.length];
     const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
-    const stageRows = f.stages.map((s, idx) => `
-      <tr class="stage-row" data-idx="${idx}">
-        <td class="sname">${s.name}${s.avgAgeDays !== null ? ` <span class="age-tag">~${s.avgAgeDays} дн</span>` : ''}</td>
-        <td class="scount">${s.count}</td>
-        <td class="ssum">${fmtMoney(s.sum, '')}</td>
-      </tr>
-    `).join('');
  
     return `
-      <div class="fcard">
+      <div class="fcard fcard-compact">
         <div class="fcard-head">
-          <div class="fcard-name"><span class="fcard-dot" style="background:${color}"></span>${f.name} <span class="fcard-id">ID ${f.id}</span></div>
+          <div class="fcard-name"><span class="fcard-dot" style="background:${color}"></span>${f.name}</div>
+          <span class="fcard-id">ID ${f.id}</span>
         </div>
         <div class="fcard-metrics">
-          <div><div class="m-label">Продажи</div><div class="m-value">${fmtMoney(f.wonSum, f.currency)}</div>${deltaBadge(f.wonSum, f.prevWonSum, f.hasPrevPeriod)}</div>
+          <div><div class="m-label">Продажи</div><div class="m-value">${fmtMoney(f.wonSum, f.currency)}</div></div>
           <div><div class="m-label">Сделок</div><div class="m-value">${f.deals}</div></div>
-          <div><div class="m-label">Конверсия</div><div class="m-value">${fWinRate}%</div></div>
+          <div><div class="m-label">Конв.</div><div class="m-value">${fWinRate}%</div></div>
         </div>
-        <div class="funnel-svg-wrap">${buildFunnelSVG(f.stages, f.id)}</div>
-        <table class="stage-table"><tbody>${stageRows}</tbody></table>
-        ${f.bottleneck ? `<div class="bottleneck-note">⏱ Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.</div>` : ''}
+        <div class="mini-funnel-bar"><div class="mini-funnel-fill" style="width:${fWinRate}%"></div></div>
+        ${f.bottleneck ? `<div class="bottleneck-compact" title="Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.">⏱ «${f.bottleneck.name}» — ~${f.bottleneck.avgAgeDays} дн</div>` : ''}
       </div>
     `;
   }).join('');
+ 
+  const avgDeal = totalWon > 0 ? totalRevenue / totalWon : 0;
+  const topManager = managers && managers.length > 0 ? managers[0] : null;
+ 
+  const reportTiles = `
+    ${avgDeal > 0 ? `
+      <div class="fcard fcard-compact report-tile">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Средний чек</div></div>
+        <div class="report-tile-value">${fmtMoney(avgDeal, currency)}</div>
+        <div class="report-tile-note">по всем выигранным сделкам</div>
+      </div>
+    ` : ''}
+    ${topManager ? `
+      <div class="fcard fcard-compact report-tile">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Лучший менеджер</div></div>
+        <div class="report-tile-value">${topManager.name}</div>
+        <div class="report-tile-note">${fmtMoney(topManager.wonSum, currency)} · ${topManager.wonCount} сделок</div>
+      </div>
+    ` : ''}
+    ${lastBestDeal ? `
+      <div class="fcard fcard-compact report-tile">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Крупнейшая сделка</div></div>
+        <div class="report-tile-value">${fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency)}</div>
+        <div class="report-tile-note">воронка «${lastBestDeal.funnelName}»</div>
+      </div>
+    ` : ''}
+  `;
  
   let managersHtml = '';
   if(hasManagers){
@@ -1387,7 +1427,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     <div class="dash-grid">
       <div class="dash-col-main">
         <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
-        <div class="funnels-scroll">${funnelCards}</div>
+        <div class="funnels-scroll">${funnelCards}${reportTiles}</div>
       </div>
       <div class="dash-col-side">
         <div class="side-panel">
