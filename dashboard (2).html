@@ -205,10 +205,17 @@
 
   @media (max-width: 860px){
     .kpis{grid-template-columns:repeat(2,1fr);}
-    .funnels{grid-template-columns:1fr;}
+    .dash-wrap{height:auto;min-height:100vh;overflow:visible;}
+    .dash-tiles{overflow-y:visible;grid-auto-rows:auto;}
+    .fcard-compact{min-height:136px;}
+    .chart-hero{height:auto;min-height:220px;}
+    .goal-ring-layout{flex-wrap:wrap;justify-content:center;text-align:center;}
+    .goal-content{width:100%;}
   }
   @media (max-width: 520px){
     .kpis{grid-template-columns:1fr;}
+    .periodbar{justify-content:center;}
+    .toolbar2-inline{margin-left:0;width:100%;justify-content:center;}
   }
 
   .loader-bars{display:inline-flex;align-items:flex-end;gap:3px;height:14px;margin-right:8px;vertical-align:-3px;}
@@ -678,12 +685,32 @@ function showLanding(){
   document.body.style.overflow = '';
 }
 
+function isWideScreen(){
+  return window.matchMedia('(min-width: 861px)').matches;
+}
+
 function showDashboard(){
   landingView.style.display = 'none';
   dashboardView.style.display = 'block';
-  document.documentElement.style.overflow = 'hidden';
-  document.body.style.overflow = 'hidden';
+  if(isWideScreen()){
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
 }
+
+window.addEventListener('resize', () => {
+  if(dashboardView.style.display === 'none') return;
+  if(isWideScreen()){
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
+});
 
 settingsBtn.addEventListener('click', () => {
   const onDashboard = dashboardView.style.display !== 'none';
@@ -823,7 +850,7 @@ async function fetchDealsForCategory(webhook, categoryId, period){
 }
 
 async function fetchUserNames(webhook, ids){
-  const data = await callMethod(webhook, 'user.get', {FILTER: {ID: ids}});
+  const data = await callMethod(webhook, 'user.get', {FILTER: {'@ID': ids}});
   const map = {};
   (data.result || []).forEach(u => {
     const name = `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim();
