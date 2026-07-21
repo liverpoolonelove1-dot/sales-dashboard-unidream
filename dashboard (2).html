@@ -139,15 +139,13 @@
 
   .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow:hidden;transition:box-shadow .2s ease;}
   .daily-chart:hover{box-shadow:0 8px 24px var(--shadow-color);}
-  .dline-chart{animation:chartFadeIn .5s ease;}
+  .cal-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(34px, 1fr));gap:6px;height:100%;align-content:center;animation:chartFadeIn .4s ease;}
   @keyframes chartFadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
-  .dline-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4;}
-  .dline-single-bar{fill:var(--accent-strong);cursor:pointer;}
-  .dline-area{fill:var(--accent);opacity:.22;stroke:none;}
-  .dline-path{fill:none;stroke:var(--accent-strong);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
-  .dline-dot{fill:var(--surface);stroke:var(--accent-strong);stroke-width:2;pointer-events:none;}
-  .dline-hit{cursor:pointer;}
-  .dline{fill:none;stroke:var(--blue);stroke-width:2;opacity:.55;}
+  .cal-cell{aspect-ratio:1;border-radius:7px;display:flex;align-items:flex-start;justify-content:flex-start;padding:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);cursor:pointer;transition:transform .12s ease, box-shadow .12s ease;}
+  .cal-cell:hover{transform:scale(1.12);z-index:2;box-shadow:0 4px 12px var(--shadow-color);}
+  .cal-cell.cal-has-sale{color:var(--accent-ink);font-weight:700;}
+  .cal-cell.cal-future{cursor:default;border:1px dashed var(--line);}
+  .cal-cell.cal-future:hover{transform:none;box-shadow:none;}
 
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
   .fcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;transition:transform .2s ease, box-shadow .2s ease;}
@@ -533,7 +531,6 @@ let lastMonthDealsTotal = 0;
 let lastMonthWonCount = 0;
 let lastMonthLostCount = 0;
 let lastWonPoints = [];
-let chartGranularity = 'day'; // 'day' | 'week' | 'month' — группировка мини-графика продаж (данные всегда за текущий месяц)
 const GOAL_MAX = 1e15; // защита от случайно введённых лишних нулей
 let autoRefreshTimer = null;
 let hasLoadedOnce = false;
@@ -1099,128 +1096,54 @@ function buildFunnelSVG(stages, uid){
   return `<svg class="funnel-svg" data-uid="${uid}" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
 }
 
-function mondayOf(d){
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1 - day);
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + diff);
-  monday.setHours(0,0,0,0);
-  return monday;
-}
-
-function bucketPoints(points, granularity){
-  const map = {};
+function buildMonthDays(points){
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const sums = new Array(daysInMonth + 1).fill(0);
+  const counts = new Array(daysInMonth + 1).fill(0);
   points.forEach(p => {
     const d = new Date(p.date);
-    if(isNaN(d.getTime())) return;
-    let key;
-    if(granularity === 'day') key = fmtDateISO(d);
-    else if(granularity === 'week') key = fmtDateISO(mondayOf(d));
-    else key = `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
-    if(!map[key]) map[key] = {sum: 0, count: 0};
-    map[key].sum += p.amount;
-    map[key].count += 1;
-  });
-  return Object.keys(map).sort().map(key => {
-    let label, shortLabel;
-    if(granularity === 'day'){
-      const d = new Date(key);
-      label = d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
-      shortLabel = key.slice(8,10) + '.' + key.slice(5,7) + '.' + key.slice(2,4);
-    } else if(granularity === 'week'){
-      const d = new Date(key);
-      label = 'неделя с ' + d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
-      shortLabel = key.slice(8,10) + '.' + key.slice(5,7) + '.' + key.slice(2,4);
-    } else {
-      const d = new Date(key + '-01');
-      label = d.toLocaleDateString('ru-RU', {month:'short', year:'numeric'});
-      shortLabel = key.slice(2);
+    if(d.getFullYear() === year && d.getMonth() === month){
+      const day = d.getDate();
+      sums[day] += p.amount;
+      counts[day] += 1;
     }
-    return {label, shortLabel, sum: map[key].sum, count: map[key].count};
   });
-}
-
-function smoothPath(points){
-  if(points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for(let i = 0; i < points.length - 1; i++){
-    const p0 = points[i], p1 = points[i+1];
-    const cpX = (p0.x + p1.x) / 2;
-    d += ` C ${cpX} ${p0.y}, ${cpX} ${p1.y}, ${p1.x} ${p1.y}`;
+  const entries = [];
+  for(let day = 1; day <= daysInMonth; day++){
+    const dateObj = new Date(year, month, day);
+    entries.push({
+      label: dateObj.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'}),
+      shortLabel: String(day),
+      sum: sums[day] || 0,
+      count: counts[day] || 0,
+      isFuture: dateObj > now && day !== now.getDate()
+    });
   }
-  return d;
+  return entries;
 }
 
-function buildDailyChartSVG(entries, currency, boxW, boxH){
-  if(entries.length === 0) return `<div class="managers-note">За выбранный период нет закрытых успешных сделок.</div>`;
-  const W = (boxW && boxW > 100) ? boxW : 700;
-  const h = (boxH && boxH > 60) ? boxH : 230;
-  const padL = 36, padR = 20, padTop = 18, baseline = h - 26;
-  const n = entries.length;
-  const usableW = W - padL - padR;
+function buildCalendarHeatmap(entries, currency){
+  if(entries.length === 0) return `<div class="managers-note">Нет данных за этот месяц.</div>`;
   const maxSum = Math.max(1, ...entries.map(e => e.sum));
-
-  if(n === 1){
-    // одна точка — линию из неё не построить (нечего соединять), рисуем явный столбик
-    const e = entries[0];
-    const ratio = Math.sqrt(e.sum / maxSum);
-    const barH = Math.max(6, ratio * (baseline - padTop));
-    const barW = Math.min(56, usableW * 0.16);
-    const x = padL + usableW / 2 - barW / 2;
-    const y = baseline - barH;
-    return `<svg class="funnel-svg dline-chart" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-      <rect class="dline-single-bar" data-detail="day" data-idx="0" x="${x}" y="${y}" width="${barW}" height="${barH}" rx="6">
-        <title>${e.label}: ${fmtMoney(e.sum, currency)}, сделок: ${e.count}</title>
-      </rect>
-      <text x="${padL + usableW/2}" y="${y - 10}" text-anchor="middle" font-size="13" font-weight="600" font-family="JetBrains Mono, monospace" fill="var(--ink)">${fmtMoney(e.sum, currency)}</text>
-      <text x="${padL + usableW/2}" y="${h-8}" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${e.shortLabel}</text>
-    </svg>`;
-  }
-
-  const points = entries.map((e, i) => {
-    const ratio = Math.sqrt(e.sum / maxSum); // смягчаем шкалу, чтобы один резкий всплеск не приглушал остальные точки
-    const x = padL + (usableW * i) / (n - 1);
-    const y = baseline - ratio * (baseline - padTop);
-    return {x, y, e, i};
-  });
-
-  const linePath = smoothPath(points);
-  const areaPath = `${linePath} L ${points[points.length-1].x} ${baseline} L ${points[0].x} ${baseline} Z`;
-
-  // тонкие горизонтальные направляющие — заполняют пустое пространство визуальной структурой
-  let gridLines = '';
-  const gridRows = 3;
-  for(let g = 1; g <= gridRows; g++){
-    const gy = padTop + ((baseline - padTop) / gridRows) * g;
-    gridLines += `<line class="dline-grid" x1="${padL - 8}" y1="${gy}" x2="${W - padR + 8}" y2="${gy}"></line>`;
-  }
-
-  const showDots = n <= 50; // при большой плотности точек кружки сливаются в «цепочку» — прячем их
-  const spacing = usableW / (n - 1);
-  const hitR = Math.max(2, Math.min(11, spacing / 2));
-  const labelEvery = Math.max(1, Math.ceil(n / Math.max(4, Math.floor(W / 70))));
-  let dots = '', labels = '';
-  points.forEach((p, i) => {
-    if(showDots){
-      dots += `<circle class="dline-dot" cx="${p.x}" cy="${p.y}" r="3"></circle>`;
-    }
-    dots += `<circle class="dline-hit" data-detail="day" data-idx="${i}" cx="${p.x}" cy="${p.y}" r="${hitR.toFixed(1)}" fill="transparent">
-        <title>${p.e.label}: ${fmtMoney(p.e.sum, currency)}, сделок: ${p.e.count}</title>
-      </circle>`;
-    if(i % labelEvery === 0 || i === points.length - 1){
-      const anchor = i === 0 ? 'start' : (i === points.length - 1 ? 'end' : 'middle');
-      labels += `<text x="${p.x}" y="${h-8}" text-anchor="${anchor}" font-size="11" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${p.e.shortLabel}</text>`;
-    }
-  });
-
-  return `<svg class="funnel-svg dline-chart" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-    ${gridLines}
-    <path class="dline-area" d="${areaPath}"></path>
-    <path class="dline-path" d="${linePath}"></path>
-    ${dots}
-    ${labels}
-  </svg>`;
+  const cells = entries.map((e, idx) => {
+    const ratio = e.sum > 0 ? Math.sqrt(e.sum / maxSum) : 0;
+    let style;
+    if(e.isFuture) style = 'background:transparent;';
+    else if(e.sum > 0) style = `background:rgba(198,241,53,${(0.22 + 0.65 * ratio).toFixed(2)});`;
+    else style = 'background:var(--overlay-2);';
+    const cls = ['cal-cell'];
+    if(e.isFuture) cls.push('cal-future');
+    if(e.sum > 0) cls.push('cal-has-sale');
+    const tip = e.sum > 0 ? `${e.label}: ${fmtMoney(e.sum, currency)}, сделок: ${e.count}` : `${e.label}: без продаж`;
+    return `<div class="${cls.join(' ')}" style="${style}" ${e.isFuture ? '' : `data-detail="day" data-idx="${idx}"`} title="${tip}">
+      <span class="cal-daynum">${e.shortLabel}</span>
+    </div>`;
+  }).join('');
+  return `<div class="cal-grid">${cells}</div>`;
 }
+
 
 function animateBars(selector){
   requestAnimationFrame(() => {
@@ -1471,9 +1394,9 @@ async function loadDashboard(){
       ...managerMap[id]
     })).sort((a,b) => b.wonSum - a.wonSum);
 
-    // динамика продаж — кэшируем сырые точки, чтобы можно было переключать группировку без перезагрузки
+    // динамика продаж — календарь всех дней текущего месяца (включая дни без продаж)
     lastWonPoints = wonPoints;
-    const dailyEntries = bucketPoints(wonPoints, chartGranularity);
+    const dailyEntries = buildMonthDays(wonPoints);
 
     // причины отказов — топ стадий, помеченных как провал
     const lostReasons = Object.keys(lostReasonMap)
@@ -1580,7 +1503,7 @@ function renderChartHero(entries, currency){
   `;
   document.getElementById('chartHeroContainer').innerHTML = html;
   const box = document.getElementById('dailyChartBox');
-  if(box) box.innerHTML = buildDailyChartSVG(entries, currency, box.clientWidth, box.clientHeight);
+  if(box) box.innerHTML = buildCalendarHeatmap(entries, currency);
 }
 
 function renderGoalBanner(totalRevenue, currency){
