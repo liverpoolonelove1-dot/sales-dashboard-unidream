@@ -125,7 +125,7 @@
   .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px;}
   .section-title .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);}
 
-  .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow-x:auto;transition:box-shadow .2s ease;}
+  .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow:hidden;transition:box-shadow .2s ease;}
   .daily-chart:hover{box-shadow:0 8px 24px var(--shadow-color);}
   .dline-chart{animation:chartFadeIn .5s ease;}
   @keyframes chartFadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
@@ -1125,9 +1125,11 @@ function smoothPath(points){
   return d;
 }
 
-function buildDailyChartSVG(entries, currency){
+function buildDailyChartSVG(entries, currency, boxW, boxH){
   if(entries.length === 0) return `<div class="managers-note">За выбранный период нет закрытых успешных сделок.</div>`;
-  const W = 400, h = 160, padL = 14, padR = 14, padTop = 16, baseline = h - 28;
+  const W = (boxW && boxW > 100) ? boxW : 700;
+  const h = (boxH && boxH > 60) ? boxH : 230;
+  const padL = 36, padR = 20, padTop = 18, baseline = h - 26;
   const n = entries.length;
   const usableW = W - padL - padR;
   const maxSum = Math.max(1, ...entries.map(e => e.sum));
@@ -1145,7 +1147,7 @@ function buildDailyChartSVG(entries, currency){
   const showDots = n <= 50; // при большой плотности точек кружки сливаются в «цепочку» — прячем их
   const spacing = n > 1 ? usableW / (n - 1) : usableW;
   const hitR = Math.max(2, Math.min(11, spacing / 2));
-  const labelEvery = Math.max(1, Math.ceil(n / 9));
+  const labelEvery = Math.max(1, Math.ceil(n / Math.max(4, Math.floor(W / 70))));
   let dots = '', labels = '';
   points.forEach((p, i) => {
     if(showDots){
@@ -1155,11 +1157,12 @@ function buildDailyChartSVG(entries, currency){
         <title>${p.e.label}: ${fmtMoney(p.e.sum, currency)}, сделок: ${p.e.count}</title>
       </circle>`;
     if(i % labelEvery === 0 || i === points.length - 1){
-      labels += `<text x="${p.x}" y="${h-8}" text-anchor="middle" font-size="9" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${p.e.shortLabel}</text>`;
+      const anchor = i === 0 ? 'start' : (i === points.length - 1 ? 'end' : 'middle');
+      labels += `<text x="${p.x}" y="${h-8}" text-anchor="${anchor}" font-size="11" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${p.e.shortLabel}</text>`;
     }
   });
 
-  return `<svg class="funnel-svg dline-chart" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  return `<svg class="funnel-svg dline-chart" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
     <path class="dline-area" d="${areaPath}"></path>
     <path class="dline-path" d="${linePath}"></path>
     ${dots}
@@ -1468,10 +1471,12 @@ function renderChartHero(entries, currency){
           <button type="button" data-gran="month" class="${chartGranularity === 'month' ? 'active' : ''}">Месяц</button>
         </div>
       </div>
-      <div class="daily-chart chart-hero-chart">${buildDailyChartSVG(entries, currency)}</div>
+      <div class="daily-chart chart-hero-chart" id="dailyChartBox"></div>
     </div>
   `;
   document.getElementById('chartHeroContainer').innerHTML = html;
+  const box = document.getElementById('dailyChartBox');
+  if(box) box.innerHTML = buildDailyChartSVG(entries, currency, box.clientWidth, box.clientHeight);
 }
 
 function renderGoalBanner(totalRevenue, currency){
@@ -1917,7 +1922,7 @@ function updateChartOnly(){
   const entries = bucketPoints(lastWonPoints, chartGranularity);
   const chartEl = document.querySelector('.chart-hero-chart');
   if(chartEl){
-    chartEl.innerHTML = buildDailyChartSVG(entries, currency);
+    chartEl.innerHTML = buildDailyChartSVG(entries, currency, chartEl.clientWidth, chartEl.clientHeight);
   }
   document.querySelectorAll('#chartGranularity button').forEach(b => {
     b.classList.toggle('active', b.dataset.gran === chartGranularity);
