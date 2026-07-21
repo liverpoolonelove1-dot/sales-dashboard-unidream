@@ -129,8 +129,12 @@
  
   .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow-x:auto;transition:box-shadow .2s ease;}
   .daily-chart:hover{box-shadow:0 8px 24px var(--shadow-color);}
-  .dbar{cursor:pointer;transition:height .6s cubic-bezier(.16,1,.3,1), y .6s cubic-bezier(.16,1,.3,1), opacity .15s ease;transform-box:fill-box;}
-  .dbar:hover{opacity:1 !important;}
+  .dline-chart{animation:chartFadeIn .5s ease;}
+  @keyframes chartFadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  .dline-area{fill:var(--accent);opacity:.16;stroke:none;}
+  .dline-path{fill:none;stroke:var(--accent-strong);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+  .dline-dot{fill:var(--surface);stroke:var(--accent-strong);stroke-width:2;pointer-events:none;}
+  .dline-hit{cursor:pointer;}
   .dline{fill:none;stroke:var(--blue);stroke-width:2;opacity:.55;}
  
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
@@ -1107,31 +1111,52 @@ function bucketPoints(points, granularity){
   });
 }
  
+function smoothPath(points){
+  if(points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for(let i = 0; i < points.length - 1; i++){
+    const p0 = points[i], p1 = points[i+1];
+    const cpX = (p0.x + p1.x) / 2;
+    d += ` C ${cpX} ${p0.y}, ${cpX} ${p1.y}, ${p1.x} ${p1.y}`;
+  }
+  return d;
+}
+ 
 function buildDailyChartSVG(entries, currency){
   if(entries.length === 0) return `<div class="managers-note">За выбранный период нет закрытых успешных сделок.</div>`;
-  const W = 400, h = 160, padL = 10, padR = 10, baseline = h - 28;
+  const W = 400, h = 160, padL = 14, padR = 14, padTop = 16, baseline = h - 28;
   const n = entries.length;
-  const gap = 6;
-  const rawBarW = (W - padL - padR - gap * (n - 1)) / n;
-  const barW = Math.min(34, Math.max(4, rawBarW)); // не даём столбикам стать абсурдно широкими при малом числе точек
-  const totalContentW = n * barW + (n - 1) * gap;
-  const startX = (W - totalContentW) / 2; // центрируем, если столбиков мало и они не занимают весь холст
+  const usableW = W - padL - padR;
   const maxSum = Math.max(1, ...entries.map(e => e.sum));
-  let shapes = '';
-  entries.forEach((e, i) => {
+ 
+  const points = entries.map((e, i) => {
     const ratio = e.sum / maxSum;
-    const barH = Math.max(3, ratio * (baseline - 20));
-    const x = startX + i * (barW + gap);
-    const y = baseline - barH;
-    shapes += `<rect class="dbar" data-target-h="${barH}" data-target-y="${y}" data-detail="day" data-idx="${i}"
-        x="${x}" y="${baseline}" width="${barW}" height="0" rx="${Math.min(5, barW/2)}" fill="var(--accent)" opacity="${(0.55 + 0.45*ratio).toFixed(2)}">
-        <title>${e.label}: ${fmtMoney(e.sum, currency)}, сделок: ${e.count}</title>
-      </rect>`;
-    if(barW >= 12){
-      shapes += `<text x="${x + barW/2}" y="${h-8}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${e.shortLabel}</text>`;
+    const x = n > 1 ? padL + (usableW * i) / (n - 1) : padL + usableW / 2;
+    const y = baseline - ratio * (baseline - padTop);
+    return {x, y, e, i};
+  });
+ 
+  const linePath = smoothPath(points);
+  const areaPath = `${linePath} L ${points[points.length-1].x} ${baseline} L ${points[0].x} ${baseline} Z`;
+ 
+  const labelEvery = Math.max(1, Math.ceil(n / 9));
+  let dots = '', labels = '';
+  points.forEach((p, i) => {
+    dots += `<circle class="dline-dot" cx="${p.x}" cy="${p.y}" r="3"></circle>
+      <circle class="dline-hit" data-detail="day" data-idx="${i}" cx="${p.x}" cy="${p.y}" r="11" fill="transparent">
+        <title>${p.e.label}: ${fmtMoney(p.e.sum, currency)}, сделок: ${p.e.count}</title>
+      </circle>`;
+    if(i % labelEvery === 0 || i === points.length - 1){
+      labels += `<text x="${p.x}" y="${h-8}" text-anchor="middle" font-size="9" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${p.e.shortLabel}</text>`;
     }
   });
-  return `<svg class="funnel-svg" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">${shapes}</svg>`;
+ 
+  return `<svg class="funnel-svg dline-chart" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path class="dline-area" d="${areaPath}"></path>
+    <path class="dline-path" d="${linePath}"></path>
+    ${dots}
+    ${labels}
+  </svg>`;
 }
  
 function animateBars(selector){
@@ -1587,7 +1612,6 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
  
   content.innerHTML = html;
   animateBars('.bar');
-  animateBars('.dbar');
   animateCountUps();
   requestAnimationFrame(() => {
     document.querySelectorAll('.mini-gauge-progress').forEach(el => {
@@ -1879,7 +1903,6 @@ function updateChartOnly(){
   const chartEl = document.querySelector('.tile-chart .daily-chart');
   if(chartEl){
     chartEl.innerHTML = buildDailyChartSVG(entries, currency);
-    animateBars('.dbar');
   }
   document.querySelectorAll('#chartGranularity button').forEach(b => {
     b.classList.toggle('active', b.dataset.gran === chartGranularity);
