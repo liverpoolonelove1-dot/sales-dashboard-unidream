@@ -63,7 +63,12 @@
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
   #chartHeroContainer{flex:none;min-height:0;overflow:hidden;}
   .chart-hero{padding:18px 22px;margin-bottom:12px;flex:none;display:flex;flex-direction:column;height:200px;box-sizing:border-box;}
-  .chart-hero-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;margin-bottom:12px;}
+  .chart-hero-head{display:flex;align-items:center;justify-content:space-between;gap:24px;flex:none;margin-bottom:12px;flex-wrap:wrap;}
+  .chart-hero-stats{display:flex;gap:24px;flex-wrap:wrap;}
+  .chart-hero-stats > div{display:flex;flex-direction:column;}
+  .chart-hero-stat-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);}
+  .chart-hero-stat-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin-top:2px;}
+  .chart-hero-stat-note{font-size:10px;color:var(--ink-soft);margin-top:1px;}
   .chart-hero-head .section-title{margin-bottom:0;font-size:18px;}
   .chart-hero-chart{flex:1;min-height:0;}
   .chart-granularity{display:flex;gap:4px;}
@@ -133,7 +138,8 @@
   .daily-chart:hover{box-shadow:0 8px 24px var(--shadow-color);}
   .dline-chart{animation:chartFadeIn .5s ease;}
   @keyframes chartFadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
-  .dline-area{fill:var(--accent);opacity:.16;stroke:none;}
+  .dline-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4;}
+  .dline-area{fill:var(--accent);opacity:.22;stroke:none;}
   .dline-path{fill:none;stroke:var(--accent-strong);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
   .dline-dot{fill:var(--surface);stroke:var(--accent-strong);stroke-width:2;pointer-events:none;}
   .dline-hit{cursor:pointer;}
@@ -1160,6 +1166,14 @@ function buildDailyChartSVG(entries, currency, boxW, boxH){
   const linePath = smoothPath(points);
   const areaPath = `${linePath} L ${points[points.length-1].x} ${baseline} L ${points[0].x} ${baseline} Z`;
 
+  // тонкие горизонтальные направляющие — заполняют пустое пространство визуальной структурой
+  let gridLines = '';
+  const gridRows = 3;
+  for(let g = 1; g <= gridRows; g++){
+    const gy = padTop + ((baseline - padTop) / gridRows) * g;
+    gridLines += `<line class="dline-grid" x1="${padL - 8}" y1="${gy}" x2="${W - padR + 8}" y2="${gy}"></line>`;
+  }
+
   const showDots = n <= 50; // при большой плотности точек кружки сливаются в «цепочку» — прячем их
   const spacing = n > 1 ? usableW / (n - 1) : usableW;
   const hitR = Math.max(2, Math.min(11, spacing / 2));
@@ -1179,6 +1193,7 @@ function buildDailyChartSVG(entries, currency, boxW, boxH){
   });
 
   return `<svg class="funnel-svg dline-chart" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+    ${gridLines}
     <path class="dline-area" d="${areaPath}"></path>
     <path class="dline-path" d="${linePath}"></path>
     ${dots}
@@ -1507,15 +1522,25 @@ async function loadDashboard(){
 }
 
 function renderChartHero(entries, currency){
+  let statsHtml = '';
+  if(entries.length > 0){
+    const withSales = entries.filter(e => e.sum > 0);
+    const best = entries.reduce((a, e) => (e.sum > a.sum ? e : a), entries[0]);
+    const avgPerDay = withSales.length > 0
+      ? withSales.reduce((a, e) => a + e.sum, 0) / withSales.length
+      : 0;
+    statsHtml = `
+      <div class="chart-hero-stats">
+        <div><span class="chart-hero-stat-label">Лучший день</span><span class="chart-hero-stat-value">${fmtMoney(best.sum, currency)}</span><span class="chart-hero-stat-note">${best.label}</span></div>
+        <div><span class="chart-hero-stat-label">В среднем в день с продажами</span><span class="chart-hero-stat-value">${fmtMoney(avgPerDay, currency)}</span></div>
+      </div>
+    `;
+  }
   const html = `
     <div class="fcard chart-hero">
       <div class="chart-hero-head">
-        <p class="section-title">Динамика продаж · этот месяц</p>
-        <div class="chart-granularity" id="chartGranularity">
-          <button type="button" data-gran="day" class="${chartGranularity === 'day' ? 'active' : ''}">День</button>
-          <button type="button" data-gran="week" class="${chartGranularity === 'week' ? 'active' : ''}">Неделя</button>
-          <button type="button" data-gran="month" class="${chartGranularity === 'month' ? 'active' : ''}">Месяц</button>
-        </div>
+        <p class="section-title">Динамика продаж · по дням этого месяца</p>
+        ${statsHtml}
       </div>
       <div class="daily-chart chart-hero-chart" id="dailyChartBox"></div>
     </div>
@@ -1965,26 +1990,6 @@ disconnectBtn.addEventListener('click', () => {
   statusLine.className = 'status-line';
   statusLine.textContent = 'Подключение забыто — введите данные заново.';
   showLanding();
-});
-
-function updateChartOnly(){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  const entries = bucketPoints(lastWonPoints, chartGranularity);
-  const chartEl = document.querySelector('.chart-hero-chart');
-  if(chartEl){
-    chartEl.innerHTML = buildDailyChartSVG(entries, currency, chartEl.clientWidth, chartEl.clientHeight);
-  }
-  document.querySelectorAll('#chartGranularity button').forEach(b => {
-    b.classList.toggle('active', b.dataset.gran === chartGranularity);
-  });
-  lastDailyEntries = entries;
-}
-
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('#chartGranularity button');
-  if(!btn) return;
-  chartGranularity = btn.dataset.gran;
-  updateChartOnly();
 });
 
 function rerenderCached(){
