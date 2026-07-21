@@ -511,6 +511,7 @@ let lastFunnels = [];
 let lastManagers = [];
 let lastDailyEntries = [];
 let lastNamesResolved = true;
+let lastNamesErrorMsg = '';
 let lastHasManagers = false;
 let lastLostReasons = [];
 let lastBestDeal = null;
@@ -850,9 +851,9 @@ async function fetchDealsForCategory(webhook, categoryId, period){
 }
 
 async function fetchUserNames(webhook, ids){
-  const data = await callMethod(webhook, 'user.get', {FILTER: {'@ID': ids}});
+  const raw = await fetchAllPaged(webhook, 'user.get', {});
   const map = {};
-  (data.result || []).forEach(u => {
+  (raw || []).forEach(u => {
     const name = `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim();
     map[u.ID] = name || `Сотрудник ID ${u.ID}`;
   });
@@ -1413,11 +1414,13 @@ async function loadDashboard(){
     const managerIds = Object.keys(managerMap).filter(id => id !== 'unknown');
     let nameMap = {};
     let namesResolved = true;
+    let namesErrorMsg = '';
     if(managerIds.length > 0){
       try{
         nameMap = await adapter.fetchUserNames(conn, managerIds);
       }catch(e){
         namesResolved = false;
+        namesErrorMsg = e.message || String(e);
       }
     }
     const managers = Object.keys(managerMap).map(id => ({
@@ -1453,6 +1456,7 @@ async function loadDashboard(){
     lastManagers = managers;
     lastDailyEntries = dailyEntries;
     lastNamesResolved = namesResolved;
+    lastNamesErrorMsg = namesErrorMsg;
     lastHasManagers = managerIds.length > 0;
     lastLostReasons = lostReasons;
 
@@ -1621,7 +1625,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <p class="section-title">По менеджерам</p>
         <div class="managers-wrap tile-body-scroll">
           ${rows}
-          ${namesResolved ? '' : '<div class="managers-note">Не удалось получить имена сотрудников — добавьте вебхуку право доступа <b>user</b> (Пользователи), пока показаны ID.</div>'}
+          ${namesResolved ? '' : `<div class="managers-note">Не удалось получить имена сотрудников${lastNamesErrorMsg ? ': ' + lastNamesErrorMsg : ''} — показаны ID.</div>`}
         </div>
       </div>
     `;
