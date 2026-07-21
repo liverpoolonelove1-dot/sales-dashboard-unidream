@@ -62,8 +62,11 @@
   .tile .section-title{flex:none;margin-bottom:8px;}
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
   #chartHeroContainer{flex:none;min-height:0;overflow:hidden;}
-  .chart-hero{padding:18px 22px;margin-bottom:12px;flex:none;display:flex;flex-direction:column;height:200px;box-sizing:border-box;}
-  .chart-hero-head{display:flex;align-items:center;justify-content:space-between;gap:24px;flex:none;margin-bottom:12px;flex-wrap:wrap;}
+  .chart-hero{padding:18px 22px;margin-bottom:12px;flex:none;display:flex;flex-direction:column;height:250px;box-sizing:border-box;}
+  .chart-hero-top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex:none;margin-bottom:14px;flex-wrap:wrap;}
+  .chart-hero-summary .section-title{margin-bottom:6px;}
+  .chart-hero-total{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:34px;letter-spacing:-0.01em;line-height:1;}
+  .chart-hero-total-note{font-size:12px;color:var(--ink-soft);margin-top:6px;}
   .chart-hero-stats{display:flex;gap:24px;flex-wrap:wrap;}
   .chart-hero-stats > div{display:flex;flex-direction:column;}
   .chart-hero-stat-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);}
@@ -139,6 +142,7 @@
   .dline-chart{animation:chartFadeIn .5s ease;}
   @keyframes chartFadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
   .dline-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:3 4;}
+  .dline-single-bar{fill:var(--accent-strong);cursor:pointer;}
   .dline-area{fill:var(--accent);opacity:.22;stroke:none;}
   .dline-path{fill:none;stroke:var(--accent-strong);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
   .dline-dot{fill:var(--surface);stroke:var(--accent-strong);stroke-width:2;pointer-events:none;}
@@ -1156,9 +1160,26 @@ function buildDailyChartSVG(entries, currency, boxW, boxH){
   const usableW = W - padL - padR;
   const maxSum = Math.max(1, ...entries.map(e => e.sum));
 
+  if(n === 1){
+    // одна точка — линию из неё не построить (нечего соединять), рисуем явный столбик
+    const e = entries[0];
+    const ratio = Math.sqrt(e.sum / maxSum);
+    const barH = Math.max(6, ratio * (baseline - padTop));
+    const barW = Math.min(56, usableW * 0.16);
+    const x = padL + usableW / 2 - barW / 2;
+    const y = baseline - barH;
+    return `<svg class="funnel-svg dline-chart" viewBox="0 0 ${W} ${h}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <rect class="dline-single-bar" data-detail="day" data-idx="0" x="${x}" y="${y}" width="${barW}" height="${barH}" rx="6">
+        <title>${e.label}: ${fmtMoney(e.sum, currency)}, сделок: ${e.count}</title>
+      </rect>
+      <text x="${padL + usableW/2}" y="${y - 10}" text-anchor="middle" font-size="13" font-weight="600" font-family="JetBrains Mono, monospace" fill="var(--ink)">${fmtMoney(e.sum, currency)}</text>
+      <text x="${padL + usableW/2}" y="${h-8}" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="var(--ink-soft)">${e.shortLabel}</text>
+    </svg>`;
+  }
+
   const points = entries.map((e, i) => {
     const ratio = Math.sqrt(e.sum / maxSum); // смягчаем шкалу, чтобы один резкий всплеск не приглушал остальные точки
-    const x = n > 1 ? padL + (usableW * i) / (n - 1) : padL + usableW / 2;
+    const x = padL + (usableW * i) / (n - 1);
     const y = baseline - ratio * (baseline - padTop);
     return {x, y, e, i};
   });
@@ -1175,7 +1196,7 @@ function buildDailyChartSVG(entries, currency, boxW, boxH){
   }
 
   const showDots = n <= 50; // при большой плотности точек кружки сливаются в «цепочку» — прячем их
-  const spacing = n > 1 ? usableW / (n - 1) : usableW;
+  const spacing = usableW / (n - 1);
   const hitR = Math.max(2, Math.min(11, spacing / 2));
   const labelEvery = Math.max(1, Math.ceil(n / Math.max(4, Math.floor(W / 70))));
   let dots = '', labels = '';
@@ -1521,14 +1542,21 @@ async function loadDashboard(){
   }
 }
 
+function pluralDays(n){
+  const n10 = n % 10, n100 = n % 100;
+  if(n10 === 1 && n100 !== 11) return 'день';
+  if([2,3,4].includes(n10) && ![12,13,14].includes(n100)) return 'дня';
+  return 'дней';
+}
+
 function renderChartHero(entries, currency){
+  const totalMonthSum = entries.reduce((a, e) => a + e.sum, 0);
+  const withSales = entries.filter(e => e.sum > 0);
+
   let statsHtml = '';
-  if(entries.length > 0){
-    const withSales = entries.filter(e => e.sum > 0);
+  if(entries.length > 0 && withSales.length > 0){
     const best = entries.reduce((a, e) => (e.sum > a.sum ? e : a), entries[0]);
-    const avgPerDay = withSales.length > 0
-      ? withSales.reduce((a, e) => a + e.sum, 0) / withSales.length
-      : 0;
+    const avgPerDay = withSales.reduce((a, e) => a + e.sum, 0) / withSales.length;
     statsHtml = `
       <div class="chart-hero-stats">
         <div><span class="chart-hero-stat-label">Лучший день</span><span class="chart-hero-stat-value">${fmtMoney(best.sum, currency)}</span><span class="chart-hero-stat-note">${best.label}</span></div>
@@ -1536,10 +1564,15 @@ function renderChartHero(entries, currency){
       </div>
     `;
   }
+
   const html = `
     <div class="fcard chart-hero">
-      <div class="chart-hero-head">
-        <p class="section-title">Динамика продаж · по дням этого месяца</p>
+      <div class="chart-hero-top">
+        <div class="chart-hero-summary">
+          <p class="section-title">Динамика продаж</p>
+          <div class="chart-hero-total">${fmtMoney(totalMonthSum, currency)}</div>
+          <div class="chart-hero-total-note">итого в этом месяце · ${withSales.length} ${pluralDays(withSales.length)} с продажами</div>
+        </div>
         ${statsHtml}
       </div>
       <div class="daily-chart chart-hero-chart" id="dailyChartBox"></div>
@@ -1672,7 +1705,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     ? `<div class="fcard tile tile-loss">${buildLossReasonsSection(lostReasons)}</div>`
     : '';
 
-  renderChartHero(dailyEntries, currency);
+  renderChartHero(dailyEntries, lastMonthCurrency || currency);
 
   const monthWinRate = (lastMonthWonCount + lastMonthLostCount) > 0
     ? Math.round(100 * lastMonthWonCount / (lastMonthWonCount + lastMonthLostCount))
