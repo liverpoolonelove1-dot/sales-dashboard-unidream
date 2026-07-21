@@ -61,7 +61,8 @@
   .tile{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
   .tile .section-title{flex:none;margin-bottom:8px;}
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
-  .chart-hero{padding:24px 28px;margin-bottom:16px;flex:none;display:flex;flex-direction:column;height:340px;box-sizing:border-box;}
+  #chartHeroContainer{flex:none;min-height:0;overflow:hidden;}
+  .chart-hero{padding:20px 24px;margin-bottom:14px;flex:none;display:flex;flex-direction:column;height:230px;box-sizing:border-box;}
   .chart-hero-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;margin-bottom:12px;}
   .chart-hero-head .section-title{margin-bottom:0;font-size:18px;}
   .chart-hero-chart{flex:1;min-height:0;}
@@ -670,11 +671,15 @@ const dashboardView = document.getElementById('dashboardView');
 function showLanding(){
   landingView.style.display = 'block';
   dashboardView.style.display = 'none';
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
 }
 
 function showDashboard(){
   landingView.style.display = 'none';
   dashboardView.style.display = 'block';
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
 }
 
 settingsBtn.addEventListener('click', () => {
@@ -1094,12 +1099,12 @@ function bucketPoints(points, granularity){
     let label, shortLabel;
     if(granularity === 'day'){
       const d = new Date(key);
-      label = d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
-      shortLabel = key.slice(8,10);
+      label = d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
+      shortLabel = key.slice(8,10) + '.' + key.slice(5,7) + '.' + key.slice(2,4);
     } else if(granularity === 'week'){
       const d = new Date(key);
-      label = 'неделя с ' + d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
-      shortLabel = key.slice(8,10) + '.' + key.slice(5,7);
+      label = 'неделя с ' + d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit', year:'numeric'});
+      shortLabel = key.slice(8,10) + '.' + key.slice(5,7) + '.' + key.slice(2,4);
     } else {
       const d = new Date(key + '-01');
       label = d.toLocaleDateString('ru-RU', {month:'short', year:'numeric'});
@@ -1128,7 +1133,7 @@ function buildDailyChartSVG(entries, currency){
   const maxSum = Math.max(1, ...entries.map(e => e.sum));
 
   const points = entries.map((e, i) => {
-    const ratio = e.sum / maxSum;
+    const ratio = Math.sqrt(e.sum / maxSum); // смягчаем шкалу, чтобы один резкий всплеск не приглушал остальные точки
     const x = n > 1 ? padL + (usableW * i) / (n - 1) : padL + usableW / 2;
     const y = baseline - ratio * (baseline - padTop);
     return {x, y, e, i};
@@ -1137,11 +1142,16 @@ function buildDailyChartSVG(entries, currency){
   const linePath = smoothPath(points);
   const areaPath = `${linePath} L ${points[points.length-1].x} ${baseline} L ${points[0].x} ${baseline} Z`;
 
+  const showDots = n <= 50; // при большой плотности точек кружки сливаются в «цепочку» — прячем их
+  const spacing = n > 1 ? usableW / (n - 1) : usableW;
+  const hitR = Math.max(2, Math.min(11, spacing / 2));
   const labelEvery = Math.max(1, Math.ceil(n / 9));
   let dots = '', labels = '';
   points.forEach((p, i) => {
-    dots += `<circle class="dline-dot" cx="${p.x}" cy="${p.y}" r="3"></circle>
-      <circle class="dline-hit" data-detail="day" data-idx="${i}" cx="${p.x}" cy="${p.y}" r="11" fill="transparent">
+    if(showDots){
+      dots += `<circle class="dline-dot" cx="${p.x}" cy="${p.y}" r="3"></circle>`;
+    }
+    dots += `<circle class="dline-hit" data-detail="day" data-idx="${i}" cx="${p.x}" cy="${p.y}" r="${hitR.toFixed(1)}" fill="transparent">
         <title>${p.e.label}: ${fmtMoney(p.e.sum, currency)}, сделок: ${p.e.count}</title>
       </circle>`;
     if(i % labelEvery === 0 || i === points.length - 1){
