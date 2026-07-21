@@ -126,6 +126,7 @@
   .delta.flat{color:var(--ink-soft);background:var(--overlay-1);}
 
   .section-title{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px;}
+  .period-sub-note{font-size:11px;color:var(--ink-soft);margin:-6px 0 12px;}
   .section-title .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);}
 
   .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow:hidden;transition:box-shadow .2s ease;}
@@ -518,8 +519,11 @@ let lastBestDeal = null;
 let lastMonthRevenue = 0;
 let lastMonthCurrency = '';
 let lastPrevMonthRevenue = 0;
+let lastMonthDealsTotal = 0;
+let lastMonthWonCount = 0;
+let lastMonthLostCount = 0;
 let lastWonPoints = [];
-let chartGranularity = 'week'; // 'day' | 'week' | 'month' — группировка мини-графика продаж
+let chartGranularity = 'day'; // 'day' | 'week' | 'month' — группировка мини-графика продаж (данные всегда за текущий месяц)
 const GOAL_MAX = 1e15; // защита от случайно введённых лишних нулей
 let autoRefreshTimer = null;
 let hasLoadedOnce = false;
@@ -971,14 +975,16 @@ function fmtMoney(n, currency){
   return `${num}${currency ? ' ' + currency : ''}`;
 }
 
-function deltaBadge(current, prev, hasPrev){
+function deltaBadge(current, prev, hasPrev, label){
+  label = label || 'прошлому периоду';
   if(!hasPrev) return '';
-  if(prev === 0 && current === 0) return `<div class="delta flat">— нет данных за прошлый период</div>`;
-  if(prev === 0) return `<div class="delta up">▲ новые продажи (прошлый период пуст)</div>`;
+  if(prev === 0 && current === 0) return `<div class="delta flat">— нет данных за ${label}</div>`;
+  if(prev === 0) return `<div class="delta up">▲ новые продажи (${label} пуст)</div>`;
   const pct = Math.round(((current - prev) / prev) * 100);
-  if(pct > 0) return `<div class="delta up">▲ +${pct}% к прошлому периоду</div>`;
-  if(pct < 0) return `<div class="delta down">▼ ${pct}% к прошлому периоду</div>`;
-  return `<div class="delta flat">— без изменений к прошлому периоду</div>`;
+  const shown = Math.abs(pct) > 999 ? (pct > 0 ? '999+' : '-999') : pct;
+  if(pct > 0) return `<div class="delta up">▲ +${shown}% к ${label}</div>`;
+  if(pct < 0) return `<div class="delta down">▼ ${shown}% к ${label}</div>`;
+  return `<div class="delta flat">— без изменений к ${label}</div>`;
 }
 
 function computeForecast(period, revenue){
@@ -1304,6 +1310,7 @@ async function loadDashboard(){
     let bestDeal = null;     // самая крупная выигранная сделка за период
     let monthRevenue = 0, monthCurrency = ''; // продажи за текущий месяц — не зависят от выбранного периода
     let prevMonthRevenue = 0;
+    let monthDealsTotal = 0, monthWonCount = 0, monthLostCount = 0;
     const isAllTime = currentPeriod.type === 'all';
     const now = Date.now();
 
@@ -1323,11 +1330,17 @@ async function loadDashboard(){
       const stageOrder = results[0], deals = results[1], monthDeals = results[2], prevMonthDeals = results[3];
       const prevDeals = prevPeriod ? results[4] : [];
 
+      monthDealsTotal += monthDeals.length;
       monthDeals.forEach(d => {
         if(d.semantic === 'S'){
           monthRevenue += (d.amount || 0);
           monthCurrency = d.currency || monthCurrency;
+          monthWonCount += 1;
+          // динамика продаж всегда строится по текущему месяцу, независимо от выбранного периода
+          const rawDate = d.closedAt || d.createdAt;
+          if(rawDate) wonPoints.push({date: rawDate, amount: d.amount || 0});
         }
+        if(d.semantic === 'F') monthLostCount += 1;
       });
       prevMonthDeals.forEach(d => {
         if(d.semantic === 'S') prevMonthRevenue += (d.amount || 0);
@@ -1361,9 +1374,6 @@ async function loadDashboard(){
           if(!bestDeal || amount > bestDeal.amount){
             bestDeal = {amount, funnelName: fn.name, currency: d.currency || currency};
           }
-          // динамика продаж — сохраняем сырую точку, группировка (день/неделя/месяц) считается отдельно
-          const rawDate = d.closedAt || d.createdAt;
-          if(rawDate) wonPoints.push({date: rawDate, amount});
         }
         if(d.semantic === 'F'){
           lostCount += 1; managerMap[mgr].lostCount += 1;
@@ -1460,6 +1470,9 @@ async function loadDashboard(){
     lastMonthRevenue = monthRevenue;
     lastMonthCurrency = monthCurrency;
     lastPrevMonthRevenue = prevMonthRevenue;
+    lastMonthDealsTotal = monthDealsTotal;
+    lastMonthWonCount = monthWonCount;
+    lastMonthLostCount = monthLostCount;
     renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
 
     if(dupPairs.length > 0){
@@ -1497,7 +1510,7 @@ function renderChartHero(entries, currency){
   const html = `
     <div class="fcard chart-hero">
       <div class="chart-hero-head">
-        <p class="section-title">Динамика продаж</p>
+        <p class="section-title">Динамика продаж · этот месяц</p>
         <div class="chart-granularity" id="chartGranularity">
           <button type="button" data-gran="day" class="${chartGranularity === 'day' ? 'active' : ''}">День</button>
           <button type="button" data-gran="week" class="${chartGranularity === 'week' ? 'active' : ''}">Неделя</button>
@@ -1636,28 +1649,33 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
 
   renderChartHero(dailyEntries, currency);
 
+  const monthWinRate = (lastMonthWonCount + lastMonthLostCount) > 0
+    ? Math.round(100 * lastMonthWonCount / (lastMonthWonCount + lastMonthLostCount))
+    : 0;
+
   const html = `
     <div class="kpis kpis-row">
       <div class="kpi" data-detail="kpi-revenue">
         <div class="label">Продажи (выиграно) · этот месяц</div>
         <div class="value" data-countup="${lastMonthRevenue}" data-suffix=" ${lastMonthCurrency || currency}">0 ${lastMonthCurrency || currency}</div>
-        ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, true)}
+        ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, true, 'прошлому месяцу')}
       </div>
-      <div class="kpi" data-detail="kpi-deals"><div class="label">Сделок всего</div><div class="value" data-countup="${totalDeals}">0</div></div>
-      <div class="kpi" data-detail="kpi-won"><div class="label">Выиграно сделок</div><div class="value" data-countup="${totalWon}">0</div></div>
+      <div class="kpi" data-detail="kpi-deals"><div class="label">Сделок всего · этот месяц</div><div class="value" data-countup="${lastMonthDealsTotal}">0</div></div>
+      <div class="kpi" data-detail="kpi-won"><div class="label">Выиграно сделок · этот месяц</div><div class="value" data-countup="${lastMonthWonCount}">0</div></div>
       <div class="kpi kpi-gauge" data-detail="kpi-conv">
-        <div class="label">Конверсия в продажу</div>
-        <div class="value" data-countup="${winRate}" data-suffix-html="<small>%</small>">0<small>%</small></div>
+        <div class="label">Конверсия · этот месяц</div>
+        <div class="value" data-countup="${monthWinRate}" data-suffix-html="<small>%</small>">0<small>%</small></div>
         <svg class="mini-gauge" viewBox="0 0 44 44">
           <circle class="mini-gauge-track" cx="22" cy="22" r="18"></circle>
           <circle class="mini-gauge-progress" cx="22" cy="22" r="18"
             stroke-dasharray="${(2*Math.PI*18).toFixed(1)}" stroke-dashoffset="${(2*Math.PI*18).toFixed(1)}"
-            data-target-offset="${(2*Math.PI*18*(1-winRate/100)).toFixed(1)}"></circle>
+            data-target-offset="${(2*Math.PI*18*(1-monthWinRate/100)).toFixed(1)}"></circle>
         </svg>
       </div>
     </div>
 
     <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
+    <p class="period-sub-note">Воронки, менеджеры и причины отказов ниже показывают период, выбранный в фильтре выше; KPI сверху и график динамики — всегда за текущий месяц.</p>
     <div class="dash-tiles">${funnelCards}${managersHtml}${lossHtml}${reportTiles}</div>
   `;
 
