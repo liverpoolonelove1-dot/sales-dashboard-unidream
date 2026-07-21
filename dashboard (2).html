@@ -51,13 +51,13 @@
   .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px;position:relative;}
   #landingView{min-height:calc(100vh - 96px);display:flex;flex-direction:column;justify-content:center;}
 
-  .dash-wrap{max-width:none;margin:0;height:100vh;box-sizing:border-box;padding:20px 32px;display:flex;flex-direction:column;gap:16px;overflow:hidden;}
+  .dash-wrap{max-width:none;margin:0;height:auto;min-height:100vh;box-sizing:border-box;padding:20px 32px;display:flex;flex-direction:column;gap:16px;overflow:visible;}
   .dash-wrap #content{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
   .dash-wrap footer{flex:none;margin-top:0;}
   .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning, .dash-wrap #goalBannerContainer{flex:none;}
 
   .kpis-row{flex:none;}
-  .dash-tiles{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:136px;grid-auto-flow:dense;gap:10px;align-content:start;padding-right:6px;}
+  .dash-tiles{display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:136px;grid-auto-flow:dense;gap:10px;align-content:start;}
   .tile{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
   .tile .section-title{flex:none;margin-bottom:8px;}
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
@@ -515,6 +515,9 @@ let lastNamesErrorMsg = '';
 let lastHasManagers = false;
 let lastLostReasons = [];
 let lastBestDeal = null;
+let lastMonthRevenue = 0;
+let lastMonthCurrency = '';
+let lastPrevMonthRevenue = 0;
 let lastWonPoints = [];
 let chartGranularity = 'week'; // 'day' | 'week' | 'month' — группировка мини-графика продаж
 const GOAL_MAX = 1e15; // защита от случайно введённых лишних нулей
@@ -682,36 +685,12 @@ const dashboardView = document.getElementById('dashboardView');
 function showLanding(){
   landingView.style.display = 'block';
   dashboardView.style.display = 'none';
-  document.documentElement.style.overflow = '';
-  document.body.style.overflow = '';
-}
-
-function isWideScreen(){
-  return window.matchMedia('(min-width: 861px)').matches;
 }
 
 function showDashboard(){
   landingView.style.display = 'none';
   dashboardView.style.display = 'block';
-  if(isWideScreen()){
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-  } else {
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
-  }
 }
-
-window.addEventListener('resize', () => {
-  if(dashboardView.style.display === 'none') return;
-  if(isWideScreen()){
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-  } else {
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
-  }
-});
 
 settingsBtn.addEventListener('click', () => {
   const onDashboard = dashboardView.style.display !== 'none';
@@ -1316,10 +1295,15 @@ async function loadDashboard(){
       : allFunnels;
 
     const prevPeriod = computePrevPeriod(currentPeriod);
+    const thisMonthRange = computePeriod('month');
+    const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
+    const prevMonthRange = computePrevPeriod(thisMonthPeriod);
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
     const lostReasonMap = {}; // stageName -> {count, sum} — причины отказов
     const wonPoints = [];     // {date, amount} по каждой выигранной сделке — для гибкого графика
     let bestDeal = null;     // самая крупная выигранная сделка за период
+    let monthRevenue = 0, monthCurrency = ''; // продажи за текущий месяц — не зависят от выбранного периода
+    let prevMonthRevenue = 0;
     const isAllTime = currentPeriod.type === 'all';
     const now = Date.now();
 
@@ -1330,12 +1314,24 @@ async function loadDashboard(){
 
       const promises = [
         adapter.fetchStages(conn, fn.id),
-        adapter.fetchDeals(conn, fn.id, currentPeriod)
+        adapter.fetchDeals(conn, fn.id, currentPeriod),
+        adapter.fetchDeals(conn, fn.id, thisMonthPeriod),
+        adapter.fetchDeals(conn, fn.id, prevMonthRange)
       ];
       if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod));
       const results = await Promise.all(promises);
-      const stageOrder = results[0], deals = results[1];
-      const prevDeals = prevPeriod ? results[2] : [];
+      const stageOrder = results[0], deals = results[1], monthDeals = results[2], prevMonthDeals = results[3];
+      const prevDeals = prevPeriod ? results[4] : [];
+
+      monthDeals.forEach(d => {
+        if(d.semantic === 'S'){
+          monthRevenue += (d.amount || 0);
+          monthCurrency = d.currency || monthCurrency;
+        }
+      });
+      prevMonthDeals.forEach(d => {
+        if(d.semantic === 'S') prevMonthRevenue += (d.amount || 0);
+      });
 
       const stageMap = {};
       stageOrder.forEach(s => stageMap[s.id] = {name: s.name, count: 0, sum: 0, semantic: 'P', ageSum: 0, ageCount: 0});
@@ -1461,6 +1457,9 @@ async function loadDashboard(){
     lastLostReasons = lostReasons;
 
     lastBestDeal = bestDeal;
+    lastMonthRevenue = monthRevenue;
+    lastMonthCurrency = monthCurrency;
+    lastPrevMonthRevenue = prevMonthRevenue;
     renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
 
     if(dupPairs.length > 0){
@@ -1640,10 +1639,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const html = `
     <div class="kpis kpis-row">
       <div class="kpi" data-detail="kpi-revenue">
-        <div class="label">Продажи (выиграно)</div>
-        <div class="value" data-countup="${totalRevenue}" data-suffix=" ${currency}">0 ${currency}</div>
-        ${deltaBadge(totalRevenue, totalPrevRevenue, hasPrev)}
-        ${forecastLine(totalRevenue, currency)}
+        <div class="label">Продажи (выиграно) · этот месяц</div>
+        <div class="value" data-countup="${lastMonthRevenue}" data-suffix=" ${lastMonthCurrency || currency}">0 ${lastMonthCurrency || currency}</div>
+        ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, true)}
       </div>
       <div class="kpi" data-detail="kpi-deals"><div class="label">Сделок всего</div><div class="value" data-countup="${totalDeals}">0</div></div>
       <div class="kpi" data-detail="kpi-won"><div class="label">Выиграно сделок</div><div class="value" data-countup="${totalWon}">0</div></div>
