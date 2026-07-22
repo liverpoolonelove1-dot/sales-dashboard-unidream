@@ -336,6 +336,36 @@
   .toolbar2 select{border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:11.5px;color:var(--ink-soft);background:var(--surface);cursor:pointer;}
 
   .theme-toggle{position:fixed;top:20px;right:20px;width:38px;height:38px;border:none;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;transition:background .15s ease, transform .15s ease;z-index:50;padding:0;}
+
+  .assistant-toggle{position:fixed;bottom:20px;left:20px;width:52px;height:52px;border-radius:50%;border:none;background:var(--ink);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 24px var(--shadow-color);z-index:90;transition:transform .15s ease;}
+  .assistant-toggle:hover{transform:scale(1.06);}
+  .assistant-toggle svg{width:24px;height:24px;}
+  .assistant-badge{position:absolute;top:-2px;right:-2px;background:var(--red-bad);color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-family:'JetBrains Mono',monospace;}
+  .assistant-panel{position:fixed;bottom:82px;left:20px;width:340px;max-height:70vh;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);z-index:95;display:flex;flex-direction:column;animation:modalIn .18s cubic-bezier(.16,1,.3,1);}
+  .assistant-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;flex:none;}
+  .assistant-close{background:var(--overlay-1);border:none;width:26px;height:26px;border-radius:50%;font-size:12px;cursor:pointer;color:var(--ink-soft);flex:none;}
+  .assistant-close:hover{background:var(--overlay-2);color:var(--ink);}
+  .assistant-body{padding:14px 16px;overflow-y:auto;flex:1;min-height:0;}
+  .assistant-section-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:12px 0 8px;}
+  .assistant-section-label:first-child{margin-top:0;}
+  .assistant-insights{display:flex;flex-direction:column;gap:8px;}
+  .assistant-insight{padding:9px 10px;border-radius:10px;font-size:12px;line-height:1.4;border:1px solid var(--line);}
+  .assistant-insight.bad{background:#FEF2F2;border-color:#FCA5A5;color:#7F1D1D;}
+  html[data-theme="dark"] .assistant-insight.bad{background:#3A1717;border-color:#7F1D1D;color:#FCA5A5;}
+  .assistant-insight.good{background:#F0FDF4;border-color:#86EFAC;color:#14532D;}
+  html[data-theme="dark"] .assistant-insight.good{background:#132A1B;border-color:#166534;color:#86EFAC;}
+  .assistant-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .assistant-chip{background:var(--overlay-1);border:1px solid var(--line);border-radius:20px;padding:6px 12px;font-size:11.5px;color:var(--ink);cursor:pointer;transition:all .15s ease;}
+  .assistant-chip:hover{background:var(--overlay-2);}
+  .assistant-log{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+  .assistant-log-q{align-self:flex-end;background:var(--ink);color:var(--surface);border-radius:12px 12px 2px 12px;padding:7px 11px;font-size:12px;max-width:88%;}
+  .assistant-log-a{align-self:flex-start;background:var(--overlay-1);border-radius:12px 12px 12px 2px;padding:9px 11px;font-size:12.5px;line-height:1.45;max-width:92%;white-space:pre-line;}
+  .assistant-input-row{display:flex;gap:6px;margin-top:12px;}
+  .assistant-input-row input{flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;background:var(--surface);color:var(--ink);min-width:0;}
+  .assistant-note{font-size:10px;color:var(--ink-soft);margin-top:12px;line-height:1.4;}
+  @media (max-width: 520px){
+    .assistant-panel{left:10px;right:10px;width:auto;bottom:78px;}
+  }
   .theme-toggle:hover{background:var(--overlay-1);}
   .theme-toggle:active{transform:scale(0.9);}
   .theme-toggle svg{width:20px;height:20px;}
@@ -493,6 +523,30 @@
       <button id="modalCloseBtn" class="modal-close" aria-label="Закрыть" type="button">✕</button>
     </div>
     <div id="modalBody" class="modal-body"></div>
+  </div>
+</div>
+
+<button id="assistantToggleBtn" class="assistant-toggle" title="Аналитик дашборда" aria-label="Аналитик дашборда" style="display:none;">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2v1h1a3 3 0 0 1 3 3v2a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8a3 3 0 0 1 3-3h1V4a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="10.5" r="1"/><circle cx="14.5" cy="10.5" r="1"/><path d="M12 15v2m-4 2h8m-8 3h8"/></svg>
+  <span id="assistantBadge" class="assistant-badge" style="display:none;"></span>
+</button>
+
+<div id="assistantPanel" class="assistant-panel" style="display:none;">
+  <div class="assistant-head">
+    <span>Аналитик дашборда</span>
+    <button id="assistantCloseBtn" class="assistant-close" type="button" aria-label="Закрыть">✕</button>
+  </div>
+  <div class="assistant-body">
+    <div class="assistant-section-label">Что стоит проверить</div>
+    <div id="assistantInsights" class="assistant-insights"></div>
+    <div class="assistant-section-label">Быстрые вопросы</div>
+    <div id="assistantChips" class="assistant-chips"></div>
+    <div id="assistantLog" class="assistant-log"></div>
+    <div class="assistant-input-row">
+      <input type="text" id="assistantInput" placeholder="Спросите про воронки, менеджеров, задачи…">
+      <button id="assistantAskBtn" class="btn btn-primary btn-sm" type="button">Спросить</button>
+    </div>
+    <div class="assistant-note">Работает на готовых расчётах по уже загруженным данным — это не нейросеть, а быстрый анализ по правилам, поэтому бесплатно и без ограничений.</div>
   </div>
 </div>
 
@@ -1623,6 +1677,8 @@ async function loadDashboard(){
     updatedAt.textContent = new Date().toLocaleString('ru-RU');
     updateCompanyBadge(conn);
     showDashboard();
+    document.getElementById('assistantToggleBtn').style.display = 'flex';
+    renderAssistantInsights();
     if(hasLoadedOnce) flashUpdated();
     hasLoadedOnce = true;
 
@@ -2402,6 +2458,10 @@ disconnectBtn.addEventListener('click', () => {
   document.getElementById('goalBannerContainer').innerHTML = '';
   document.getElementById('chartHeroContainer').innerHTML = '';
   document.getElementById('companyBadge').style.display = 'none';
+  document.getElementById('assistantToggleBtn').style.display = 'none';
+  document.getElementById('assistantPanel').style.display = 'none';
+  const assistantLogEl = document.getElementById('assistantLog');
+  if(assistantLogEl) assistantLogEl.innerHTML = '';
   dupWarning.style.display = 'none';
   periodBar.style.display = 'none';
   toolbar2.style.display = 'none';
@@ -2411,6 +2471,193 @@ disconnectBtn.addEventListener('click', () => {
   statusLine.className = 'status-line';
   statusLine.textContent = 'Подключение забыто — введите данные заново.';
   showLanding();
+});
+
+// ===== Аналитик дашборда — правила + готовые расчёты, без внешнего ИИ, полностью бесплатно =====
+
+function generateInsights(){
+  const insights = [];
+  if(lastFunnels.length === 0) return insights;
+
+  // 1. динамика месяц к месяцу
+  if(lastPrevMonthRevenue > 0){
+    const pct = Math.round(((lastMonthRevenue - lastPrevMonthRevenue) / lastPrevMonthRevenue) * 100);
+    if(pct <= -15) insights.push({type: 'bad', text: `Продажи в этом месяце ниже прошлого на ${Math.abs(pct)}% — стоит проверить, в какой воронке произошло падение.`});
+    else if(pct >= 15) insights.push({type: 'good', text: `Продажи выросли на ${pct}% к прошлому месяцу — посмотрите, что сработало, и повторите.`});
+  }
+
+  // 2. самая слабая воронка по конверсии (только там, где достаточно сделок для выводов)
+  const meaningfulFunnels = lastFunnels.filter(f => (f.wonCount + f.lostCount) >= 3);
+  if(meaningfulFunnels.length > 0){
+    const withConv = meaningfulFunnels.map(f => ({f, conv: Math.round(100 * f.wonCount / (f.wonCount + f.lostCount))}));
+    const worst = withConv.sort((a,b) => a.conv - b.conv)[0];
+    if(worst.conv < 20) insights.push({type: 'bad', text: `Воронка «${worst.f.name}» — низкая конверсия (${worst.conv}%). Стоит разобраться, что мешает сделкам доходить до победы.`});
+  }
+
+  // 3. самое узкое место (где сделки дольше всего зависают)
+  const withBottleneck = lastFunnels.filter(f => f.bottleneck && f.bottleneck.avgAgeDays >= 14);
+  if(withBottleneck.length > 0){
+    const worstB = withBottleneck.sort((a,b) => b.bottleneck.avgAgeDays - a.bottleneck.avgAgeDays)[0];
+    insights.push({type: 'bad', text: `В воронке «${worstB.name}» сделки зависают на стадии «${worstB.bottleneck.name}» в среднем на ${worstB.bottleneck.avgAgeDays} дн. Возможно, туда стоит добавить внимания.`});
+  }
+
+  // 4. отстающий менеджер
+  const activeManagers = lastManagers.filter(m => m.id !== 'unknown' && (m.wonCount + m.lostCount) >= 3);
+  if(activeManagers.length > 1){
+    const withConv = activeManagers.map(m => ({m, conv: Math.round(100 * m.wonCount / (m.wonCount + m.lostCount))}));
+    const worstMgr = withConv.sort((a,b) => a.conv - b.conv)[0];
+    if(worstMgr.conv < 20) insights.push({type: 'bad', text: `У менеджера ${worstMgr.m.name} низкая конверсия (${worstMgr.conv}%) — возможно, стоит подключиться и помочь с его сделками.`});
+  }
+
+  // 5. просроченные задачи
+  if(lastTasksFetched){
+    const stats = aggregateTaskStats(lastRawTasks, 'all');
+    if(stats.overdue > 0) insights.push({type: 'bad', text: `Просроченных задач: ${stats.overdue}. Стоит разгрести — они могут тормозить сделки.`});
+  }
+
+  // 6. пропущенные звонки
+  if(lastCallStats && lastCallStats.total > 0){
+    const missedPct = Math.round(100 * lastCallStats.missed / lastCallStats.total);
+    if(missedPct >= 30) insights.push({type: 'bad', text: `${missedPct}% звонков за период пропущены (${lastCallStats.missed} из ${lastCallStats.total}) — это потенциально упущенные клиенты.`});
+  }
+
+  if(insights.length === 0) insights.push({type: 'good', text: 'Явных проблем не видно — показатели в пределах обычных колебаний.'});
+  return insights;
+}
+
+function renderAssistantInsights(){
+  const box = document.getElementById('assistantInsights');
+  const badge = document.getElementById('assistantBadge');
+  if(!box) return;
+  const insights = generateInsights();
+  box.innerHTML = insights.map(i => `<div class="assistant-insight ${i.type}">${escapeHtml(i.text)}</div>`).join('');
+  const badCount = insights.filter(i => i.type === 'bad').length;
+  if(badge){
+    if(badCount > 0){ badge.textContent = badCount; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
+  }
+}
+
+function answerWeakFunnels(){
+  const meaningfulFunnels = lastFunnels.filter(f => (f.wonCount + f.lostCount) >= 1);
+  if(meaningfulFunnels.length === 0) return 'Пока недостаточно данных по воронкам за этот период.';
+  const withConv = meaningfulFunnels.map(f => ({name: f.name, conv: (f.wonCount+f.lostCount)>0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0, sum: f.wonSum}));
+  const sorted = [...withConv].sort((a,b) => a.conv - b.conv);
+  const weakest = sorted.slice(0, 3).map(x => `«${x.name}» — конверсия ${x.conv}%`).join('\n');
+  return `Самые слабые по конверсии воронки за период:\n${weakest}`;
+}
+
+function answerManagers(){
+  if(lastManagers.length === 0) return 'Данных по менеджерам пока нет.';
+  const active = lastManagers.filter(m => m.id !== 'unknown');
+  if(active.length === 0) return 'Нет менеджеров с назначенными сделками за период.';
+  const best = active[0]; // lastManagers уже отсортирован по wonSum убыв.
+  const withConv = active.map(m => ({m, conv: (m.wonCount+m.lostCount)>0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0}));
+  const worst = [...withConv].sort((a,b) => a.conv - b.conv)[0];
+  return `Лучший по сумме продаж: ${best.name} (${fmtMoney(best.wonSum, lastFunnels.find(f=>f.currency)?.currency||'')}).\nСамая низкая конверсия: ${worst.m.name} (${worst.conv}%).`;
+}
+
+function answerBottlenecks(){
+  const withBottleneck = lastFunnels.filter(f => f.bottleneck);
+  if(withBottleneck.length === 0) return 'Явных зависаний по стадиям сейчас не вижу.';
+  const rows = withBottleneck.sort((a,b) => b.bottleneck.avgAgeDays - a.bottleneck.avgAgeDays).slice(0,3)
+    .map(f => `«${f.name}» — стадия «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.`).join('\n');
+  return `Где дольше всего висят сделки:\n${rows}`;
+}
+
+function answerGoal(){
+  if(!goalAmount) return 'План продаж пока не задан — можно установить в баннере цели наверху.';
+  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const totalNow = lastFunnels.reduce((a,f) => a + f.wonSum, 0);
+  const pct = Math.min(100, Math.round(100 * totalNow / goalAmount));
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const daysLeft = daysInMonth - now.getDate();
+  return `Выполнено ${pct}% плана (${fmtMoney(totalNow, currency)} из ${fmtMoney(goalAmount, currency)}).\nОсталось ${fmtMoney(Math.max(0, goalAmount - totalNow), currency)}, дней в месяце осталось: ${daysLeft}.`;
+}
+
+function answerTasks(){
+  if(!lastTasksFetched) return lastTaskStatsError ? `Не удалось получить задачи: ${lastTaskStatsError}` : 'Данных по задачам пока нет.';
+  const s = aggregateTaskStats(lastRawTasks, 'all');
+  return `Всего задач: ${s.total}. Новые: ${s.neW}. В работе: ${s.inProgress}. Завершено: ${s.completed}. Просрочено: ${s.overdue}.`;
+}
+
+function answerCalls(){
+  if(!lastCallStats) return lastCallStatsError ? `Не удалось получить звонки: ${lastCallStatsError}` : 'Данных по звонкам пока нет.';
+  const c = lastCallStats;
+  return `Входящие: ${c.incoming}. Исходящие: ${c.outgoing}. Успешные: ${c.successful}. Пропущенные: ${c.missed}. Общее время разговоров: ${fmtDuration(c.totalDuration)}.`;
+}
+
+function answerQuestion(query){
+  const q = query.toLowerCase();
+  if(q.includes('ворон') || q.includes('слаб') || q.includes('конверс')) return answerWeakFunnels();
+  if(q.includes('менеджер') || q.includes('сотрудник')) return answerManagers();
+  if(q.includes('зависа') || q.includes('стади') || q.includes('узк')) return answerBottlenecks();
+  if(q.includes('план') || q.includes('цел')) return answerGoal();
+  if(q.includes('задач') || q.includes('просроч')) return answerTasks();
+  if(q.includes('звон')) return answerCalls();
+  return 'Не совсем понял вопрос — попробуйте один из готовых вопросов ниже, или спросите про «воронки», «менеджеров», «зависшие сделки», «план» или «задачи».';
+}
+
+const ASSISTANT_CHIPS = [
+  {label: 'Слабые воронки', query: 'слабые воронки'},
+  {label: 'Менеджеры', query: 'менеджеры'},
+  {label: 'Где зависают сделки', query: 'зависшие сделки'},
+  {label: 'План продаж', query: 'план'},
+  {label: 'Задачи', query: 'задачи'},
+  {label: 'Звонки', query: 'звонки'}
+];
+
+function renderAssistantChips(){
+  const box = document.getElementById('assistantChips');
+  if(!box) return;
+  box.innerHTML = ASSISTANT_CHIPS.map(c => `<button type="button" class="assistant-chip" data-ask="${escapeHtml(c.query)}">${escapeHtml(c.label)}</button>`).join('');
+}
+
+function assistantAsk(query){
+  if(!query || !query.trim()) return;
+  const log = document.getElementById('assistantLog');
+  if(!log) return;
+  const qDiv = document.createElement('div');
+  qDiv.className = 'assistant-log-q';
+  qDiv.textContent = query;
+  log.appendChild(qDiv);
+
+  const answer = answerQuestion(query);
+  const aDiv = document.createElement('div');
+  aDiv.className = 'assistant-log-a';
+  aDiv.textContent = answer;
+  log.appendChild(aDiv);
+
+  const body = document.querySelector('.assistant-body');
+  if(body) body.scrollTop = body.scrollHeight;
+}
+
+renderAssistantChips();
+
+document.getElementById('assistantToggleBtn').addEventListener('click', () => {
+  const panel = document.getElementById('assistantPanel');
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? 'flex' : 'none';
+  if(isHidden) renderAssistantInsights();
+});
+document.getElementById('assistantCloseBtn').addEventListener('click', () => {
+  document.getElementById('assistantPanel').style.display = 'none';
+});
+document.getElementById('assistantAskBtn').addEventListener('click', () => {
+  const input = document.getElementById('assistantInput');
+  assistantAsk(input.value);
+  input.value = '';
+});
+document.getElementById('assistantInput').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){
+    assistantAsk(e.target.value);
+    e.target.value = '';
+  }
+});
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('.assistant-chip');
+  if(chip) assistantAsk(chip.dataset.ask);
 });
 
 function rerenderCached(){
