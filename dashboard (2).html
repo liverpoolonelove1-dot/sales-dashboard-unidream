@@ -84,6 +84,16 @@
   .tile .managers-wrap::-webkit-scrollbar-track{background:transparent;}
   .tile .managers-wrap::-webkit-scrollbar-thumb{background:var(--overlay-2);border-radius:4px;}
   .tile-loss{grid-row:span 1;}
+  .tile-calls{grid-row:span 2;}
+  .calls-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 10px;}
+  .calls-label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
+  .calls-value{display:block;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;margin-top:2px;}
+  .calls-value.calls-good{color:var(--accent-strong);}
+  .calls-value.calls-bad{color:var(--red-bad);}
+  .calls-duration{font-size:11px;color:var(--ink-soft);}
+  .calls-duration.calls-bad{color:var(--red-bad);font-weight:600;}
+  .tasks-tile-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .tasks-manager-select{border:1px solid var(--line);border-radius:8px;padding:3px 6px;font-size:10px;color:var(--ink-soft);background:var(--surface);max-width:130px;cursor:pointer;}
   .glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.24;filter:blur(80px);border-radius:50%;pointer-events:none;z-index:0;}
   .wrap > *{position:relative;z-index:1;}
 
@@ -302,6 +312,24 @@
   .modal-table td:first-child{color:var(--ink-soft);}
   .modal-table td:last-child{text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;}
   .modal-note{font-size:11.5px;color:var(--ink-soft);margin-top:12px;}
+  .modal-subtitle{font-size:11.5px;font-weight:600;color:var(--ink-soft);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+  .modal-deal-list{max-height:200px;overflow-y:auto;border-top:1px solid var(--line);}
+  .modal-deal-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px;gap:12px;}
+  .modal-deal-stage{color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .modal-deal-sum{font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;flex:none;color:var(--ink);border-bottom:1px dashed var(--ink-soft);}
+  .modal-deal-sum:hover{color:var(--accent-strong);border-color:var(--accent-strong);}
+  .modal-open-link{display:inline-block;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--accent-strong);text-decoration:none;}
+  .modal-open-link:hover{text-decoration:underline;}
+  .modal-table-clickable tr{cursor:pointer;transition:background .12s ease;}
+  .modal-table-clickable tr:hover{background:var(--overlay-1);}
+  .modal-deal-row-rich{padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s ease;}
+  .modal-deal-row-rich:hover{background:var(--overlay-1);}
+  .modal-deal-row-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12.5px;}
+  .modal-deal-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .modal-deal-row-rich .modal-deal-sum{font-family:'JetBrains Mono',monospace;font-weight:600;flex:none;}
+  .modal-deal-row-bottom{font-size:10.5px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .modal-back-link{background:none;border:none;color:var(--accent-strong);font-size:12px;font-weight:600;cursor:pointer;padding:0 0 12px;display:block;}
+  .modal-back-link:hover{text-decoration:underline;}
 
   [data-detail]{cursor:pointer;}
   .loading-toast .loader-bars{margin-right:0;}
@@ -524,12 +552,20 @@ let lastNamesErrorMsg = '';
 let lastHasManagers = false;
 let lastLostReasons = [];
 let lastBestDeal = null;
+let lastDealsFlat = []; // все сделки всех воронок одним плоским списком — для клика "детали сделки"
 let lastMonthRevenue = 0;
 let lastMonthCurrency = '';
 let lastPrevMonthRevenue = 0;
 let lastMonthDealsTotal = 0;
 let lastMonthWonCount = 0;
 let lastMonthLostCount = 0;
+let lastCallStats = null;
+let lastRawCalls = [];
+let lastCallStatsError = '';
+let lastRawTasks = [];
+let lastTasksFetched = false;
+let lastTaskStatsError = '';
+let taskFilterManagerId = 'all'; // выбранный менеджер для фильтра задач (внутри уже загруженных данных)
 let lastWonPoints = [];
 const GOAL_MAX = 1e15; // защита от случайно введённых лишних нулей
 let autoRefreshTimer = null;
@@ -673,6 +709,7 @@ function renderFunnelFilterPanel(){
     selectedFunnelIds = (checkedIds.length === 0 || checkedIds.length === availableFunnels.length)
       ? null
       : new Set(checkedIds);
+    saveSettings();
     toggleExpandable(funnelFilterBtn, funnelFilterPanel);
     loadDashboard();
   });
@@ -836,7 +873,7 @@ async function fetchDealsForCategory(webhook, categoryId, period){
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   return fetchAllPaged(webhook, 'crm.deal.list', {
     filter,
-    select: ['ID','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID']
+    select: ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID']
   });
 }
 
@@ -845,9 +882,72 @@ async function fetchUserNames(webhook, ids){
   const map = {};
   (raw || []).forEach(u => {
     const name = `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim();
-    map[u.ID] = name || `Сотрудник ID ${u.ID}`;
+    map[u.ID] = {name: name || `Сотрудник ID ${u.ID}`, position: u.WORK_POSITION || ''};
   });
   return map;
+}
+
+async function fetchCallStats(webhook, period){
+  const filter = {};
+  if(period && period.from) filter['>=CALL_START_DATE'] = `${period.from} 00:00:00`;
+  if(period && period.to) filter['<=CALL_START_DATE'] = `${period.to} 23:59:59`;
+  return fetchAllPaged(webhook, 'voximplant.statistic.get', {FILTER: filter});
+}
+
+function aggregateCallStats(rawCalls){
+  let incoming = 0, outgoing = 0, successful = 0, missed = 0, totalDuration = 0;
+  rawCalls.forEach(c => {
+    // конвенция Bitrix24: CALL_TYPE 2 — входящий, 1 — исходящий
+    if(String(c.CALL_TYPE) === '2') incoming += 1; else outgoing += 1;
+    const dur = parseInt(c.CALL_DURATION, 10) || 0;
+    totalDuration += dur;
+    if(dur > 0) successful += 1; else missed += 1;
+  });
+  return {incoming, outgoing, successful, missed, totalDuration, total: rawCalls.length};
+}
+
+function fmtDuration(totalSeconds){
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  if(h > 0) return `${h} ч ${m} мин`;
+  return `${m} мин`;
+}
+
+async function fetchTaskStats(webhook, period){
+  // ответ tasks.task.list оборачивает список в result.tasks — обычная fetchAllPaged тут не подходит
+  const filter = {};
+  if(period && period.from) filter['>=CREATED_DATE'] = `${period.from} 00:00:00`;
+  if(period && period.to) filter['<=CREATED_DATE'] = `${period.to} 23:59:59`;
+  let all = [];
+  let start = 0;
+  while(true){
+    const data = await callMethod(webhook, 'tasks.task.list', {
+      filter,
+      select: ['ID','TITLE','STATUS','DEADLINE','CREATED_DATE','RESPONSIBLE_ID'],
+      start
+    });
+    const tasks = (data.result && data.result.tasks) ? data.result.tasks : [];
+    all = all.concat(tasks);
+    if(data.next) start = data.next; else break;
+  }
+  return all;
+}
+
+function aggregateTaskStats(rawTasks, responsibleId){
+  const filtered = (responsibleId && responsibleId !== 'all')
+    ? rawTasks.filter(t => String(t.responsibleId) === String(responsibleId))
+    : rawTasks;
+  const now = Date.now();
+  let neW = 0, inProgress = 0, completed = 0, overdue = 0;
+  filtered.forEach(t => {
+    const status = String(t.status);
+    const isDone = status === '5';
+    if(status === '2') neW += 1;
+    else if(status === '3' || status === '4') inProgress += 1;
+    if(isDone) completed += 1;
+    if(!isDone && t.deadline && new Date(t.deadline).getTime() < now) overdue += 1;
+  });
+  return {total: filtered.length, neW, inProgress, completed, overdue};
 }
 
 // ===== Реестр CRM-адаптеров =====
@@ -873,7 +973,7 @@ const CRM_ADAPTERS = {
       <b>Как получить бесплатный вебхук (5 минут, без платных тарифов):</b>
       <ol>
         <li>В Битрикс24 откройте <b>Разработчикам → Другое → Входящий вебхук</b> (или через поиск: «вебхук»).</li>
-        <li>Отметьте право доступа <code>crm</code> (CRM) и сохраните. Для разбивки по менеджерам добавьте ещё право <code>user</code> (Пользователи).</li>
+        <li>Отметьте право доступа <code>crm</code> (CRM) и сохраните. Для разбивки по менеджерам добавьте ещё право <code>user</code> (Пользователи), для статистики звонков — <code>telephony</code> (Телефония), для мониторинга задач — <code>task</code> (Задачи).</li>
         <li>Скопируйте ссылку вида <code>https://ваш-портал.bitrix24.ru/rest/1/xxxxxxxxxxxxxxxx/</code> и вставьте её в поле выше.</li>
         <li>Нажмите «Подключить» — дашборд сам найдёт все воронки сделок и построит отчёт.</li>
       </ol>
@@ -905,6 +1005,7 @@ const CRM_ADAPTERS = {
       ]);
       return raw.map(d => ({
         id: d.ID,
+        title: d.TITLE || '',
         stageId: d.STAGE_ID,
         amount: parseFloat(d.OPPORTUNITY) || 0,
         currency: d.CURRENCY_ID || '',
@@ -917,6 +1018,12 @@ const CRM_ADAPTERS = {
     },
     async fetchUserNames(conn, ids){
       return fetchUserNames(conn.webhook, ids);
+    },
+    async fetchCalls(conn, period){
+      return fetchCallStats(conn.webhook, period);
+    },
+    async fetchTasks(conn, period){
+      return fetchTaskStats(conn.webhook, period);
     }
   },
 
@@ -1259,6 +1366,17 @@ async function loadDashboard(){
       ? allFunnels.filter(f => selectedFunnelIds.has(String(f.id)))
       : allFunnels;
 
+    // статистика звонков запрашивается параллельно, независимо от воронок —
+    // если у вебхука нет права telephony, просто покажем заметку вместо падения всего дашборда
+    const callStatsPromise = (typeof adapter.fetchCalls === 'function')
+      ? adapter.fetchCalls(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
+      : Promise.resolve(null);
+
+    // то же самое для задач — параллельно, право task может отсутствовать
+    const taskStatsPromise = (typeof adapter.fetchTasks === 'function')
+      ? adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
+      : Promise.resolve(null);
+
     const prevPeriod = computePrevPeriod(currentPeriod);
     const thisMonthRange = computePeriod('month');
     const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
@@ -1354,7 +1472,7 @@ async function loadDashboard(){
 
       const stages = stageOrder
         .map(s => ({
-          name: s.name, count: stageMap[s.id].count, sum: stageMap[s.id].sum, semantic: stageMap[s.id].semantic,
+          id: s.id, name: s.name, count: stageMap[s.id].count, sum: stageMap[s.id].sum, semantic: stageMap[s.id].semantic,
           avgAgeDays: stageMap[s.id].ageCount > 0 ? Math.round(stageMap[s.id].ageSum / stageMap[s.id].ageCount) : null
         }))
         .filter(s => s.count > 0 || stageOrder.length <= 8);
@@ -1367,7 +1485,20 @@ async function loadDashboard(){
         funnels.push({
           id: fn.id, name: fn.name, deals: deals.length, totalSum, wonSum,
           wonCount, lostCount, currency, stages, dealIds, bottleneck,
-          prevWonSum, hasPrevPeriod: !!prevPeriod
+          prevWonSum, hasPrevPeriod: !!prevPeriod,
+          dealsList: deals.map(d => ({
+            id: d.id,
+            title: d.title || '',
+            stageId: d.stageId,
+            stageName: (stageMap[d.stageId] && stageMap[d.stageId].name) || d.stageId,
+            amount: d.amount || 0,
+            currency: d.currency || currency,
+            assignedTo: d.assignedTo,
+            createdAt: d.createdAt,
+            closedAt: d.closedAt,
+            updatedAt: d.updatedAt,
+            semantic: d.semantic
+          }))
         });
       }
     }
@@ -1390,7 +1521,9 @@ async function loadDashboard(){
     }
     const managers = Object.keys(managerMap).map(id => ({
       id,
-      name: id === 'unknown' ? 'Без ответственного' : (nameMap[id] || `Сотрудник ID ${id}`),
+      name: id === 'unknown' ? 'Без ответственного' : ((nameMap[id] && nameMap[id].name) || `Сотрудник ID ${id}`),
+      position: (nameMap[id] && nameMap[id].position) || '',
+      activeCount: Math.max(0, managerMap[id].dealsCount - managerMap[id].wonCount - managerMap[id].lostCount),
       ...managerMap[id]
     })).sort((a,b) => b.wonSum - a.wonSum);
 
@@ -1426,12 +1559,49 @@ async function loadDashboard(){
     lastLostReasons = lostReasons;
 
     lastBestDeal = bestDeal;
+    lastDealsFlat = [];
+    displayFunnels.forEach(f => {
+      (f.dealsList || []).forEach(d => {
+        lastDealsFlat.push({...d, funnelName: f.name, funnelId: f.id, _flatIdx: lastDealsFlat.length});
+      });
+    });
     lastMonthRevenue = monthRevenue;
     lastMonthCurrency = monthCurrency;
     lastPrevMonthRevenue = prevMonthRevenue;
     lastMonthDealsTotal = monthDealsTotal;
     lastMonthWonCount = monthWonCount;
     lastMonthLostCount = monthLostCount;
+
+    const callsResult = await callStatsPromise;
+    if(callsResult && callsResult.__error){
+      lastCallStats = null;
+      lastRawCalls = [];
+      lastCallStatsError = callsResult.__error;
+    } else if(callsResult){
+      lastCallStats = aggregateCallStats(callsResult);
+      lastRawCalls = callsResult;
+      lastCallStatsError = '';
+    } else {
+      lastCallStats = null;
+      lastRawCalls = [];
+      lastCallStatsError = '';
+    }
+
+    const tasksResult = await taskStatsPromise;
+    if(tasksResult && tasksResult.__error){
+      lastRawTasks = [];
+      lastTasksFetched = false;
+      lastTaskStatsError = tasksResult.__error;
+    } else if(tasksResult){
+      lastRawTasks = tasksResult;
+      lastTasksFetched = true;
+      lastTaskStatsError = '';
+    } else {
+      lastRawTasks = [];
+      lastTasksFetched = false;
+      lastTaskStatsError = '';
+    }
+
     renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
 
     if(dupPairs.length > 0){
@@ -1599,6 +1769,65 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     ` : ''}
   `;
 
+  let callsTile = '';
+  if(lastCallStats){
+    callsTile = `
+      <div class="fcard tile tile-calls" data-detail="calls">
+        <p class="section-title">Звонки</p>
+        <div class="calls-grid">
+          <div><span class="calls-label">Входящие</span><span class="calls-value">${lastCallStats.incoming}</span></div>
+          <div><span class="calls-label">Исходящие</span><span class="calls-value">${lastCallStats.outgoing}</span></div>
+          <div><span class="calls-label">Успешные</span><span class="calls-value calls-good">${lastCallStats.successful}</span></div>
+          <div><span class="calls-label">Пропущенные</span><span class="calls-value calls-bad">${lastCallStats.missed}</span></div>
+        </div>
+        <div class="calls-duration">⏱ ${fmtDuration(lastCallStats.totalDuration)} разговоров за период</div>
+      </div>
+    `;
+  } else if(lastCallStatsError){
+    callsTile = `
+      <div class="fcard tile tile-calls">
+        <p class="section-title">Звонки</p>
+        <div class="managers-note">Не удалось получить статистику звонков: ${lastCallStatsError} — добавьте вебхуку право доступа <b>telephony</b> (Телефония).</div>
+      </div>
+    `;
+  }
+
+  let tasksTile = '';
+  if(lastTasksFetched){
+    const taskStats = aggregateTaskStats(lastRawTasks, taskFilterManagerId);
+    const uniqueResp = [...new Set(lastRawTasks.map(t => String(t.responsibleId)))];
+    const managerOptions = uniqueResp.map(id => {
+      const found = lastManagers.find(m => String(m.id) === id);
+      const name = found ? found.name : `Сотрудник ID ${id}`;
+      return `<option value="${id}" ${taskFilterManagerId === id ? 'selected' : ''}>${name}</option>`;
+    }).join('');
+    tasksTile = `
+      <div class="fcard tile tile-calls">
+        <div class="tasks-tile-head">
+          <p class="section-title">Задачи</p>
+          <select id="taskManagerFilter" class="tasks-manager-select">
+            <option value="all" ${taskFilterManagerId === 'all' ? 'selected' : ''}>Все менеджеры</option>
+            ${managerOptions}
+          </select>
+        </div>
+        <div class="calls-grid">
+          <div><span class="calls-label">Всего задач</span><span class="calls-value">${taskStats.total}</span></div>
+          <div><span class="calls-label">Новые</span><span class="calls-value">${taskStats.neW}</span></div>
+          <div><span class="calls-label">В работе</span><span class="calls-value">${taskStats.inProgress}</span></div>
+          <div><span class="calls-label">Завершено</span><span class="calls-value calls-good">${taskStats.completed}</span></div>
+        </div>
+        <div class="calls-duration ${taskStats.overdue > 0 ? 'calls-bad' : ''}">${taskStats.overdue > 0 ? '⚠ ' : ''}Просрочено: ${taskStats.overdue}</div>
+      </div>
+    `;
+  } else if(lastTaskStatsError){
+    tasksTile = `
+      <div class="fcard tile tile-calls">
+        <p class="section-title">Задачи</p>
+        <div class="managers-note">Не удалось получить задачи: ${lastTaskStatsError} — добавьте вебхуку право доступа <b>task</b> (Задачи).</div>
+      </div>
+    `;
+  }
+
   let managersHtml = '';
   if(hasManagers){
     const rows = managers.map((m, idx) => {
@@ -1657,7 +1886,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
 
     <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
     <p class="period-sub-note">Воронки, менеджеры и причины отказов ниже показывают период, выбранный в фильтре выше; KPI сверху и график динамики — всегда за текущий месяц.</p>
-    <div class="dash-tiles">${funnelCards}${managersHtml}${lossHtml}${reportTiles}</div>
+    <div class="dash-tiles">${funnelCards}${managersHtml}${lossHtml}${callsTile}${tasksTile}${reportTiles}</div>
   `;
 
   content.innerHTML = html;
@@ -1694,16 +1923,156 @@ function statRow(label, value){
   return `<div class="modal-stat-row"><span class="modal-stat-label">${label}</span><span class="modal-stat-value">${value}</span></div>`;
 }
 
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildBitrix24DealUrl(webhook, dealId){
+  const match = webhook.match(/^(https?:\/\/[^\/]+)/i);
+  if(!match) return null;
+  return `${match[1]}/crm/deal/details/${dealId}/`;
+}
+
+async function fetchDealFullDetails(webhook, dealId){
+  const data = await callMethod(webhook, 'crm.deal.get', {id: dealId});
+  return data.result;
+}
+
+async function fetchEntityById(webhook, method, id){
+  if(!id || String(id) === '0') return null;
+  try{
+    const data = await callMethod(webhook, method, {id});
+    return data.result;
+  }catch(e){
+    return null;
+  }
+}
+
+async function openDealDetail(flatIdx){
+  const d = lastDealsFlat[flatIdx];
+  if(!d) return;
+  const currency = d.currency || '';
+  const respName = lastManagers.find(m => String(m.id) === String(d.assignedTo))?.name
+    || (d.assignedTo ? `Сотрудник ID ${d.assignedTo}` : 'Не указан');
+
+  const html = statRow('Название', d.title ? escapeHtml(d.title) : `Сделка №${d.id}`)
+    + statRow('Сумма', fmtMoney(d.amount, currency))
+    + statRow('ID сделки', d.id)
+    + statRow('Воронка', d.funnelName)
+    + statRow('Стадия', d.stageName)
+    + statRow('Ответственный', respName)
+    + statRow('Дата создания', d.createdAt ? new Date(d.createdAt).toLocaleString('ru-RU') : '—')
+    + statRow('Изменена', d.updatedAt ? new Date(d.updatedAt).toLocaleString('ru-RU') : '—')
+    + `<div id="dealDetailExtra" class="modal-note">Загружаю контакт, компанию и комментарии из CRM…</div>`;
+  openModal(`Сделка №${d.id}`, html);
+
+  if(!currentConn || !currentConn.webhook) return;
+  try{
+    const full = await fetchDealFullDetails(currentConn.webhook, d.id);
+    if(!full){
+      const el = document.getElementById('dealDetailExtra');
+      if(el) el.textContent = 'Не удалось загрузить дополнительные данные сделки.';
+      return;
+    }
+
+    const [contact, company] = await Promise.all([
+      fetchEntityById(currentConn.webhook, 'crm.contact.get', full.CONTACT_ID),
+      fetchEntityById(currentConn.webhook, 'crm.company.get', full.COMPANY_ID)
+    ]);
+
+    let extra = '';
+    if(contact){
+      extra += statRow('Контакт', escapeHtml(`${contact.NAME || ''} ${contact.LAST_NAME || ''}`.trim() || `ID ${full.CONTACT_ID}`));
+      const phone = contact.PHONE && contact.PHONE[0] && contact.PHONE[0].VALUE;
+      if(phone) extra += statRow('Телефон', escapeHtml(phone));
+    }
+    if(company) extra += statRow('Компания', escapeHtml(company.TITLE || `ID ${full.COMPANY_ID}`));
+    if(full.SOURCE_ID) extra += statRow('Источник', escapeHtml(full.SOURCE_ID));
+    if(full.COMMENTS) extra += `<div class="modal-note"><b>Комментарий:</b> ${escapeHtml(full.COMMENTS)}</div>`;
+
+    // пользовательские поля (UF_*), если есть — показываем как есть, без расшифровки названия
+    const ufFields = Object.keys(full).filter(k => k.startsWith('UF_') && full[k] !== null && full[k] !== '' && !Array.isArray(full[k]));
+    if(ufFields.length > 0){
+      extra += `<div class="modal-subtitle">Пользовательские поля</div>`;
+      ufFields.forEach(k => { extra += statRow(k, escapeHtml(String(full[k]))); });
+    }
+
+    const url = buildBitrix24DealUrl(currentConn.webhook, d.id);
+    if(url) extra += `<a class="modal-open-link" href="${url}" target="_blank" rel="noopener">Открыть сделку в Bitrix24 →</a>`;
+
+    const el = document.getElementById('dealDetailExtra');
+    if(el) el.outerHTML = extra || '<div class="modal-note">Дополнительных данных нет.</div>';
+  }catch(e){
+    const el = document.getElementById('dealDetailExtra');
+    if(el) el.textContent = 'Не удалось загрузить дополнительные данные: ' + (e.message || e);
+  }
+}
+
+function buildDealListRows(deals, limit){
+  const cap = limit || 50;
+  const shown = deals.slice(0, cap);
+  const rows = shown.map(d => {
+    const respName = lastManagers.find(m => String(m.id) === String(d.assignedTo))?.name
+      || (d.assignedTo ? `Сотрудник ID ${d.assignedTo}` : 'Без ответственного');
+    const created = d.createdAt ? new Date(d.createdAt).toLocaleDateString('ru-RU') : '—';
+    const title = d.title ? escapeHtml(d.title) : `Сделка №${d.id}`;
+    return `
+      <div class="modal-deal-row-rich" data-detail="dealdetail" data-idx="${d._flatIdx}">
+        <div class="modal-deal-row-top">
+          <span class="modal-deal-title">${title}</span>
+          <span class="modal-deal-sum">${fmtMoney(d.amount, d.currency)}</span>
+        </div>
+        <div class="modal-deal-row-bottom">ID ${d.id} · ${escapeHtml(d.stageName)} · ${escapeHtml(respName)} · создана ${created}</div>
+      </div>
+    `;
+  }).join('');
+  const note = deals.length > cap ? `<div class="modal-note">Показаны первые ${cap} из ${deals.length} сделок.</div>` : '';
+  return rows + note;
+}
+
+function openStageDetail(fidx, stageId){
+  const f = lastFunnels[fidx];
+  if(!f) return;
+  const stage = f.stages.find(s => String(s.id) === String(stageId));
+  const stageName = stage ? stage.name : stageId;
+  const deals = lastDealsFlat
+    .filter(d => d.funnelId === f.id && String(d.stageId) === String(stageId))
+    .sort((a,b) => b.amount - a.amount);
+
+  const back = `<button type="button" class="modal-back-link" data-back-funnel="${fidx}">← ${f.name}</button>`;
+  const list = deals.length > 0
+    ? `<div class="modal-deal-list">${buildDealListRows(deals)}</div>`
+    : `<div class="modal-note">На этой стадии сейчас нет сделок.</div>`;
+  openModal(`${stageName}`, back + list);
+}
+
 function openFunnelDetail(idx){
   const f = lastFunnels[idx];
   if(!f) return;
   const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
-  const stageRows = f.stages.map(s => `<tr><td>${s.name}${s.avgAgeDays !== null ? ` <span class="age-tag">~${s.avgAgeDays} дн</span>` : ''}</td><td>${s.count}</td><td>${fmtMoney(s.sum, '')}</td></tr>`).join('');
+  const stageRows = f.stages.map(s => `
+    <tr class="modal-stage-row" data-detail="stage" data-fidx="${idx}" data-stageid="${escapeHtml(s.id)}">
+      <td>${escapeHtml(s.name)}${s.avgAgeDays !== null ? ` <span class="age-tag">~${s.avgAgeDays} дн</span>` : ''}</td>
+      <td>${s.count}</td>
+      <td>${fmtMoney(s.sum, '')}</td>
+    </tr>
+  `).join('');
   let html = statRow('Продажи (выиграно)', fmtMoney(f.wonSum, f.currency))
     + statRow('Сделок всего', f.deals)
     + statRow('Конверсия', fWinRate + '%')
-    + `<table class="modal-table" style="margin-top:12px;"><tbody>${stageRows}</tbody></table>`;
+    + `<div class="modal-subtitle">Стадии — клик открывает сделки на этой стадии</div>`
+    + `<table class="modal-table modal-table-clickable" style="margin-top:4px;"><tbody>${stageRows}</tbody></table>`;
   if(f.bottleneck) html += `<div class="modal-note">⏱ Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.</div>`;
+
+  const funnelDeals = lastDealsFlat.filter(d => d.funnelId === f.id).sort((a,b) => b.amount - a.amount);
+  if(funnelDeals.length > 0){
+    html += `<div class="modal-subtitle">Все сделки воронки</div><div class="modal-deal-list">${buildDealListRows(funnelDeals, 30)}</div>`;
+  }
+
   openModal(f.name, html);
 }
 
@@ -1712,11 +2081,33 @@ function openManagerDetail(idx){
   if(!m) return;
   const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  const html = statRow('Продажи (выиграно)', fmtMoney(m.wonSum, currency))
+
+  let html = '';
+  if(m.position) html += statRow('Должность', escapeHtml(m.position));
+  html += statRow('Продажи (выиграно)', fmtMoney(m.wonSum, currency))
     + statRow('Сделок всего', m.dealsCount)
+    + statRow('Активных сделок', m.activeCount)
     + statRow('Выиграно сделок', m.wonCount)
     + statRow('Провалено сделок', m.lostCount)
     + statRow('Конверсия', conv + '%');
+
+  if(lastRawCalls.length > 0){
+    const managerCalls = lastRawCalls.filter(c => String(c.PORTAL_USER_ID) === String(m.id));
+    if(managerCalls.length > 0){
+      const stats = aggregateCallStats(managerCalls);
+      html += `<div class="modal-subtitle">Звонки за период</div>`
+        + statRow('Входящие', stats.incoming)
+        + statRow('Исходящие', stats.outgoing)
+        + statRow('Успешные', stats.successful)
+        + statRow('Пропущенные', stats.missed);
+    }
+  }
+
+  const managerDeals = lastDealsFlat.filter(d => String(d.assignedTo) === String(m.id)).sort((a,b) => b.amount - a.amount);
+  if(managerDeals.length > 0){
+    html += `<div class="modal-subtitle">Сделки менеджера</div><div class="modal-deal-list">${buildDealListRows(managerDeals, 30)}</div>`;
+  }
+
   openModal(m.name, html);
 }
 
@@ -1759,6 +2150,19 @@ function openBestDealDetail(){
     + statRow('Воронка', lastBestDeal.funnelName)
     + `<div class="modal-note">Самая крупная выигранная сделка за выбранный период.</div>`;
   openModal('Крупнейшая сделка', html);
+}
+
+function openCallsDetail(){
+  if(!lastCallStats) return;
+  const c = lastCallStats;
+  const html = statRow('Всего звонков', c.total)
+    + statRow('Входящие', c.incoming)
+    + statRow('Исходящие', c.outgoing)
+    + statRow('Успешные (был разговор)', c.successful)
+    + statRow('Пропущенные / не дозвонились', c.missed)
+    + statRow('Общая продолжительность', fmtDuration(c.totalDuration))
+    + `<div class="modal-note">За выбранный период фильтра. «Успешный» звонок — это звонок с ненулевой продолжительностью разговора.</div>`;
+  openModal('Звонки', html);
 }
 
 function openPipelineDetail(){
@@ -1817,9 +2221,19 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('click', (e) => {
+  const backBtn = e.target.closest('[data-back-funnel]');
+  if(backBtn){
+    openFunnelDetail(parseInt(backBtn.dataset.backFunnel, 10));
+    return;
+  }
+
   const el = e.target.closest('[data-detail]');
   if(!el) return;
   const type = el.dataset.detail;
+  if(type === 'stage'){
+    openStageDetail(parseInt(el.dataset.fidx, 10), el.dataset.stageid);
+    return;
+  }
   const idx = parseInt(el.dataset.idx, 10);
   if(type === 'funnel') openFunnelDetail(idx);
   else if(type === 'manager') openManagerDetail(idx);
@@ -1827,8 +2241,10 @@ document.addEventListener('click', (e) => {
   else if(type === 'day') openDayDetail(idx);
   else if(type === 'avgdeal') openAvgDealDetail();
   else if(type === 'bestdeal') openBestDealDetail();
+  else if(type === 'calls') openCallsDetail();
   else if(type === 'pipeline') openPipelineDetail();
   else if(type === 'lostvalue') openLostValueDetail();
+  else if(type === 'dealdetail') openDealDetail(idx);
   else if(type.startsWith('kpi-')) openKpiDetail(type);
 });
 
@@ -1885,9 +2301,50 @@ autoRefreshSelect.addEventListener('change', () => {
       if(currentConn) loadDashboard();
     }, minutes * 60 * 1000);
   }
+  saveSettings();
 });
 
 const CONN_STORAGE_KEY = 'salesPulseConnection_v1';
+const SETTINGS_STORAGE_KEY = 'salesPulseSettings_v1';
+
+function saveSettings(){
+  try{
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+      goalAmount,
+      selectedFunnelIds: selectedFunnelIds ? Array.from(selectedFunnelIds) : null,
+      autoRefreshMinutes: parseInt(autoRefreshSelect.value, 10) || 0
+    }));
+  }catch(e){ /* хранилище недоступно — просто не сохраняем */ }
+}
+
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){
+    return null;
+  }
+}
+
+function clearSettings(){
+  try{ localStorage.removeItem(SETTINGS_STORAGE_KEY); }catch(e){ /* игнорируем */ }
+}
+
+function restoreSettings(){
+  const s = loadSettings();
+  if(!s) return;
+  if(typeof s.goalAmount === 'number' && s.goalAmount > 0) goalAmount = s.goalAmount;
+  if(Array.isArray(s.selectedFunnelIds) && s.selectedFunnelIds.length > 0){
+    selectedFunnelIds = new Set(s.selectedFunnelIds);
+  }
+  if(s.autoRefreshMinutes > 0){
+    autoRefreshSelect.value = String(s.autoRefreshMinutes);
+    if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+    autoRefreshTimer = setInterval(() => {
+      if(currentConn) loadDashboard();
+    }, s.autoRefreshMinutes * 60 * 1000);
+  }
+}
 
 function saveConnection(crmId, raw){
   try{
@@ -1925,12 +2382,20 @@ function attemptConnect(){
 
 disconnectBtn.addEventListener('click', () => {
   clearSavedConnection();
+  clearSettings();
   currentAdapter = null;
   currentConn = null;
   goalAmount = null;
   selectedFunnelIds = null;
   availableFunnels = [];
   hasLoadedOnce = false;
+  lastCallStats = null;
+  lastCallStatsError = '';
+  lastRawCalls = [];
+  lastRawTasks = [];
+  lastTasksFetched = false;
+  lastTaskStatsError = '';
+  taskFilterManagerId = 'all';
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
   connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
   content.innerHTML = '';
@@ -1951,6 +2416,13 @@ disconnectBtn.addEventListener('click', () => {
 function rerenderCached(){
   renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
 }
+
+document.addEventListener('change', (e) => {
+  if(e.target.id === 'taskManagerFilter'){
+    taskFilterManagerId = e.target.value;
+    rerenderCached();
+  }
+});
 
 content.addEventListener('mouseover', (e) => {
   const target = e.target.closest('.bar, .stage-row');
@@ -1979,6 +2451,7 @@ dashboardView.addEventListener('click', (e) => {
     if(val > 0 && val <= GOAL_MAX){
       goalAmount = val;
       goalCelebrated = false;
+      saveSettings();
       rerenderCached();
     } else if(val > GOAL_MAX){
       input.classList.add('input-error');
@@ -1987,6 +2460,7 @@ dashboardView.addEventListener('click', (e) => {
   } else if(btn.dataset.action === 'edit-goal'){
     goalAmount = null;
     goalCelebrated = false;
+    saveSettings();
     rerenderCached();
   }
 });
@@ -1998,6 +2472,7 @@ dashboardView.addEventListener('keydown', (e) => {
     if(val > 0 && val <= GOAL_MAX){
       goalAmount = val;
       goalCelebrated = false;
+      saveSettings();
       rerenderCached();
     } else if(val > GOAL_MAX){
       e.target.classList.add('input-error');
@@ -2026,6 +2501,7 @@ onCrmChange();
       if(webhookField){
         webhookField.value = atob(wh);
         landingView.style.display = 'none'; // не мигаем формой — сразу пробуем подключиться
+        restoreSettings();
         attemptConnect();
       }
     }catch(e){ /* игнорируем некорректный параметр */ }
@@ -2042,6 +2518,7 @@ onCrmChange();
       if(field) field.value = saved.raw[key];
     });
     landingView.style.display = 'none'; // не мигаем формой — сразу пробуем подключиться
+    restoreSettings();
     attemptConnect();
   }
   // иначе — первый визит без сохранённых данных, landingView и так видна по умолчанию
