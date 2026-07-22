@@ -1392,6 +1392,8 @@ function renderSkeleton(){
   `;
 }
 
+let loadRequestId = 0; // счётчик поколений запроса — защита от гонки, если новое подключение стартует раньше, чем завершился старый запрос
+
 async function loadDashboard(){
   if(!currentAdapter || !currentConn){
     renderError('сначала подключите CRM выше');
@@ -1399,6 +1401,7 @@ async function loadDashboard(){
   }
   const adapter = currentAdapter;
   const conn = currentConn;
+  const myRequestId = ++loadRequestId; // фиксируем "своё" поколение — если за время загрузки стартует более новый запрос, наш результат нужно будет отбросить
   connectBtn.disabled = true;
   connectBtn.textContent = 'Подключение…';
   renderLoading('получаю список воронок…');
@@ -1604,6 +1607,9 @@ async function loadDashboard(){
       }
     }
 
+    // если за время загрузки успел стартовать более новый запрос (например, подключили другой вебхук) — этот результат уже неактуален, отбрасываем его
+    if(myRequestId !== loadRequestId) return;
+
     lastFunnels = displayFunnels;
     lastManagers = managers;
     lastDailyEntries = dailyEntries;
@@ -1683,11 +1689,14 @@ async function loadDashboard(){
     hasLoadedOnce = true;
 
   }catch(e){
+    if(myRequestId !== loadRequestId) return; // устаревший запрос — не перекрываем ошибкой то, что уже показал более новый
     renderError(e.message || 'не удалось получить данные. Проверьте данные подключения и права доступа.', e);
   }finally{
-    connectBtn.disabled = false;
-    connectBtn.textContent = 'Подключить';
-    hideLoadingToast();
+    if(myRequestId === loadRequestId){
+      connectBtn.disabled = false;
+      connectBtn.textContent = 'Подключить';
+      hideLoadingToast();
+    }
   }
 }
 
