@@ -452,10 +452,10 @@
 
   <div class="periodbar" id="periodBar" style="display:none;">
     <span id="companyBadge" class="company-badge" style="display:none;"></span>
-    <button class="pbtn active" data-period="all">Всё время</button>
+    <button class="pbtn" data-period="all">Всё время</button>
     <button class="pbtn" data-period="today">Сегодня</button>
     <button class="pbtn" data-period="week">Эта неделя</button>
-    <button class="pbtn" data-period="month">Этот месяц</button>
+    <button class="pbtn active" data-period="month">Этот месяц</button>
     <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
     <span id="customRange" class="custom-range" style="display:none;">
       <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
@@ -543,7 +543,7 @@ themeToggleBtn.addEventListener('click', () => {
 
 applyThemeIcon();
 
-let currentPeriod = {type: 'all', from: null, to: null};
+let currentPeriod = (() => { const r = computePeriod('month'); return {type: 'month', from: r.from, to: r.to}; })();
 let lastFunnels = [];
 let lastManagers = [];
 let lastDailyEntries = [];
