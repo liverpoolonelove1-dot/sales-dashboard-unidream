@@ -2442,7 +2442,18 @@ function attemptConnect(){
   currentAdapter = adapter;
   currentConn = adapter.buildConnection(raw);
   if(adapter.status === 'ready') saveConnection(adapter.id, raw);
+  stripWebhookFromUrl(); // если раньше открывали по ссылке со старым вебхуком (?wh=...) — она больше не должна перебивать то, что ввели сейчас
   loadDashboard();
+}
+
+function stripWebhookFromUrl(){
+  try{
+    const url = new URL(window.location.href);
+    if(url.searchParams.has('wh')){
+      url.searchParams.delete('wh');
+      window.history.replaceState(null, '', url.toString());
+    }
+  }catch(e){ /* если history API недоступен — просто игнорируем, не критично */ }
 }
 
 disconnectBtn.addEventListener('click', () => {
