@@ -85,6 +85,12 @@
   .tile .managers-wrap::-webkit-scrollbar-thumb{background:var(--overlay-2);border-radius:4px;}
   .tile-loss{grid-row:span 2;}
   .tile-calls{grid-row:span 2;}
+  .tile-funnel{grid-row:span 2;}
+  .funnel-footer{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;}
+  .funnel-footer-item{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .funnel-footer-label{font-family:'JetBrains Mono',monospace;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);}
+  .funnel-footer-val{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .funnel-footer-lost .funnel-footer-val{color:var(--red-bad);}
   .calls-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 10px;}
   .calls-label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
   .calls-value{display:block;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;margin-top:2px;}
@@ -1827,9 +1833,11 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const funnelCards = funnels.map((f, i) => {
     const color = PALETTE[i % PALETTE.length];
     const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
+    const fPipeline = f.stages.filter(s => s.semantic === 'P').reduce((a,x) => a + x.sum, 0);
+    const fLost = f.stages.filter(s => s.semantic === 'F').reduce((a,x) => a + x.sum, 0);
 
     return `
-      <div class="fcard fcard-compact" data-detail="funnel" data-idx="${i}">
+      <div class="fcard fcard-compact tile-funnel" data-detail="funnel" data-idx="${i}">
         <div class="fcard-head">
           <div class="fcard-name"><span class="fcard-dot" style="background:${color}"></span>${f.name}</div>
           <span class="fcard-id">ID ${f.id}</span>
@@ -1841,6 +1849,10 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         </div>
         <div class="mini-funnel-bar"><div class="mini-funnel-fill" style="width:${fWinRate}%"></div></div>
         ${f.bottleneck ? `<div class="bottleneck-compact" title="Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.">⏱ «${f.bottleneck.name}» — ~${f.bottleneck.avgAgeDays} дн</div>` : ''}
+        <div class="funnel-footer">
+          ${fPipeline > 0 ? `<div class="funnel-footer-item"><span class="funnel-footer-label">В работе</span><span class="funnel-footer-val">${fmtMoney(fPipeline, f.currency)}</span></div>` : ''}
+          ${fLost > 0 ? `<div class="funnel-footer-item funnel-footer-lost"><span class="funnel-footer-label">Упущено</span><span class="funnel-footer-val">${fmtMoney(fLost, f.currency)}</span></div>` : ''}
+        </div>
       </div>
     `;
   }).join('');
@@ -1870,20 +1882,6 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Крупнейшая сделка</div></div>
         <div class="report-tile-value">${fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency)}</div>
         <div class="report-tile-note">воронка «${lastBestDeal.funnelName}»</div>
-      </div>
-    ` : ''}
-    ${pipelineValue > 0 ? `
-      <div class="fcard fcard-compact report-tile" data-detail="pipeline">
-        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>В работе</div></div>
-        <div class="report-tile-value">${fmtMoney(pipelineValue, currency)}</div>
-        <div class="report-tile-note">сумма открытых сделок</div>
-      </div>
-    ` : ''}
-    ${lostValue > 0 ? `
-      <div class="fcard fcard-compact report-tile" data-detail="lostvalue">
-        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Упущено</div></div>
-        <div class="report-tile-value">${fmtMoney(lostValue, currency)}</div>
-        <div class="report-tile-note">сумма проваленных сделок</div>
       </div>
     ` : ''}
   `;
