@@ -256,6 +256,10 @@
   .section-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px;}
   .section-title .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);background:var(--overlay-1);padding:1px 8px;border-radius:10px;}
   .period-sub-note{font-size:11px;color:var(--ink-soft);margin:-6px 0 12px;}
+  .plan-upgrade-hint{display:flex;align-items:flex-start;gap:12px;background:var(--overlay-1);border:1px dashed var(--line);border-radius:14px;padding:14px 18px;margin-top:12px;}
+  .plan-upgrade-icon{color:var(--accent-strong);flex:none;margin-top:2px;}
+  .plan-upgrade-title{font-weight:600;font-size:13px;margin-bottom:4px;}
+  .plan-upgrade-sub{font-size:12px;color:var(--ink-soft);line-height:1.4;}
 
   /* ===== Экран аналитики ===== */
   .analytics-topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:10;gap:16px;flex-wrap:wrap;}
@@ -2531,13 +2535,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
     <p class="period-sub-note">Воронки, менеджеры и причины отказов ниже показывают период, выбранный в фильтре выше; KPI сверху и график динамики — всегда за текущий месяц.</p>
     <div class="dash-tiles">
-      ${isBlockVisible('funnels') ? funnelCards : ''}
-      ${isBlockVisible('managers') ? managersHtml : ''}
-      ${isBlockVisible('loss') ? lossHtml : ''}
-      ${isBlockVisible('calls') ? callsTile : ''}
-      ${isBlockVisible('tasks') ? tasksTile : ''}
-      ${isBlockVisible('reports') ? reportTiles : ''}
+      ${(isBlockVisible('funnels') && planHas('funnels')) ? funnelCards : ''}
+      ${(isBlockVisible('managers') && planHas('managers')) ? managersHtml : ''}
+      ${(isBlockVisible('loss') && planHas('loss')) ? lossHtml : ''}
+      ${(isBlockVisible('calls') && planHas('calls')) ? callsTile : ''}
+      ${(isBlockVisible('tasks') && planHas('tasks')) ? tasksTile : ''}
+      ${(isBlockVisible('reports') && planHas('reports')) ? reportTiles : ''}
     </div>
+    ${!planHas('calls') || !planHas('tasks') ? buildPlanUpgradeHint() : ''}
   `;
 
   content.innerHTML = html;
@@ -3242,17 +3247,78 @@ autoRefreshSelect.addEventListener('change', () => {
   saveSettings();
 });
 
+// ===== ТАРИФНЫЕ ПЛАНЫ =====
+// plan: 'starter' | 'business' | 'pro'
+// Что входит в каждый план:
+const PLANS = {
+  starter: {
+    name: 'Старт',
+    features: ['kpis','chart','goal','funnels','managers'],
+    // Недоступно: sources, calls, tasks, loss, reports, analytics, editor
+  },
+  business: {
+    name: 'Бизнес',
+    features: ['kpis','chart','goal','funnels','managers','loss','calls','tasks','reports'],
+    // Недоступно: analytics, editor
+  },
+  pro: {
+    name: 'Про',
+    features: ['kpis','chart','goal','funnels','managers','loss','calls','tasks','reports','analytics','editor'],
+    // Всё доступно
+  }
+};
+
+let currentPlan = 'pro'; // по умолчанию — полный доступ (для разработки без CLIENT_ACCOUNTS)
+
+function planHas(feature){
+  const plan = PLANS[currentPlan] || PLANS['pro'];
+  return plan.features.includes(feature);
+}
+
+function applyPlanRestrictions(){
+  // Кнопка Аналитика
+  const analyticsBtn = document.getElementById('analyticsBtn');
+  if(analyticsBtn) analyticsBtn.style.display = planHas('analytics') ? 'inline-flex' : 'none';
+  // Кнопка Редактор
+  const editorBtn = document.getElementById('editorBtn');
+  if(editorBtn) editorBtn.style.display = planHas('editor') ? 'flex' : 'none';
+  // Демо-кнопка на landing
+  const demoBtn = document.getElementById('landingDemoBtn');
+  if(demoBtn) demoBtn.style.display = planHas('analytics') ? 'inline-flex' : 'none';
+  // Показываем бейдж плана в шапке
+  updatePlanBadge();
+}
+
+function updatePlanBadge(){
+  let badge = document.getElementById('planBadge');
+  if(!badge){
+    badge = document.createElement('span');
+    badge.id = 'planBadge';
+    badge.style.cssText = 'position:fixed;top:22px;left:20px;font-family:JetBrains Mono,monospace;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;z-index:50;letter-spacing:.06em;text-transform:uppercase;';
+    document.body.appendChild(badge);
+  }
+  const plan = PLANS[currentPlan] || PLANS['pro'];
+  const colors = {starter:'background:#E0F2FE;color:#0369A1', business:'background:#F0FDF4;color:#15803D', pro:'background:rgba(198,241,53,.2);color:var(--accent-ink)'};
+  badge.style.cssText += ';' + (colors[currentPlan] || colors.pro);
+  badge.textContent = plan.name;
+  badge.style.display = CLIENT_ACCOUNTS.length > 0 ? 'block' : 'none'; // скрываем в режиме разработки
+}
+
 // ===== СИСТЕМА ВХОДА =====
 // Пароли хранятся как SHA-256 хеши — не в открытом виде
-// Формат: { username: 'sha256_hash_of_password', webhook: 'опционально' }
+// Формат: { login, hash, webhook?, plan?, brand? }
+// plan: 'starter' | 'business' | 'pro' (по умолчанию 'pro')
 // Генерация хеша: https://emn178.github.io/online-tools/sha256.html
 // Пример: пароль "demo123" → "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791"
 
 const CLIENT_ACCOUNTS = [
-  // { login: 'unidream', hash: 'SHA256(пароль)', webhook: 'https://...' }
-  // Добавьте клиентов здесь. Webhook опционален — если задан, подключается автоматически после входа.
-  // ПРИМЕР (удалите перед релизом):
-  { login: 'demo', hash: 'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791' }, // demo123
+  // Примеры с разными тарифами:
+  // { login: 'client_start',    hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'starter'  },
+  // { login: 'client_business', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'business' },
+  // { login: 'client_pro',      hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'pro'      },
+
+  // ТЕСТОВЫЙ АККАУНТ (удалите перед релизом):
+  { login: 'demo', hash: 'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791', plan: 'pro' }, // demo123
 ];
 
 const AUTH_SESSION_KEY = 'salesPulseAuth_v1';
@@ -3335,9 +3401,11 @@ async function attemptLogin(){
   loginBtn.textContent = 'Войти';
   if(account){
     loginError.style.display = 'none';
-    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null});
+    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro'});
     hideLoginView();
+    currentPlan = account.plan || 'pro';
     applyClientBranding(account);
+    applyPlanRestrictions();
     // Если у аккаунта зашит вебхук — автоподключаемся
     if(account.webhook){
       crmSelect.value = 'bitrix24';
@@ -4247,6 +4315,24 @@ document.addEventListener('click', e => {
 
 loadEditorConfig();
 
+function buildPlanUpgradeHint(){
+  const plan = PLANS[currentPlan];
+  if(!plan) return '';
+  const missing = [];
+  if(!planHas('calls')) missing.push('Звонки');
+  if(!planHas('tasks')) missing.push('Задачи');
+  if(!planHas('analytics')) missing.push('Аналитика');
+  if(!planHas('editor')) missing.push('Редактор интерфейса');
+  if(!missing.length) return '';
+  return `<div class="plan-upgrade-hint">
+    <div class="plan-upgrade-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg></div>
+    <div>
+      <div class="plan-upgrade-title">Доступно в тарифе выше: ${missing.join(', ')}</div>
+      <div class="plan-upgrade-sub">Текущий тариф — <b>${plan.name}</b>. Обратитесь к вашему менеджеру PulseCRM для подключения расширенного функционала.</div>
+    </div>
+  </div>`;
+}
+
 function rerenderCached(){
   renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
 }
@@ -4363,11 +4449,14 @@ applyLang(); // применяем язык сразу
   if(authRequired){
     const session = getSessionAccount();
     if(!session){
-      // Нет активной сессии — показываем экран входа
       showLoginView();
       return;
     }
-    // Сессия есть — если у клиента зашит вебхук в аккаунте, подключаемся автоматически
+    // Восстанавливаем план и брендинг из сессии
+    currentPlan = session.plan || 'pro';
+    if(session.brand) applyClientBranding({brand: session.brand});
+    applyPlanRestrictions();
+    // Если у клиента зашит вебхук — подключаемся автоматически
     if(session.webhook){
       crmSelect.value = 'bitrix24';
       onCrmChange();
