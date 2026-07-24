@@ -48,6 +48,21 @@
   body{transition:background .2s ease, color .2s ease;}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;}
+
+  /* ===== Экран входа ===== */
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .login-card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:36px 40px;width:100%;max-width:380px;box-shadow:0 20px 60px var(--shadow-color);}
+  .login-logo{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.01em;margin-bottom:6px;}
+  .login-logo span{color:var(--accent-strong);}
+  .login-sub{font-size:13px;color:var(--ink-soft);margin-bottom:28px;}
+  .login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+  .login-field label{font-size:11.5px;font-weight:600;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;}
+  .login-field input{border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:14px;background:var(--surface);color:var(--ink);transition:border-color .15s;}
+  .login-field input:focus{outline:none;border-color:var(--accent-strong);}
+  .login-error{font-size:12px;color:var(--red-bad);background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.2);border-radius:9px;padding:8px 12px;margin-bottom:14px;display:none;}
+  .login-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--ink);color:var(--accent);font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:opacity .15s;}
+  .login-btn:hover{opacity:.88;}
+  .login-footer{font-size:11px;color:var(--ink-soft);text-align:center;margin-top:20px;}
   .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px;position:relative;}
   #landingView{min-height:calc(100vh - 96px);display:flex;flex-direction:column;justify-content:center;}
 
@@ -512,6 +527,25 @@
   <div class="shortcut-row"><kbd>?</kbd><span>Показать эту подсказку</span></div>
 </div>
 <div class="wrap">
+<!-- ===== ЭКРАН ВХОДА ===== -->
+<div id="loginView" style="display:none;">
+  <div class="login-card">
+    <div class="login-logo">Sales<span>Pulse</span></div>
+    <div class="login-sub">CRM-аналитика · Войдите для продолжения</div>
+    <div id="loginError" class="login-error">Неверный логин или пароль</div>
+    <div class="login-field">
+      <label>Логин</label>
+      <input type="text" id="loginUsername" placeholder="username" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>Пароль</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn" type="button">Войти</button>
+    <div class="login-footer">Sales Pulse · защищённый доступ</div>
+  </div>
+</div>
+
   <div id="landingView">
     <div class="glow"></div>
     <div class="topbar">
@@ -2708,6 +2742,94 @@ autoRefreshSelect.addEventListener('change', () => {
   saveSettings();
 });
 
+// ===== СИСТЕМА ВХОДА =====
+// Пароли хранятся как SHA-256 хеши — не в открытом виде
+// Формат: { username: 'sha256_hash_of_password', webhook: 'опционально' }
+// Генерация хеша: https://emn178.github.io/online-tools/sha256.html
+// Пример: пароль "demo123" → "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f"
+
+const CLIENT_ACCOUNTS = [
+  // { login: 'unidream', hash: 'SHA256(пароль)', webhook: 'https://...' }
+  // Добавьте клиентов здесь. Webhook опционален — если задан, подключается автоматически после входа.
+  // ПРИМЕР (удалите перед релизом):
+  { login: 'demo', hash: 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f' }, // demo123
+];
+
+const AUTH_SESSION_KEY = 'salesPulseAuth_v1';
+
+async function sha256(message){
+  const msgBuf = new TextEncoder().encode(message);
+  const hashBuf = await crypto.subtle.digest('SHA-256', msgBuf);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function getSessionAccount(){
+  try{
+    const raw = sessionStorage.getItem(AUTH_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+
+function setSessionAccount(account){
+  try{ sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(account)); }catch(e){}
+}
+
+function clearSessionAccount(){
+  try{ sessionStorage.removeItem(AUTH_SESSION_KEY); }catch(e){}
+}
+
+function showLoginView(){
+  document.getElementById('loginView').style.display = 'flex';
+  document.getElementById('landingView').style.display = 'none';
+  document.getElementById('dashboardView').style.display = 'none';
+}
+
+function hideLoginView(){
+  document.getElementById('loginView').style.display = 'none';
+}
+
+const loginBtn = document.getElementById('loginBtn');
+const loginUsername = document.getElementById('loginUsername');
+const loginPassword = document.getElementById('loginPassword');
+const loginError = document.getElementById('loginError');
+
+async function attemptLogin(){
+  const username = loginUsername.value.trim().toLowerCase();
+  const password = loginPassword.value;
+  if(!username || !password){ loginError.style.display='block'; return; }
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Проверяю…';
+  const hash = await sha256(password);
+  const account = CLIENT_ACCOUNTS.find(a => a.login.toLowerCase() === username && a.hash === hash);
+  loginBtn.disabled = false;
+  loginBtn.textContent = 'Войти';
+  if(account){
+    loginError.style.display = 'none';
+    setSessionAccount({login: account.login, webhook: account.webhook || null});
+    hideLoginView();
+    // Если у аккаунта зашит вебхук — автоподключаемся
+    if(account.webhook){
+      crmSelect.value = 'bitrix24';
+      onCrmChange();
+      const wf = connFields.querySelector('[data-field="webhook"]');
+      if(wf){ wf.value = account.webhook; attemptConnect(); return; }
+    }
+    // Иначе — показываем экран подключения
+    landingView.style.display = 'block';
+  } else {
+    loginError.style.display = 'block';
+    loginPassword.value = '';
+    loginPassword.focus();
+  }
+}
+
+loginBtn.addEventListener('click', attemptLogin);
+[loginUsername, loginPassword].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') attemptLogin(); }));
+
+// При выходе — очищаем сессию
+const origDisconnect = disconnectBtn.onclick;
+disconnectBtn.addEventListener('click', () => { /* clearSessionAccount(); */ }); // раскомментировать если нужен выход
+
 const CONN_STORAGE_KEY = 'salesPulseConnection_v1';
 const SETTINGS_STORAGE_KEY = 'salesPulseSettings_v1';
 
@@ -3187,6 +3309,25 @@ crmSelect.value = 'bitrix24';
 onCrmChange();
 
 (function initFromUrl(){
+  // Если список клиентов пуст — логин не нужен, работаем без защиты (режим разработки)
+  const authRequired = CLIENT_ACCOUNTS.length > 0;
+
+  if(authRequired){
+    const session = getSessionAccount();
+    if(!session){
+      // Нет активной сессии — показываем экран входа
+      showLoginView();
+      return;
+    }
+    // Сессия есть — если у клиента зашит вебхук в аккаунте, подключаемся автоматически
+    if(session.webhook){
+      crmSelect.value = 'bitrix24';
+      onCrmChange();
+      const wf = connFields.querySelector('[data-field="webhook"]');
+      if(wf){ wf.value = session.webhook; restoreSettings(); attemptConnect(); return; }
+    }
+  }
+
   const params = new URLSearchParams(window.location.search);
   const wh = params.get('wh');
   if(wh){
