@@ -951,6 +951,7 @@
       <button class="atab" data-tab="closed">Закрытые</button>
       <button class="atab" data-tab="clients">Клиенты</button>
       <button class="atab" data-tab="roi">LTV / ROI</button>
+      <button class="atab" data-tab="forecast">Прогноз</button>
       <button class="atab" data-tab="finance">Финансы / ROI</button>
     </div>
   </div>
@@ -4878,6 +4879,168 @@ function buildClientsTab(){
   `;
 }
 
+function buildForecastTab(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+  const fmt = n => fmtMoney(n, currency);
+  const now = new Date();
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S'&&d.createdAt);
+  if(wonDeals.length < 3) return '<div class="analytics-empty">Недостаточно данных для прогноза (нужно минимум 3 выигранных сделки)</div>';
+
+  // === Данные по месяцам ===
+  const monthMap = {};
+  wonDeals.forEach(d=>{
+    const dt = new Date(d.createdAt);
+    const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+    if(!monthMap[key]) monthMap[key]={sum:0,count:0,key};
+    monthMap[key].sum += d.amount;
+    monthMap[key].count++;
+  });
+  const months = Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key));
+
+  // === Модель 1: Линейный тренд (наименьшие квадраты) ===
+  const n = months.length;
+  const xs = months.map((_,i)=>i);
+  const ys = months.map(m=>m.sum);
+  const sumX = xs.reduce((a,x)=>a+x,0);
+  const sumY = ys.reduce((a,y)=>a+y,0);
+  const sumXY = xs.reduce((a,x,i)=>a+x*ys[i],0);
+  const sumX2 = xs.reduce((a,x)=>a+x*x,0);
+  const slope = n>1 ? (n*sumXY - sumX*sumY)/(n*sumX2 - sumX*sumX) : 0;
+  const intercept = (sumY - slope*sumX)/n;
+  const linearForecast = Math.max(0, Math.round(intercept + slope*n));
+  const trend = slope > 0 ? 'up' : slope < 0 ? 'down' : 'flat';
+
+  // === Модель 2: Скользящее среднее (последние 3 месяца) ===
+  const last3 = months.slice(-3);
+  const maForecast = last3.length > 0 ? Math.round(last3.reduce((a,m)=>a+m.sum,0)/last3.length) : 0;
+
+  // === Модель 3: Pipeline-based (конверсия × активные сделки) ===
+  const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
+  const pipelineVal = activeDeals.reduce((a,d)=>a+d.amount,0);
+  const convRate = (wonDeals.length+lastDealsFlat.filter(d=>d.semantic==='F').length)>0
+    ? wonDeals.length/(wonDeals.length+lastDealsFlat.filter(d=>d.semantic==='F').length) : 0.3;
+  const pipelineForecast = Math.round(pipelineVal * convRate);
+
+  // === Итоговый взвешенный прогноз ===
+  // Линейный 40% + Скользящее среднее 40% + Pipeline 20%
+  const weightedForecast = Math.round(linearForecast*0.4 + maForecast*0.4 + pipelineForecast*0.2);
+
+  // === Прогноз до конца текущего месяца ===
+  const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const dayOfM = now.getDate();
+  const daysLeft = daysInM - dayOfM;
+  const monthToDate = lastMonthRevenue;
+  const dailyRate = dayOfM>0 ? monthToDate/dayOfM : 0;
+  const endOfMonthForecast = Math.round(monthToDate + dailyRate*daysLeft);
+
+  // % выполнения плана
+  const planPct = goalAmount>0 ? Math.round(100*endOfMonthForecast/goalAmount) : null;
+
+  // === Таблица прогнозов по следующим 3 месяцам ===
+  const futureMonths = [];
+  for(let i=1;i<=3;i++){
+    const dt = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    const label = dt.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+    const linVal = Math.max(0,Math.round(intercept + slope*(n+i-1)));
+    const maVal = maForecast;
+    const avg = Math.round((linVal+maVal)/2);
+    futureMonths.push({label, linVal, maVal, avg});
+  }
+
+  // === Динамика по месяцам для мини-графика ===
+  const maxSum = Math.max(...months.map(m=>m.sum), weightedForecast);
+  const barRows = months.slice(-6).map(m=>{
+    const pct = maxSum>0 ? Math.round(100*m.sum/maxSum) : 0;
+    const [y,mo] = m.key.split('-');
+    const lbl = new Date(+y,+mo-1,1).toLocaleDateString('ru-RU',{month:'short'});
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-soft);">${fmt(m.sum).split(' ')[0]}</div>
+      <div style="width:100%;height:${Math.max(4,pct*0.8)}px;background:var(--accent-strong);border-radius:4px 4px 0 0;"></div>
+      <div style="font-size:9px;color:var(--ink-soft);">${lbl}</div>
+    </div>`;
+  });
+  // Добавляем прогнозный столбик
+  const fcPct = maxSum>0 ? Math.round(100*weightedForecast/maxSum) : 0;
+  barRows.push(`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--violet);">${fmt(weightedForecast).split(' ')[0]}</div>
+    <div style="width:100%;height:${Math.max(4,fcPct*0.8)}px;background:#A78BFA;border-radius:4px 4px 0 0;border:2px dashed #7C3AED;"></div>
+    <div style="font-size:9px;color:#7C3AED;font-weight:700;">прогноз</div>
+  </div>`);
+
+  const trendIcon = trend==='up' ? '↑' : trend==='down' ? '↓' : '→';
+  const trendColor = trend==='up' ? 'var(--accent-strong)' : trend==='down' ? 'var(--red-bad)' : 'var(--ink-soft)';
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">Прогноз выручки — следующий месяц</div>
+      <div class="analytics-cards">
+        <div class="analytics-card" style="border-top:3px solid #A78BFA;">
+          <div class="analytics-card-val" style="color:#7C3AED;">${fmt(weightedForecast)}</div>
+          <div class="analytics-card-lbl">Взвешенный прогноз</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(linearForecast)}</div>
+          <div class="analytics-card-lbl">Линейный тренд</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(maForecast)}</div>
+          <div class="analytics-card-lbl">Скользящее среднее (3м)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(pipelineForecast)}</div>
+          <div class="analytics-card-lbl">Pipeline × конверсия</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-end;gap:6px;height:100px;margin:20px 0 8px;padding:0 4px;">
+        ${barRows.join('')}
+      </div>
+      <div style="font-size:11px;color:var(--ink-soft);text-align:center;">Последние 6 месяцев + прогноз следующего</div>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">До конца текущего месяца</div>
+      <table class="analytics-table"><tbody>
+        <tr><td>Уже заработано</td><td style="text-align:right;font-weight:700">${fmt(monthToDate)}</td></tr>
+        <tr><td>Темп в день</td><td style="text-align:right;font-weight:700">${fmt(Math.round(dailyRate))}/день</td></tr>
+        <tr><td>Осталось дней</td><td style="text-align:right;font-weight:700">${daysLeft}</td></tr>
+        <tr><td><b>Прогноз на конец месяца</b></td><td style="text-align:right;font-weight:800;font-size:15px">${fmt(endOfMonthForecast)}</td></tr>
+        ${planPct!==null?`<tr><td>Выполнение плана</td><td style="text-align:right;font-weight:700;color:${planPct>=100?'var(--accent-strong)':'var(--red-bad)'}">${planPct}%</td></tr>`:''}
+      </tbody></table>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">Прогноз на 3 месяца вперёд</div>
+      <table class="analytics-table">
+        <thead><tr><th>Месяц</th><th>Линейный тренд</th><th>Скользящее среднее</th><th>Итоговый прогноз</th></tr></thead>
+        <tbody>
+          ${futureMonths.map(m=>`<tr>
+            <td>${m.label}</td>
+            <td>${fmt(m.linVal)}</td>
+            <td>${fmt(m.maVal)}</td>
+            <td><b style="color:#7C3AED">${fmt(m.avg)}</b></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">Тренд и методология</div>
+      <table class="analytics-table"><tbody>
+        <tr><td>Тренд продаж</td><td style="text-align:right;font-weight:700;color:${trendColor}">${trendIcon} ${trend==='up'?'Растущий':trend==='down'?'Падающий':'Стабильный'}</td></tr>
+        <tr><td>Наклон тренда (в месяц)</td><td style="text-align:right;font-weight:700">${slope>=0?'+':''}${fmt(Math.round(slope))}</td></tr>
+        <tr><td>Pipeline (активные сделки)</td><td style="text-align:right;font-weight:700">${fmt(pipelineVal)}</td></tr>
+        <tr><td>Конверсия для расчёта</td><td style="text-align:right;font-weight:700">${Math.round(convRate*100)}%</td></tr>
+        <tr><td>Месяцев данных</td><td style="text-align:right;font-weight:700">${months.length}</td></tr>
+      </tbody></table>
+      <div class="modal-note" style="margin-top:10px;">
+        <b>Взвешенный прогноз</b> = Линейный тренд × 40% + Скользящее среднее × 40% + Pipeline × конверсия × 20%.<br>
+        Чем больше исторических данных — тем точнее прогноз.
+      </div>
+    </div>
+  `;
+}
+
 function buildRoiTab(){
   const currency = lastFunnels.find(f=>f.currency)?.currency||'';
   const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
@@ -5138,7 +5301,8 @@ const ANALYTICS_BUILDERS = {
   closed: buildClosedTab,
   clients: buildClientsTab,
   finance: buildFinanceTab,
-  roi: buildRoiTab
+  roi: buildRoiTab,
+  forecast: buildForecastTab
 };
 
 let currentAnalyticsTab = 'sources';
