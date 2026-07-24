@@ -1022,7 +1022,7 @@ const TRANSLATIONS = {
   }
 };
 
-let currentLang = localStorage.getItem('salesPulseLang') || 'ru';
+let currentLang = (() => { try{ return localStorage.getItem('salesPulseLang') || 'ru'; }catch(e){ return 'ru'; } })();
 
 function t(key){ return TRANSLATIONS[currentLang][key] || TRANSLATIONS['ru'][key] || key; }
 
@@ -1080,7 +1080,7 @@ function applyLang(){
 const langToggleBtn = document.getElementById('langToggleBtn');
 langToggleBtn.addEventListener('click', () => {
   currentLang = currentLang === 'ru' ? 'uz' : 'ru';
-  localStorage.setItem('salesPulseLang', currentLang);
+  try{ localStorage.setItem('salesPulseLang', currentLang); }catch(e){}
   applyLang();
   // Перерисовываем дашборд если подключён — обновит кнопки внутри сетки
   if(lastFunnels.length > 0) rerenderCached();
@@ -1314,6 +1314,13 @@ settingsBtn.addEventListener('click', () => {
   }
 });
 
+// Глобальный обработчик — ловим необработанные Promise-ошибки
+window.addEventListener('unhandledrejection', (e) => {
+  if(e.reason && String(e.reason).includes('fetch')) return;
+  console.warn('PulseCRM unhandled:', e.reason);
+  e.preventDefault();
+});
+
 document.addEventListener('click', (e) => {
   if(funnelFilterPanel.style.display !== 'none' &&
      !funnelFilterPanel.contains(e.target) && e.target !== funnelFilterBtn && !funnelFilterBtn.contains(e.target)){
@@ -1384,20 +1391,35 @@ function appendParams(qs, prefix, value){
 async function callMethod(webhook, method, params){
   const qs = new URLSearchParams();
   for(const k in params) appendParams(qs, k, params[k]);
-  const res = await fetch(`${webhook}${method}.json?${qs.toString()}`);
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if(data.error) throw new Error(data.error_description || data.error);
-  return data;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000); // 15 сек таймаут
+  try{
+    const res = await fetch(`${webhook}${method}.json?${qs.toString()}`, {signal: controller.signal});
+    clearTimeout(timeout);
+    if(res.status === 401) throw new Error('HTTP 401 — нет прав доступа. Проверьте настройки вебхука.');
+    if(res.status === 403) throw new Error('HTTP 403 — доступ запрещён. Добавьте нужные права вебхуку.');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error_description || data.error);
+    return data;
+  }catch(e){
+    clearTimeout(timeout);
+    if(e.name === 'AbortError') throw new Error('Превышено время ожидания (15 сек). Проверьте соединение.');
+    throw e;
+  }
 }
 
 async function fetchAllPaged(webhook, method, params){
   let all = [];
   let start = 0;
-  while(true){
+  let page = 0;
+  const MAX_PAGES = 50; // защита от бесконечного цикла — макс 50 страниц × 50 записей = 2500 записей
+  while(page < MAX_PAGES){
     const data = await callMethod(webhook, method, {...params, start});
-    all = all.concat(data.result);
-    if(data.next) start = data.next; else break;
+    const results = Array.isArray(data.result) ? data.result : [];
+    all = all.concat(results);
+    page++;
+    if(data.next && results.length > 0) start = data.next; else break;
   }
   return all;
 }
@@ -1651,7 +1673,8 @@ function onCrmChange(){
 }
 
 function fmtMoney(n, currency){
-  const num = Math.round(n).toLocaleString('ru-RU');
+  const val = (typeof n === 'number' && !isNaN(n)) ? n : 0;
+  const num = Math.round(val).toLocaleString('ru-RU');
   return `${num}${currency ? ' ' + currency : ''}`;
 }
 
