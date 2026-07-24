@@ -510,6 +510,21 @@
   .modal-deal-sum:hover{color:var(--accent-strong);border-color:var(--accent-strong);}
   .modal-open-link{display:inline-block;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--accent-strong);text-decoration:none;}
   .modal-open-link:hover{text-decoration:underline;}
+  /* Вкладки карточки сделки */
+  .deal-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:0;}
+  .deal-tab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 16px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:-1px;transition:color .15s, border-color .15s;}
+  .deal-tab.active{color:var(--ink);border-bottom-color:var(--accent-strong);}
+  .deal-tab:hover{color:var(--ink);}
+  /* История изменений */
+  .history-list{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;}
+  .history-row{padding:10px 12px;background:var(--overlay-1);border-radius:10px;border-left:3px solid var(--line);}
+  .history-row-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;gap:8px;}
+  .history-field{font-weight:700;font-size:12px;}
+  .history-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);white-space:nowrap;}
+  .history-change{font-size:12.5px;margin-bottom:3px;}
+  .history-prev{color:var(--red-bad);text-decoration:line-through;opacity:.7;}
+  .history-next{color:var(--accent-strong);font-weight:600;}
+  .history-who{font-size:10.5px;color:var(--ink-soft);}
   .mgr-period-bar{display:flex;gap:6px;margin:12px 0 16px;}
   .mgr-period-btn{background:var(--overlay-1);border:1px solid var(--line);color:var(--ink-soft);font-size:11px;font-family:'Inter',sans-serif;font-weight:600;padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
   .mgr-period-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
@@ -2722,6 +2737,55 @@ async function fetchEntityById(webhook, method, id){
   }
 }
 
+async function fetchDealHistory(webhook, dealId){
+  try{
+    const data = await callMethod(webhook, 'crm.deal.log.list', {
+      filter: {ENTITY_ID: dealId},
+      order: {ID: 'DESC'},
+      select: ['ID','CREATED_TIME','RESPONSIBLE_ID','USER_ID','FIELD','SET_VALUE','PREV_VALUE','TYPE_ID'],
+      start: 0
+    });
+    return Array.isArray(data.result) ? data.result : [];
+  }catch(e){
+    // crm.deal.log.list может быть недоступен на некоторых тарифах Битрикс24
+    logError('История сделки', `Не удалось загрузить историю сделки №${dealId}`, e.message);
+    return null;
+  }
+}
+
+const DEAL_FIELD_NAMES = {
+  'TITLE':'Название', 'OPPORTUNITY':'Сумма', 'STAGE_ID':'Стадия',
+  'ASSIGNED_BY_ID':'Ответственный', 'CLOSED':'Закрыта', 'SOURCE_ID':'Источник',
+  'CONTACT_ID':'Контакт', 'COMPANY_ID':'Компания', 'COMMENTS':'Комментарий',
+  'DATE_CREATE':'Дата создания', 'DATE_MODIFY':'Дата изменения',
+  'CLOSEDATE':'Дата закрытия', 'CURRENCY_ID':'Валюта',
+};
+
+function renderDealHistoryHtml(history, stageMap){
+  if(history === null) return `<div class="modal-note">История изменений недоступна — метод crm.deal.log.list не поддерживается на вашем тарифе Битрикс24.</div>`;
+  if(!history.length) return `<div class="modal-note">История изменений пуста.</div>`;
+
+  const rows = history.slice(0, 50).map(h => {
+    const time = h.CREATED_TIME ? new Date(h.CREATED_TIME).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const field = DEAL_FIELD_NAMES[h.FIELD] || h.FIELD || '—';
+    const mgr = lastManagers.find(m => String(m.id) === String(h.USER_ID || h.RESPONSIBLE_ID));
+    const mgrName = mgr ? mgr.name : (h.USER_ID ? `ID ${h.USER_ID}` : 'Система');
+    const prev = h.PREV_VALUE ? `<span class="history-prev">${escapeHtml(String(h.PREV_VALUE))}</span> → ` : '';
+    const next = h.SET_VALUE ? `<span class="history-next">${escapeHtml(String(h.SET_VALUE))}</span>` : '<span class="history-next">—</span>';
+    return `<div class="history-row">
+      <div class="history-row-top">
+        <span class="history-field">${escapeHtml(field)}</span>
+        <span class="history-time">${time}</span>
+      </div>
+      <div class="history-change">${prev}${next}</div>
+      <div class="history-who">${escapeHtml(mgrName)}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="history-list">${rows}</div>` +
+    (history.length > 50 ? `<div class="modal-note">Показаны последние 50 из ${history.length} изменений.</div>` : '');
+}
+
 async function openDealDetail(flatIdx){
   const d = lastDealsFlat[flatIdx];
   if(!d) return;
@@ -2729,31 +2793,56 @@ async function openDealDetail(flatIdx){
   const respName = lastManagers.find(m => String(m.id) === String(d.assignedTo))?.name
     || (d.assignedTo ? `Сотрудник ID ${d.assignedTo}` : 'Не указан');
 
-  const html = statRow('Название', d.title ? escapeHtml(d.title) : `Сделка №${d.id}`)
-    + statRow('Сумма', fmtMoney(d.amount, currency))
-    + statRow('ID сделки', d.id)
-    + statRow('Воронка', d.funnelName)
-    + statRow('Стадия', d.stageName)
-    + statRow('Ответственный', respName)
-    + statRow('Дата создания', d.createdAt ? new Date(d.createdAt).toLocaleString('ru-RU') : '—')
-    + statRow('Изменена', d.updatedAt ? new Date(d.updatedAt).toLocaleString('ru-RU') : '—')
-    + `<div id="dealDetailExtra" class="modal-note">Загружаю контакт, компанию и комментарии из CRM…</div>`;
-  openModal(`Сделка №${d.id}`, html);
+  // Разметка с вкладками Детали / История
+  const tabHtml = `
+    <div class="deal-tabs" id="dealTabBar">
+      <button class="deal-tab active" data-deal-tab="info">Детали</button>
+      <button class="deal-tab" data-deal-tab="history">История изменений</button>
+    </div>
+    <div id="dealTabInfo">
+      ${statRow('Название', d.title ? escapeHtml(d.title) : `Сделка №${d.id}`)}
+      ${statRow('Сумма', fmtMoney(d.amount, currency))}
+      ${statRow('ID сделки', d.id)}
+      ${statRow('Воронка', d.funnelName)}
+      ${statRow('Стадия', d.stageName)}
+      ${statRow('Ответственный', respName)}
+      ${statRow('Дата создания', d.createdAt ? new Date(d.createdAt).toLocaleString('ru-RU') : '—')}
+      ${statRow('Изменена', d.updatedAt ? new Date(d.updatedAt).toLocaleString('ru-RU') : '—')}
+      <div id="dealDetailExtra" class="modal-note">Загружаю контакт, компанию и комментарии из CRM…</div>
+    </div>
+    <div id="dealTabHistory" style="display:none;">
+      <div class="modal-note" id="dealHistoryLoading">Загружаю историю изменений…</div>
+    </div>`;
+
+  openModal(`Сделка №${d.id}`, tabHtml);
+  document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+
+  // Обработчик вкладок
+  document.getElementById('dealTabBar').addEventListener('click', async e => {
+    const tab = e.target.closest('[data-deal-tab]')?.dataset.dealTab;
+    if(!tab) return;
+    document.querySelectorAll('.deal-tab').forEach(b => b.classList.toggle('active', b.dataset.dealTab === tab));
+    document.getElementById('dealTabInfo').style.display = tab === 'info' ? '' : 'none';
+    document.getElementById('dealTabHistory').style.display = tab === 'history' ? '' : 'none';
+    if(tab === 'history' && document.getElementById('dealHistoryLoading')){
+      const history = await fetchDealHistory(currentConn?.webhook, d.id);
+      const el = document.getElementById('dealTabHistory');
+      if(el) el.innerHTML = renderDealHistoryHtml(history);
+    }
+  });
 
   if(!currentConn || !currentConn.webhook) return;
   try{
     const full = await fetchDealFullDetails(currentConn.webhook, d.id);
     if(!full){
       const el = document.getElementById('dealDetailExtra');
-      if(el) el.textContent = 'Не удалось загрузить дополнительные данные сделки.';
+      if(el) el.textContent = 'Не удалось загрузить дополнительные данные.';
       return;
     }
-
     const [contact, company] = await Promise.all([
       fetchEntityById(currentConn.webhook, 'crm.contact.get', full.CONTACT_ID),
       fetchEntityById(currentConn.webhook, 'crm.company.get', full.COMPANY_ID)
     ]);
-
     let extra = '';
     if(contact){
       extra += statRow('Контакт', escapeHtml(`${contact.NAME || ''} ${contact.LAST_NAME || ''}`.trim() || `ID ${full.CONTACT_ID}`));
@@ -2763,22 +2852,19 @@ async function openDealDetail(flatIdx){
     if(company) extra += statRow('Компания', escapeHtml(company.TITLE || `ID ${full.COMPANY_ID}`));
     if(full.SOURCE_ID) extra += statRow('Источник', escapeHtml(full.SOURCE_ID));
     if(full.COMMENTS) extra += `<div class="modal-note"><b>Комментарий:</b> ${escapeHtml(full.COMMENTS)}</div>`;
-
-    // пользовательские поля (UF_*), если есть — показываем как есть, без расшифровки названия
     const ufFields = Object.keys(full).filter(k => k.startsWith('UF_') && full[k] !== null && full[k] !== '' && !Array.isArray(full[k]));
     if(ufFields.length > 0){
       extra += `<div class="modal-subtitle">Пользовательские поля</div>`;
       ufFields.forEach(k => { extra += statRow(k, escapeHtml(String(full[k]))); });
     }
-
     const url = buildBitrix24DealUrl(currentConn.webhook, d.id);
     if(url) extra += `<a class="modal-open-link" href="${url}" target="_blank" rel="noopener">Открыть сделку в Bitrix24 →</a>`;
-
     const el = document.getElementById('dealDetailExtra');
     if(el) el.outerHTML = extra || '<div class="modal-note">Дополнительных данных нет.</div>';
   }catch(e){
     const el = document.getElementById('dealDetailExtra');
-    if(el) el.textContent = 'Не удалось загрузить дополнительные данные: ' + (e.message || e);
+    if(el) el.textContent = 'Не удалось загрузить: ' + (e.message || e);
+    logError('Карточка сделки', `Ошибка загрузки деталей сделки №${d.id}`, e.message);
   }
 }
 
