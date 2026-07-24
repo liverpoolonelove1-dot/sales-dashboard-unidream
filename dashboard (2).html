@@ -152,7 +152,8 @@
   .landing-btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow-lg);}
   .landing-btn-ghost{padding:14px 24px;border-radius:14px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;cursor:pointer;transition:border-color .15s,background .15s;}
   .landing-btn-ghost:hover{border-color:var(--ink);background:var(--overlay-1);}
-  .landing-trust{font-size:12px;color:var(--ink-soft);}
+  .landing-trust{font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+  .landing-trust::before{content:'';display:inline-block;width:12px;height:14px;background:currentColor;mask-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 12 14' fill='currentColor' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='1' y='6' width='10' height='8' rx='1.5' fill='currentColor'/%3E%3Cpath d='M3 6V4a3 3 0 1 1 6 0v2' stroke='currentColor' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");mask-size:contain;mask-repeat:no-repeat;opacity:.5;}
   /* Мокап дашборда */
   .landing-hero-visual{flex:none;width:420px;}
   .landing-mockup{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 24px 60px var(--shadow-lg);}
@@ -173,7 +174,8 @@
   /* Фичи */
   .landing-features{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:0 64px 56px;max-width:1200px;margin:0 auto;}
   .landing-feat{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 24px;}
-  .landing-feat-icon{font-size:24px;margin-bottom:12px;}
+  .landing-feat-icon{width:36px;height:36px;margin-bottom:14px;color:var(--accent-strong);}
+  .landing-feat-icon svg{width:100%;height:100%;}
   .landing-feat-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin-bottom:6px;}
   .landing-feat-desc{font-size:13px;color:var(--ink-soft);line-height:1.5;}
   /* Форма подключения */
@@ -685,14 +687,14 @@
     <!-- LANDING HERO -->
     <div class="landing-hero">
       <div class="landing-hero-inner">
-        <div class="landing-badge">✦ CRM-аналитика для Битрикс24</div>
+        <div class="landing-badge">CRM-аналитика для Битрикс24</div>
         <h1 class="landing-h1">Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span></h1>
         <p class="landing-sub">Живые данные из Битрикс24, аналитика по менеджерам, воронкам и источникам рекламы. Без программистов, без подписок.</p>
         <div class="landing-cta-row">
           <button class="landing-btn-primary" id="landingConnectBtn">Подключить Битрикс24 →</button>
-          <button class="landing-btn-ghost" id="landingDemoBtn">▶ Посмотреть демо</button>
+          <button class="landing-btn-ghost" id="landingDemoBtn">Посмотреть демо</button>
         </div>
-        <div class="landing-trust">🔒 Данные не покидают ваш браузер · Бесплатно</div>
+        <div class="landing-trust">Данные не покидают ваш браузер · Бесплатно</div>
       </div>
       <div class="landing-hero-visual">
         <div class="landing-mockup">
@@ -725,22 +727,22 @@
     <!-- ФИЧИ -->
     <div class="landing-features">
       <div class="landing-feat">
-        <div class="landing-feat-icon">📊</div>
+        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
         <div class="landing-feat-title">Источники рекламы</div>
         <div class="landing-feat-desc">Видите с какого канала пришёл каждый лид и сколько принёс денег</div>
       </div>
       <div class="landing-feat">
-        <div class="landing-feat-icon">👤</div>
+        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
         <div class="landing-feat-title">Аналитика менеджеров</div>
         <div class="landing-feat-desc">Конверсия, нагрузка по дням, стадии сделок каждого сотрудника</div>
       </div>
       <div class="landing-feat">
-        <div class="landing-feat-icon">🔄</div>
+        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h6l3 9-3.5 2.5A11 11 0 0 0 14 21h7"/><path d="M21 3h-6l-3 9 3.5 2.5"/></svg></div>
         <div class="landing-feat-title">Все воронки</div>
         <div class="landing-feat-desc">Узкие места, зависшие сделки и узнайте где теряются клиенты</div>
       </div>
       <div class="landing-feat">
-        <div class="landing-feat-icon">📞</div>
+        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.65 12 19.79 19.79 0 0 1 1.57 3.42 2 2 0 0 1 3.54 1H6.5a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.52 8.63a16 16 0 0 0 5.85 5.85l1-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg></div>
         <div class="landing-feat-title">Звонки и задачи</div>
         <div class="landing-feat-desc">Статистика звонков, просроченные задачи — всё в одном месте</div>
       </div>
@@ -777,11 +779,11 @@
       <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;">Аналитика</span>
     </div>
     <div class="analytics-tabs" id="analyticsTabs">
-      <button class="atab active" data-tab="sources">📊 Источники</button>
-      <button class="atab" data-tab="daily">📅 По дням</button>
-      <button class="atab" data-tab="stages">🔄 По стадиям</button>
-      <button class="atab" data-tab="managers">👤 Менеджеры</button>
-      <button class="atab" data-tab="closed">✅ Закрытые</button>
+      <button class="atab active" data-tab="sources">Источники</button>
+      <button class="atab" data-tab="daily">По дням</button>
+      <button class="atab" data-tab="stages">По стадиям</button>
+      <button class="atab" data-tab="managers">Менеджеры</button>
+      <button class="atab" data-tab="closed">Закрытые</button>
     </div>
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
@@ -793,7 +795,7 @@
   </div>
   <!-- Демо-баннер -->
   <div id="demoBanner" class="demo-banner" style="display:none;">
-    <div class="demo-banner-text">🎯 Демо-режим <span>· Данные ненастоящие, для демонстрации возможностей</span></div>
+    <div class="demo-banner-text">Демо-режим <span>· Данные ненастоящие, для демонстрации возможностей</span></div>
     <button class="btn btn-primary btn-sm" id="demoConnectBtn">Подключить реальный Битрикс24 →</button>
   </div>
   <div id="chartHeroContainer"></div>
@@ -818,7 +820,7 @@
         <option value="10">Обновлять каждые 10 мин</option>
         <option value="30">Обновлять каждые 30 мин</option>
       </select>
-      <button class="btn btn-ghost" id="analyticsBtn" style="display:none;">📊 Аналитика</button>
+      <button class="btn btn-ghost" id="analyticsBtn" style="display:none;">Аналитика</button>
       <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
     </div>
     <div class="filter-wrap">
@@ -2175,7 +2177,7 @@ async function loadDashboard(){
 
     if(dupPairs.length > 0){
       dupWarning.style.display = 'block';
-      dupWarning.innerHTML = `<b>⚠ Похоже на задвоенные воронки</b>` + dupPairs.map(p =>
+      dupWarning.innerHTML = `<b>Внимание: похоже на задвоенные воронки</b>` + dupPairs.map(p =>
         `«${p[0]}» (ID ${p[2]}) и «${p[1]}» (ID ${p[3]}) показывают абсолютно одинаковый набор сделок.`
       ).join('<br>') + ` Проверьте настройки воронок в вашей CRM — вероятно, это одна и та же воронка под разными названиями.`;
     } else {
@@ -2298,7 +2300,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div><div class="m-label">Конв.</div><div class="m-value">${fWinRate}%</div></div>
         </div>
         <div class="mini-funnel-bar"><div class="mini-funnel-fill" style="width:${fWinRate}%"></div></div>
-        ${f.bottleneck ? `<div class="bottleneck-compact" title="Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.">⏱ «${f.bottleneck.name}» — ~${f.bottleneck.avgAgeDays} дн</div>` : ''}
+        ${f.bottleneck ? `<div class="bottleneck-compact" title="Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.">«${f.bottleneck.name}» — ~${f.bottleneck.avgAgeDays} дн</div>` : ''}
         <div class="funnel-footer">
           ${fPipeline > 0 ? `<div class="funnel-footer-item"><span class="funnel-footer-label">В работе</span><span class="funnel-footer-val">${fmtMoney(fPipeline, f.currency)}</span></div>` : ''}
           ${fLost > 0 ? `<div class="funnel-footer-item funnel-footer-lost"><span class="funnel-footer-label">Упущено</span><span class="funnel-footer-val">${fmtMoney(fLost, f.currency)}</span></div>` : ''}
@@ -2347,7 +2349,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div><span class="calls-label">Успешные</span><span class="calls-value calls-good">${lastCallStats.successful}</span></div>
           <div><span class="calls-label">Пропущенные</span><span class="calls-value calls-bad">${lastCallStats.missed}</span></div>
         </div>
-        <div class="calls-duration">⏱ ${fmtDuration(lastCallStats.totalDuration)} разговоров за период</div>
+        <div class="calls-duration">${fmtDuration(lastCallStats.totalDuration)} разговоров за период</div>
       </div>
     `;
   } else if(lastCallStatsError){
@@ -2383,7 +2385,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div data-detail="tasks-work" style="cursor:pointer"><span class="calls-label">В работе</span><span class="calls-value">${taskStats.inProgress}</span></div>
           <div data-detail="tasks-done" style="cursor:pointer"><span class="calls-label">Завершено</span><span class="calls-value calls-good">${taskStats.completed}</span></div>
         </div>
-        <div class="calls-duration ${taskStats.overdue > 0 ? 'calls-bad' : ''}" data-detail="tasks-overdue" style="cursor:pointer">${taskStats.overdue > 0 ? '⚠ ' : ''}Просрочено: ${taskStats.overdue}</div>
+        <div class="calls-duration ${taskStats.overdue > 0 ? 'calls-bad' : ''}" data-detail="tasks-overdue" style="cursor:pointer">${taskStats.overdue > 0 ? '' : ''}Просрочено: ${taskStats.overdue}</div>
       </div>
     `;
   } else if(lastTaskStatsError){
@@ -2635,7 +2637,7 @@ function openFunnelDetail(idx){
     + statRow('Конверсия', fWinRate + '%')
     + `<div class="modal-subtitle">Стадии — клик открывает сделки на этой стадии</div>`
     + `<table class="modal-table modal-table-clickable" style="margin-top:4px;"><tbody>${stageRows}</tbody></table>`;
-  if(f.bottleneck) html += `<div class="modal-note">⏱ Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.</div>`;
+  if(f.bottleneck) html += `<div class="modal-note">Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.</div>`;
 
   const funnelDeals = lastDealsFlat.filter(d => d.funnelId === f.id).sort((a,b) => b.amount - a.amount);
   if(funnelDeals.length > 0){
@@ -3584,15 +3586,15 @@ function answerPipeline(){
 }
 
 const ASSISTANT_CHIPS = [
-  {label: '📉 Слабые воронки', query: 'слабые воронки'},
-  {label: '👤 Менеджеры', query: 'менеджеры'},
-  {label: '⏳ Зависшие сделки', query: 'зависшие сделки'},
-  {label: '🎯 План продаж', query: 'план'},
-  {label: '💰 Средний чек', query: 'средний чек'},
-  {label: '🔥 Что в работе', query: 'что в работе'},
-  {label: '❌ Упущенные сделки', query: 'упущенные сделки'},
-  {label: '📋 Задачи', query: 'задачи'},
-  {label: '📞 Звонки', query: 'звонки'}
+  {label: 'Слабые воронки', query: 'слабые воронки'},
+  {label: 'Менеджеры', query: 'менеджеры'},
+  {label: 'Зависшие сделки', query: 'зависшие сделки'},
+  {label: 'План продаж', query: 'план'},
+  {label: 'Средний чек', query: 'средний чек'},
+  {label: 'Что в работе', query: 'что в работе'},
+  {label: 'Упущенные сделки', query: 'упущенные сделки'},
+  {label: 'Задачи', query: 'задачи'},
+  {label: 'Звонки', query: 'звонки'}
 ];
 
 function renderAssistantChips(){
@@ -3696,7 +3698,7 @@ function buildSourcesTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">📊 Источники лидов</div>
+      <div class="analytics-title">Источники лидов</div>
       <table class="analytics-table">
         <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Конверсия</th><th>Сумма продаж</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -3742,7 +3744,7 @@ function buildDailyTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">📅 Поступление лидов по дням <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(последние 60 дней)</span></div>
+      <div class="analytics-title">Поступление лидов по дням <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(последние 60 дней)</span></div>
       <table class="analytics-table">
         <thead><tr><th>Дата</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Сумма продаж</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -3781,7 +3783,7 @@ function buildStagesTab(){
       </tr>`;
     }).join('');
     return `<div class="analytics-section">
-      <div class="analytics-title">🔄 ${escapeHtml(f.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${fDeals.length} лидов</span></div>
+      <div class="analytics-title">${escapeHtml(f.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${fDeals.length} лидов</span></div>
       <table class="analytics-table">
         <thead><tr><th>Стадия</th><th>Количество</th><th>Доля</th><th>Сумма</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -3825,7 +3827,7 @@ function buildManagersLoadTab(){
     }).join('');
     const avg = Object.values(dayMap).length ? (mDeals.length / Object.values(dayMap).length).toFixed(1) : 0;
     return `<div class="analytics-section">
-      <div class="analytics-title">👤 ${escapeHtml(m.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${mDeals.length} лидов · в среднем ${avg}/день</span></div>
+      <div class="analytics-title">${escapeHtml(m.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${mDeals.length} лидов · в среднем ${avg}/день</span></div>
       <table class="analytics-table">
         <thead><tr><th>Дата</th><th>Лидов за день</th><th>Выиграно</th><th>Провалено</th><th>В работе</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -3860,14 +3862,14 @@ function buildClosedTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">✅ Выигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${wonDeals.length} сделок</span></div>
+      <div class="analytics-title">Выигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${wonDeals.length} сделок</span></div>
       ${wonDeals.length ? `<table class="analytics-table">
         <thead><tr><th>Сделка</th><th>Стадия закрытия</th><th>Менеджер</th><th>Дата</th><th>Сумма</th></tr></thead>
         <tbody>${buildRows(wonDeals,'won')}</tbody>
       </table>` : '<div class="analytics-empty">Нет выигранных сделок</div>'}
     </div>
     <div class="analytics-section">
-      <div class="analytics-title">❌ Проигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${lostDeals.length} сделок</span></div>
+      <div class="analytics-title">Проигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${lostDeals.length} сделок</span></div>
       ${lostDeals.length ? `<table class="analytics-table">
         <thead><tr><th>Сделка</th><th>Причина (стадия)</th><th>Менеджер</th><th>Дата</th><th>Сумма</th></tr></thead>
         <tbody>${buildRows(lostDeals,'lost')}</tbody>
