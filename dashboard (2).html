@@ -193,6 +193,33 @@
   .section-title .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);background:var(--overlay-1);padding:1px 8px;border-radius:10px;}
   .period-sub-note{font-size:11px;color:var(--ink-soft);margin:-6px 0 12px;}
 
+  /* ===== Экран аналитики ===== */
+  .analytics-topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:10;gap:16px;flex-wrap:wrap;}
+  .analytics-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .atab{background:var(--overlay-1);border:1px solid var(--line);color:var(--ink-soft);font-size:12.5px;font-family:'Inter',sans-serif;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
+  .atab:hover{color:var(--ink);}
+  .atab.active{background:var(--ink);color:var(--accent);border-color:var(--ink);}
+  .analytics-content{padding:28px 32px;max-width:1100px;margin:0 auto;}
+  .analytics-section{margin-bottom:36px;}
+  .analytics-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;margin:0 0 16px;}
+  .analytics-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+  .analytics-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;text-align:center;}
+  .analytics-card-val{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;line-height:1;}
+  .analytics-card-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin-top:6px;}
+  .analytics-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .analytics-table th{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);padding:0 0 10px;border-bottom:2px solid var(--line);text-align:left;}
+  .analytics-table th:not(:first-child){text-align:right;}
+  .analytics-table td{padding:10px 0;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .analytics-table td:not(:first-child){text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;}
+  .analytics-table tr:last-child td{border-bottom:none;}
+  .analytics-bar-cell{display:flex;align-items:center;gap:10px;}
+  .analytics-bar{flex:1;height:6px;background:var(--overlay-2);border-radius:6px;overflow:hidden;min-width:60px;}
+  .analytics-bar-fill{height:100%;border-radius:6px;background:var(--accent-strong);transition:width .4s ease;}
+  .analytics-bar-fill.lost{background:var(--red-bad);}
+  .analytics-bar-fill.active{background:var(--blue);}
+  .source-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--overlay-1);color:var(--ink-soft);}
+  .analytics-empty{text-align:center;color:var(--ink-soft);padding:48px;font-size:14px;}
+
   .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow:hidden;transition:box-shadow .2s ease;}
   .daily-chart:hover{box-shadow:0 8px 24px var(--shadow-color);}
   .cal-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(34px, 1fr));gap:6px;height:100%;align-content:center;animation:chartFadeIn .4s ease;}
@@ -616,6 +643,24 @@
 </div>
 
 <div id="dashboardView" class="dash-wrap" style="display:none;">
+
+<!-- ===== ЭКРАН АНАЛИТИКИ ===== -->
+<div id="analyticsView" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;">
+  <div class="analytics-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button id="analyticsBackBtn" class="btn btn-ghost" type="button">← Назад</button>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;">Аналитика</span>
+    </div>
+    <div class="analytics-tabs" id="analyticsTabs">
+      <button class="atab active" data-tab="sources">📊 Источники</button>
+      <button class="atab" data-tab="daily">📅 По дням</button>
+      <button class="atab" data-tab="stages">🔄 По стадиям</button>
+      <button class="atab" data-tab="managers">👤 Менеджеры</button>
+      <button class="atab" data-tab="closed">✅ Закрытые</button>
+    </div>
+  </div>
+  <div id="analyticsContent" class="analytics-content"></div>
+</div>
   <div id="chartHeroContainer"></div>
   <div id="goalBannerContainer"></div>
 
@@ -638,6 +683,7 @@
         <option value="10">Обновлять каждые 10 мин</option>
         <option value="30">Обновлять каждые 30 мин</option>
       </select>
+      <button class="btn btn-ghost" id="analyticsBtn" style="display:none;">📊 Аналитика</button>
       <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
     </div>
     <div class="filter-wrap">
@@ -1253,7 +1299,7 @@ async function fetchDealsForCategory(webhook, categoryId, period){
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   return fetchAllPaged(webhook, 'crm.deal.list', {
     filter,
-    select: ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID']
+    select: ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID']
   });
 }
 
@@ -1393,6 +1439,7 @@ const CRM_ADAPTERS = {
         createdAt: d.DATE_CREATE,
         closedAt: d.CLOSEDATE,
         updatedAt: d.DATE_MODIFY,
+        source: d.SOURCE_ID || '',
         semantic: guessSemantic(d.STAGE_ID, semMap)
       }));
     },
@@ -1880,7 +1927,8 @@ async function loadDashboard(){
             createdAt: d.createdAt,
             closedAt: d.closedAt,
             updatedAt: d.updatedAt,
-            semantic: d.semantic
+            semantic: d.semantic,
+            source: d.source || ''
           }))
         });
       }
@@ -2010,6 +2058,7 @@ async function loadDashboard(){
     updateCompanyBadge(conn);
     showDashboard();
     document.getElementById('assistantToggleBtn').style.display = 'flex';
+    document.getElementById('analyticsBtn').style.display = 'inline-flex';
     renderAssistantInsights();
     if(hasLoadedOnce) flashUpdated();
     hasLoadedOnce = true;
@@ -3460,6 +3509,260 @@ document.getElementById('assistantInput').addEventListener('keydown', (e) => {
 document.addEventListener('click', (e) => {
   const chip = e.target.closest('.assistant-chip');
   if(chip) assistantAsk(chip.dataset.ask);
+});
+
+// ===== ЭКРАН АНАЛИТИКИ =====
+
+const SOURCE_NAMES = {
+  'CALL': 'Звонок','EMAIL': 'E-mail','WEB': 'Сайт','RECOMMENDATION': 'Рекомендация',
+  'PARTNER': 'Партнёр','EXHIBITION': 'Выставка','ADVERTISING': 'Реклама',
+  'SELF': 'Самостоятельно','MESSENGER': 'Мессенджер','SOCIAL': 'Соцсети',
+  'INSTAGRAM': 'Instagram','TELEGRAM': 'Telegram','FACEBOOK': 'Facebook',
+  'YANDEX': 'Яндекс','GOOGLE': 'Google',''  : 'Не указан'
+};
+
+function sourceName(src){ return SOURCE_NAMES[src] || src || 'Не указан'; }
+
+function buildSourcesTab(){
+  const deals = lastDealsFlat;
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+
+  const map = {};
+  deals.forEach(d => {
+    const src = d.source || '';
+    if(!map[src]) map[src] = {total:0, won:0, lost:0, active:0, wonSum:0};
+    map[src].total++;
+    if(d.semantic==='S'){ map[src].won++; map[src].wonSum+=d.amount; }
+    else if(d.semantic==='F') map[src].lost++;
+    else map[src].active++;
+  });
+
+  const rows = Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([src,s])=>{
+    const conv = (s.won+s.lost)>0 ? Math.round(100*s.won/(s.won+s.lost)) : 0;
+    const maxTotal = Math.max(...Object.values(map).map(x=>x.total));
+    const pct = Math.round(100*s.total/maxTotal);
+    return `<tr>
+      <td><span class="source-badge">${escapeHtml(sourceName(src))}</span></td>
+      <td>
+        <div class="analytics-bar-cell">
+          <span>${s.total}</span>
+          <div class="analytics-bar"><div class="analytics-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+      </td>
+      <td style="color:var(--accent-strong)">${s.won}</td>
+      <td style="color:var(--red-bad)">${s.lost}</td>
+      <td>${s.active}</td>
+      <td>${conv}%</td>
+      <td>${fmtMoney(s.wonSum,currency)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">📊 Источники лидов</div>
+      <table class="analytics-table">
+        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Конверсия</th><th>Сумма продаж</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function buildDailyTab(){
+  const deals = lastDealsFlat;
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+
+  const map = {};
+  deals.forEach(d => {
+    if(!d.createdAt) return;
+    const key = d.createdAt.slice(0,10);
+    if(!map[key]) map[key] = {total:0, won:0, lost:0, active:0, wonSum:0};
+    map[key].total++;
+    if(d.semantic==='S'){ map[key].won++; map[key].wonSum+=d.amount; }
+    else if(d.semantic==='F') map[key].lost++;
+    else map[key].active++;
+  });
+
+  const rows = Object.entries(map).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,60).map(([date,s])=>{
+    const d = new Date(date);
+    const label = d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',weekday:'short'});
+    const maxTotal = Math.max(...Object.values(map).map(x=>x.total));
+    const pct = Math.round(100*s.total/maxTotal);
+    return `<tr>
+      <td>${label}</td>
+      <td>
+        <div class="analytics-bar-cell">
+          <span>${s.total}</span>
+          <div class="analytics-bar"><div class="analytics-bar-fill" style="width:${pct}%"></div></div>
+        </div>
+      </td>
+      <td style="color:var(--accent-strong)">${s.won}</td>
+      <td style="color:var(--red-bad)">${s.lost}</td>
+      <td>${s.active}</td>
+      <td>${fmtMoney(s.wonSum,currency)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">📅 Поступление лидов по дням <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(последние 60 дней)</span></div>
+      <table class="analytics-table">
+        <thead><tr><th>Дата</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Сумма продаж</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function buildStagesTab(){
+  const deals = lastDealsFlat;
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+
+  // Группируем по воронкам и стадиям
+  const sections = lastFunnels.map(f => {
+    const fDeals = deals.filter(d => d.funnelId === f.id);
+    const stageMap = {};
+    fDeals.forEach(d => {
+      if(!stageMap[d.stageName]) stageMap[d.stageName] = {total:0, sum:0, semantic:d.semantic};
+      stageMap[d.stageName].total++;
+      stageMap[d.stageName].sum += d.amount;
+    });
+    const maxTotal = Math.max(1, ...Object.values(stageMap).map(s=>s.total));
+    const rows = Object.entries(stageMap).sort((a,b)=>b[1].total-a[1].total).map(([name,s])=>{
+      const pct = Math.round(100*s.total/maxTotal);
+      const color = s.semantic==='S' ? 'var(--accent-strong)' : s.semantic==='F' ? 'var(--red-bad)' : 'var(--blue)';
+      return `<tr>
+        <td>${escapeHtml(name)}</td>
+        <td>
+          <div class="analytics-bar-cell">
+            <span>${s.total}</span>
+            <div class="analytics-bar"><div class="analytics-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          </div>
+        </td>
+        <td>${Math.round(100*s.total/fDeals.length)}%</td>
+        <td>${fmtMoney(s.sum,currency)}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="analytics-section">
+      <div class="analytics-title">🔄 ${escapeHtml(f.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${fDeals.length} лидов</span></div>
+      <table class="analytics-table">
+        <thead><tr><th>Стадия</th><th>Количество</th><th>Доля</th><th>Сумма</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  return sections || '<div class="analytics-empty">Нет данных</div>';
+}
+
+function buildManagersLoadTab(){
+  const deals = lastDealsFlat;
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+
+  // По каждому менеджеру — нагрузка по дням
+  const sections = lastManagers.filter(m => m.id !== 'unknown').map(m => {
+    const mDeals = deals.filter(d => String(d.assignedTo) === String(m.id));
+    if(!mDeals.length) return '';
+    const dayMap = {};
+    mDeals.forEach(d => {
+      if(!d.createdAt) return;
+      const key = d.createdAt.slice(0,10);
+      if(!dayMap[key]) dayMap[key] = {total:0, won:0, lost:0, active:0};
+      dayMap[key].total++;
+      if(d.semantic==='S') dayMap[key].won++;
+      else if(d.semantic==='F') dayMap[key].lost++;
+      else dayMap[key].active++;
+    });
+    const maxTotal = Math.max(1,...Object.values(dayMap).map(x=>x.total));
+    const rows = Object.entries(dayMap).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,30).map(([date,s])=>{
+      const label = new Date(date).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',weekday:'short'});
+      const pct = Math.round(100*s.total/maxTotal);
+      return `<tr>
+        <td>${label}</td>
+        <td><div class="analytics-bar-cell"><span>${s.total}</span><div class="analytics-bar"><div class="analytics-bar-fill" style="width:${pct}%"></div></div></div></td>
+        <td style="color:var(--accent-strong)">${s.won}</td>
+        <td style="color:var(--red-bad)">${s.lost}</td>
+        <td>${s.active}</td>
+      </tr>`;
+    }).join('');
+    const avg = Object.values(dayMap).length ? (mDeals.length / Object.values(dayMap).length).toFixed(1) : 0;
+    return `<div class="analytics-section">
+      <div class="analytics-title">👤 ${escapeHtml(m.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${mDeals.length} лидов · в среднем ${avg}/день</span></div>
+      <table class="analytics-table">
+        <thead><tr><th>Дата</th><th>Лидов за день</th><th>Выиграно</th><th>Провалено</th><th>В работе</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  return sections || '<div class="analytics-empty">Нет данных по менеджерам</div>';
+}
+
+function buildClosedTab(){
+  const deals = lastDealsFlat;
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+
+  const wonDeals = deals.filter(d => d.semantic === 'S').sort((a,b) => new Date(b.closedAt||b.createdAt) - new Date(a.closedAt||a.createdAt));
+  const lostDeals = deals.filter(d => d.semantic === 'F').sort((a,b) => new Date(b.updatedAt||b.createdAt) - new Date(a.updatedAt||a.createdAt));
+
+  const buildRows = (list, type) => list.slice(0,50).map(d => {
+    const mgr = lastManagers.find(m => String(m.id) === String(d.assignedTo));
+    const date = d.closedAt || d.updatedAt || d.createdAt;
+    return `<tr>
+      <td>
+        <div style="font-weight:600;font-size:12.5px">${escapeHtml(d.title || 'Сделка №'+d.id)}</div>
+        <div style="font-size:10.5px;color:var(--ink-soft)">${escapeHtml(d.funnelName)}</div>
+      </td>
+      <td><span class="source-badge">${escapeHtml(d.stageName)}</span></td>
+      <td>${mgr ? escapeHtml(mgr.name) : '—'}</td>
+      <td>${date ? new Date(date).toLocaleDateString('ru-RU') : '—'}</td>
+      <td style="color:${type==='won'?'var(--accent-strong)':'var(--red-bad)'}">${fmtMoney(d.amount,currency)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">✅ Выигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${wonDeals.length} сделок</span></div>
+      ${wonDeals.length ? `<table class="analytics-table">
+        <thead><tr><th>Сделка</th><th>Стадия закрытия</th><th>Менеджер</th><th>Дата</th><th>Сумма</th></tr></thead>
+        <tbody>${buildRows(wonDeals,'won')}</tbody>
+      </table>` : '<div class="analytics-empty">Нет выигранных сделок</div>'}
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">❌ Проигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${lostDeals.length} сделок</span></div>
+      ${lostDeals.length ? `<table class="analytics-table">
+        <thead><tr><th>Сделка</th><th>Причина (стадия)</th><th>Менеджер</th><th>Дата</th><th>Сумма</th></tr></thead>
+        <tbody>${buildRows(lostDeals,'lost')}</tbody>
+      </table>` : '<div class="analytics-empty">Нет проигранных сделок</div>'}
+    </div>`;
+}
+
+const ANALYTICS_BUILDERS = {
+  sources: buildSourcesTab,
+  daily: buildDailyTab,
+  stages: buildStagesTab,
+  managers: buildManagersLoadTab,
+  closed: buildClosedTab
+};
+
+let currentAnalyticsTab = 'sources';
+
+function openAnalytics(tab){
+  currentAnalyticsTab = tab || currentAnalyticsTab;
+  document.getElementById('analyticsView').style.display = 'block';
+  document.getElementById('analyticsContent').innerHTML = ANALYTICS_BUILDERS[currentAnalyticsTab]();
+  document.querySelectorAll('.atab').forEach(b => b.classList.toggle('active', b.dataset.tab === currentAnalyticsTab));
+}
+
+document.getElementById('analyticsBtn').addEventListener('click', () => openAnalytics('sources'));
+document.getElementById('analyticsBackBtn').addEventListener('click', () => {
+  document.getElementById('analyticsView').style.display = 'none';
+});
+document.getElementById('analyticsTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.atab')?.dataset.tab;
+  if(tab) openAnalytics(tab);
 });
 
 function rerenderCached(){
