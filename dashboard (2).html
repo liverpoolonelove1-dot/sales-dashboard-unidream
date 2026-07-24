@@ -136,7 +136,7 @@
   .calls-duration.calls-bad{color:var(--red-bad);font-weight:600;}
   .tasks-tile-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
   .tasks-manager-select{border:1px solid var(--line);border-radius:8px;padding:3px 6px;font-size:10px;color:var(--ink-soft);background:var(--surface);max-width:130px;cursor:pointer;}
-  .glow{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.12;filter:blur(100px);border-radius:50%;pointer-events:none;z-index:0;}
+  .glow{position:absolute;top:-40px;left:50%;transform:translateX(-50%);width:700px;height:320px;background:var(--accent);opacity:.18;filter:blur(90px);border-radius:50%;pointer-events:none;z-index:0;}
 
   /* ===== Landing ===== */
   #landingView{position:relative;overflow:hidden;}
@@ -683,6 +683,7 @@
 </div>
 
   <div id="landingView">
+    <div class="glow"></div>
 
     <!-- LANDING HERO -->
     <div class="landing-hero">
@@ -724,6 +725,26 @@
       </div>
     </div>
 
+    <!-- ФОРМА ПОДКЛЮЧЕНИЯ — широкая на весь экран -->
+    <div class="landing-connect-wrap" id="landingConnectWrap" style="display:none;">
+      <div class="topbar">
+        <div>
+          <p class="brand-eyebrow">PulseCRM · Подключение к Битрикс24</p>
+          <h2 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;margin:0 0 4px;">Вставьте ссылку вебхука</h2>
+          <p class="sub">Данные загрузятся прямо в браузер — без серверов и регистраций</p>
+        </div>
+      </div>
+      <div class="connect-box">
+        <select id="crmSelect" style="display:none;"></select>
+        <div id="connFields" style="display:contents"></div>
+        <button class="btn btn-primary" id="connectBtn">Подключить</button>
+        <button class="btn btn-ghost" id="refreshBtn" style="display:none;">Обновить</button>
+        <button class="btn btn-ghost" id="disconnectBtn" style="display:none;">Отключить</button>
+      </div>
+      <div id="statusLine" class="status-line"></div>
+      <div class="help" id="helpBox"></div>
+    </div>
+
     <!-- ФИЧИ -->
     <div class="landing-features">
       <div class="landing-feat">
@@ -747,25 +768,6 @@
         <div class="landing-feat-desc">Статистика звонков, просроченные задачи — всё в одном месте</div>
       </div>
     </div>
-
-    <!-- ФОРМА ПОДКЛЮЧЕНИЯ (скрыта по умолчанию) -->
-    <div class="landing-connect-wrap" id="landingConnectWrap" style="display:none;">
-      <div class="landing-connect-box">
-        <div class="landing-connect-title">Подключение к Битрикс24</div>
-        <div class="landing-connect-sub">Вставьте ссылку входящего вебхука — данные будут загружены прямо в браузер</div>
-        <select id="crmSelect" style="display:none;"></select>
-        <div id="connFields" style="display:contents"></div>
-        <div class="landing-connect-actions">
-          <button class="btn btn-primary" id="connectBtn">Подключить →</button>
-          <button class="btn btn-ghost" id="refreshBtn" style="display:none;">Обновить</button>
-          <button class="btn btn-ghost" id="disconnectBtn" style="display:none;">Отключить</button>
-        </div>
-        <div id="statusLine" class="status-line" style="margin-top:12px;"></div>
-        <div class="help" id="helpBox"></div>
-      </div>
-    </div>
-
-    <div class="glow"></div>
   </div>
 </div>
 
