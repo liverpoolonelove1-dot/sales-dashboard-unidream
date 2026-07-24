@@ -950,6 +950,8 @@
       <button class="atab" data-tab="managers">Менеджеры</button>
       <button class="atab" data-tab="closed">Закрытые</button>
       <button class="atab" data-tab="clients">Клиенты</button>
+      <button class="atab" data-tab="roi">LTV / ROI</button>
+      <button class="atab" data-tab="finance">Финансы / ROI</button>
     </div>
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
@@ -3621,6 +3623,7 @@ function openReportBuilder(){
           ['rep-calls','Статистика звонков'],
           ['rep-tasks','Статистика задач'],
           ['rep-lost','Причины отказов'],
+          ['rep-roi','LTV / ROI / Unit-экономика'],
         ].map(([id,label]) => `
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
             <input type="checkbox" id="${id}" checked style="width:15px;height:15px;accent-color:var(--accent-strong);">
@@ -4875,13 +4878,267 @@ function buildClientsTab(){
   `;
 }
 
+function buildRoiTab(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
+  const lostDeals = lastDealsFlat.filter(d=>d.semantic==='F');
+  const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
+  if(!wonDeals.length) return '<div class="analytics-empty">Нет выигранных сделок для расчёта LTV/ROI</div>';
+  const fmt = n => fmtMoney(n, currency);
+  const totalRev = wonDeals.reduce((a,d)=>a+d.amount,0);
+  const avgDeal = wonDeals.length>0 ? Math.round(totalRev/wonDeals.length) : 0;
+  const pipelineVal = activeDeals.reduce((a,d)=>a+d.amount,0);
+  const lostVal = lostDeals.reduce((a,d)=>a+d.amount,0);
+
+  // LTV по менеджерам
+  const clientMap={};
+  wonDeals.forEach(d=>{const k=String(d.assignedTo||'x');if(!clientMap[k])clientMap[k]={deals:0,sum:0};clientMap[k].deals++;clientMap[k].sum+=d.amount;});
+  const clients=Object.values(clientMap);
+  const avgLtv=clients.length>0?Math.round(clients.reduce((a,c)=>a+c.sum,0)/clients.length):0;
+  const maxLtv=clients.length>0?Math.max(...clients.map(c=>c.sum)):0;
+  const repeatClients=clients.filter(c=>c.deals>=2).length;
+  const repeatRate=clients.length>0?Math.round(100*repeatClients/clients.length):0;
+
+  // Цикл сделки
+  const closed=lastDealsFlat.filter(d=>(d.semantic==='S'||d.semantic==='F')&&d.createdAt&&d.updatedAt);
+  const avgCycle=closed.length>0?Math.round(closed.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closed.length):0;
+
+  // Velocity
+  const conv=(wonDeals.length+lostDeals.length)>0?wonDeals.length/(wonDeals.length+lostDeals.length):0;
+  const velocity=avgCycle>0?Math.round((wonDeals.length*avgDeal*conv)/avgCycle):0;
+
+  // ROI по источникам
+  const srcMap={};
+  lastDealsFlat.forEach(d=>{const src=d.source||'Не указан';if(!srcMap[src])srcMap[src]={total:0,won:0,wonSum:0,lostSum:0};srcMap[src].total++;if(d.semantic==='S'){srcMap[src].won++;srcMap[src].wonSum+=d.amount;}if(d.semantic==='F')srcMap[src].lostSum+=d.amount;});
+  const roiRows=Object.entries(srcMap).filter(([,s])=>s.wonSum>0).sort((a,b)=>b[1].wonSum-a[1].wonSum).map(([src,s])=>{
+    const cpa=s.total>0?Math.round(s.wonSum/s.total):0;
+    const wr=s.total>0?Math.round(100*s.won/s.total):0;
+    const roi=s.lostSum>0?Math.round(100*s.wonSum/s.lostSum):null;
+    return `<tr><td>${escapeHtml(src)}</td><td>${s.total}</td><td>${s.won} (${wr}%)</td><td>${fmt(s.wonSum)}</td><td>${fmt(cpa)}/лид</td><td>${roi!==null?`<b style="color:${roi>100?'var(--accent-strong)':'var(--red-bad)'}">${roi}%</b>`:'—'}</td></tr>`;
+  }).join('');
+
+  // LTV по менеджерам
+  const mgrRows=lastManagers.filter(m=>m.id!=='unknown'&&m.wonSum>0).sort((a,b)=>b.wonSum-a.wonSum).map((m,i)=>{
+    const ltv=clientMap[String(m.id)]?Math.round(clientMap[String(m.id)].sum/clientMap[String(m.id)].deals):0;
+    const c2=(m.wonCount+m.lostCount)>0?Math.round(100*m.wonCount/(m.wonCount+m.lostCount)):0;
+    const a2=m.wonCount>0?Math.round(m.wonSum/m.wonCount):0;
+    return `<tr><td>${i+1}. ${escapeHtml(m.name)}</td><td>${fmt(m.wonSum)}</td><td>${c2}%</td><td>${fmt(a2)}</td><td>${fmt(ltv)}</td></tr>`;
+  }).join('');
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">LTV / ROI — сводка</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(totalRev)}</div><div class="analytics-card-lbl">Общая выручка</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgLtv)}</div><div class="analytics-card-lbl">Средний LTV</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(maxLtv)}</div><div class="analytics-card-lbl">Макс. LTV</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgDeal)}</div><div class="analytics-card-lbl">Средний чек (AOV)</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${velocity>0?fmt(velocity)+'/д':'—'}</div><div class="analytics-card-lbl">Sales Velocity</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(pipelineVal)}</div><div class="analytics-card-lbl">Pipeline</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${fmt(lostVal)}</div><div class="analytics-card-lbl">Упущено</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${repeatRate}%</div><div class="analytics-card-lbl">Повторные клиенты</div></div>
+      </div>
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">Юнит-экономика</div>
+      <table class="analytics-table"><tbody>
+        <tr><td>Всего лидов</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length}</td></tr>
+        <tr><td>Выигранных</td><td style="text-align:right;font-weight:700">${wonDeals.length}</td></tr>
+        <tr><td>Конверсия лид→продажа</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length>0?Math.round(100*wonDeals.length/lastDealsFlat.length):0}%</td></tr>
+        <tr><td>Средний цикл сделки</td><td style="text-align:right;font-weight:700">${avgCycle} дней</td></tr>
+        <tr><td>Средний LTV</td><td style="text-align:right;font-weight:700">${fmt(avgLtv)}</td></tr>
+        <tr><td>Повторные клиенты</td><td style="text-align:right;font-weight:700">${repeatClients} (${repeatRate}%)</td></tr>
+        ${goalAmount>0?`<tr><td>Выполнение плана</td><td style="text-align:right;font-weight:700">${Math.round(100*lastMonthRevenue/goalAmount)}%</td></tr>`:''}
+      </tbody></table>
+    </div>
+    ${roiRows?`<div class="analytics-section">
+      <div class="analytics-title">ROI по источникам лидов</div>
+      <table class="analytics-table">
+        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Выручка</th><th>Выручка/лид</th><th>ROI</th></tr></thead>
+        <tbody>${roiRows}</tbody>
+      </table>
+      <div class="modal-note">ROI = Выручка / Упущенная сумма × 100%</div>
+    </div>`:''}
+    ${mgrRows?`<div class="analytics-section">
+      <div class="analytics-title">LTV по менеджерам</div>
+      <table class="analytics-table">
+        <thead><tr><th>Менеджер</th><th>Выручка</th><th>Конверсия</th><th>Средний чек</th><th>LTV</th></tr></thead>
+        <tbody>${mgrRows}</tbody>
+      </table>
+    </div>`:''}
+  `;
+}
+
+function buildFinanceTab(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const fmt = n => fmtMoney(n, currency);
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
+  const lostDeals = lastDealsFlat.filter(d=>d.semantic==='F');
+  const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
+
+  if(!wonDeals.length && !activeDeals.length) return '<div class="analytics-empty">Нет данных для финансового анализа</div>';
+
+  // === Базовые метрики ===
+  const totalRev = wonDeals.reduce((a,d)=>a+d.amount,0);
+  const wonCount = wonDeals.length;
+  const avgDeal = wonCount>0 ? Math.round(totalRev/wonCount) : 0;
+  const totalDeals = lastDealsFlat.length;
+  const overallConv = totalDeals>0 ? (wonCount/totalDeals*100).toFixed(1) : 0;
+
+  // === LTV (Life Time Value) — по менеджеру как прокси клиента ===
+  const mgrMap = {};
+  wonDeals.forEach(d=>{
+    const k = String(d.assignedTo||'unknown');
+    if(!mgrMap[k]) mgrMap[k] = {deals:0, sum:0, name:''};
+    mgrMap[k].deals++;
+    mgrMap[k].sum += d.amount;
+  });
+  lastManagers.forEach(m=>{
+    if(mgrMap[String(m.id)]) mgrMap[String(m.id)].name = m.name;
+  });
+  const repeatClients = Object.values(mgrMap).filter(v=>v.deals>=2);
+  const avgLTV = repeatClients.length>0
+    ? Math.round(repeatClients.reduce((a,v)=>a+v.sum,0)/repeatClients.length) : avgDeal;
+  const maxLTV = repeatClients.length>0
+    ? Math.max(...repeatClients.map(v=>v.sum)) : 0;
+
+  // === Цикл сделки ===
+  const closedD = lastDealsFlat.filter(d=>(d.semantic==='S'||d.semantic==='F')&&d.createdAt&&d.updatedAt);
+  const avgCycleDays = closedD.length>0
+    ? (closedD.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closedD.length).toFixed(1) : '—';
+
+  // === Sales Velocity ===
+  const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount) : 0;
+  const vel = avgCycleDays!=='—' && avgCycleDays>0
+    ? Math.round((lastMonthWonCount*avgDeal*conv)/avgCycleDays) : 0;
+
+  // === ROI по источникам ===
+  // ROI считаем как: (выручка с источника / количество лидов с источника) = доход на лид
+  // Без данных о затратах на рекламу — показываем выручку на лид (Revenue per Lead)
+  const srcMap = {};
+  lastDealsFlat.forEach(d=>{
+    const s = d.source||'Не указан';
+    if(!srcMap[s]) srcMap[s]={total:0,won:0,sum:0};
+    srcMap[s].total++;
+    if(d.semantic==='S'){srcMap[s].won++;srcMap[s].sum+=d.amount;}
+  });
+  const srcRows = Object.entries(srcMap)
+    .filter(([,v])=>v.total>0)
+    .sort((a,b)=>b[1].sum-a[1].sum)
+    .map(([src,v])=>{
+      const rpl = v.total>0 ? Math.round(v.sum/v.total) : 0; // Revenue per Lead
+      const conv2 = v.total>0 ? Math.round(100*v.won/v.total) : 0;
+      return `<tr>
+        <td>${escapeHtml(src)}</td>
+        <td>${v.total}</td>
+        <td>${v.won}</td>
+        <td>${conv2}%</td>
+        <td><b>${fmt(rpl)}</b></td>
+        <td>${fmt(v.sum)}</td>
+      </tr>`;
+    }).join('');
+
+  // === Прогноз и план ===
+  const now = new Date();
+  const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const dayOfM = now.getDate();
+  const dailyRate = dayOfM>0 ? lastMonthRevenue/dayOfM : 0;
+  const forecast = Math.round(lastMonthRevenue + dailyRate*(daysInM-dayOfM));
+  const planPct = goalAmount>0 ? Math.round(100*lastMonthRevenue/goalAmount) : null;
+  const forecastPct = goalAmount>0 ? Math.round(100*forecast/goalAmount) : null;
+
+  // === Pipeline Value ===
+  const pipelineSum = activeDeals.reduce((a,d)=>a+d.amount,0);
+  const lostSum = lostDeals.reduce((a,d)=>a+d.amount,0);
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">Финансовые метрики — Unit-экономика</div>
+      <div class="analytics-cards">
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(totalRev)}</div>
+          <div class="analytics-card-lbl">Общая выручка (период)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(avgDeal)}</div>
+          <div class="analytics-card-lbl">Средний чек (AOV)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${overallConv}%</div>
+          <div class="analytics-card-lbl">Общая конверсия</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${avgCycleDays} дн.</div>
+          <div class="analytics-card-lbl">Средний цикл сделки</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">LTV — Lifetime Value клиента</div>
+      <div class="analytics-cards">
+        <div class="analytics-card" style="border-color:var(--accent-strong);">
+          <div class="analytics-card-val" style="color:var(--accent-strong)">${fmt(avgLTV)}</div>
+          <div class="analytics-card-lbl">Средний LTV</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(maxLTV)}</div>
+          <div class="analytics-card-lbl">Макс. LTV (топ-клиент)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${repeatClients.length}</div>
+          <div class="analytics-card-lbl">Повторных клиентов</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${vel>0?fmt(vel)+'/д':'—'}</div>
+          <div class="analytics-card-lbl">Sales Velocity</div>
+        </div>
+      </div>
+      <div class="modal-note" style="margin-top:8px;">LTV рассчитан по клиентам с 2+ выигранными сделками. Для точного LTV нужна привязка сделок к клиентам через контакт Битрикс24.</div>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">Pipeline & потери</div>
+      <table class="analytics-table">
+        <tr><td>В работе (pipeline)</td><td><b>${fmt(pipelineSum)}</b> — ${activeDeals.length} сделок</td></tr>
+        <tr><td>Упущено (lost revenue)</td><td style="color:var(--red-bad)"><b>${fmt(lostSum)}</b> — ${lostDeals.length} сделок</td></tr>
+        <tr><td>Конверсия потерь</td><td>${totalDeals>0?Math.round(100*lostDeals.length/totalDeals):0}% сделок теряется</td></tr>
+        <tr><td>Потенциал если улучшить конверсию на 5%</td><td style="color:var(--accent-strong)"><b>+${fmt(Math.round(totalDeals*0.05*avgDeal))}</b></td></tr>
+      </table>
+    </div>
+
+    ${goalAmount>0 ? `
+    <div class="analytics-section">
+      <div class="analytics-title">План / Факт / Прогноз</div>
+      <table class="analytics-table">
+        <tr><td>План на месяц</td><td><b>${fmt(goalAmount)}</b></td></tr>
+        <tr><td>Факт (текущий месяц)</td><td><b>${fmt(lastMonthRevenue)}</b> — ${planPct}%</td></tr>
+        <tr><td>Прогноз до конца месяца</td><td style="color:${forecastPct>=100?'var(--accent-strong)':'var(--amber)'}"><b>${fmt(forecast)}</b> — ${forecastPct}%</td></tr>
+        <tr><td>Осталось выполнить</td><td><b>${fmt(Math.max(0,goalAmount-lastMonthRevenue))}</b> за ${daysInM-dayOfM} дней</td></tr>
+        <tr><td>Нужно в день</td><td><b>${fmt(Math.round(Math.max(0,goalAmount-lastMonthRevenue)/Math.max(1,daysInM-dayOfM)))}</b>/день</td></tr>
+      </table>
+    </div>` : '<div class="modal-note">Установите план продаж в баннере сверху для отображения Plan/Fact анализа.</div>'}
+
+    <div class="analytics-section">
+      <div class="analytics-title">ROI по источникам <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(Revenue per Lead — выручка на 1 лид)</span></div>
+      <table class="analytics-table">
+        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Конв.</th><th>Доход/лид</th><th>Выручка</th></tr></thead>
+        <tbody>${srcRows||'<tr><td colspan="6" style="color:var(--ink-soft)">Нет данных об источниках</td></tr>'}</tbody>
+      </table>
+      <div class="modal-note" style="margin-top:8px;">Для расчёта полного ROI (Return on Investment) введите данные о затратах на рекламу по каждому каналу. Сейчас показывается Revenue per Lead — выручка с каждого привлечённого лида.</div>
+    </div>
+  `;
+}
+
 const ANALYTICS_BUILDERS = {
   sources: buildSourcesTab,
   daily: buildDailyTab,
   stages: buildStagesTab,
   managers: buildManagersLoadTab,
   closed: buildClosedTab,
-  clients: buildClientsTab
+  clients: buildClientsTab,
+  finance: buildFinanceTab,
+  roi: buildRoiTab
 };
 
 let currentAnalyticsTab = 'sources';
