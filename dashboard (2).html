@@ -78,12 +78,12 @@
   .chart-granularity button{background:var(--overlay-1);border:1px solid transparent;color:var(--ink-soft);font-size:12px;font-family:'Inter',sans-serif;font-weight:600;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
   .chart-granularity button:hover{color:var(--ink);}
   .chart-granularity button.active{background:var(--ink);color:#fff;}
-  .tile-managers{grid-row:span 1;}
+  .tile-managers{grid-row:span 2;}
   .tile .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;overflow-y:auto;background:none;border:none;padding:0 8px 0 0;scrollbar-width:thin;}
   .tile .managers-wrap::-webkit-scrollbar{width:4px;}
   .tile .managers-wrap::-webkit-scrollbar-track{background:transparent;}
   .tile .managers-wrap::-webkit-scrollbar-thumb{background:var(--overlay-2);border-radius:4px;}
-  .tile-loss{grid-row:span 1;}
+  .tile-loss{grid-row:span 2;}
   .tile-calls{grid-row:span 2;}
   .calls-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 10px;}
   .calls-label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
@@ -182,7 +182,7 @@
   .bottleneck-compact{font-size:10px;color:var(--ink-soft);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
 
   /* ===== Карточки-отчёты ===== */
-  .report-tile{border-top:3px solid var(--accent-strong) !important;}
+  .report-tile{border-top:3px solid var(--accent-strong) !important;grid-row:span 2;}
   .report-tile-value{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:17px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:6px 0 4px;}
   .report-tile-note{font-size:10px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
@@ -600,7 +600,7 @@
       <input type="text" id="assistantInput" placeholder="Спросите про воронки, менеджеров, задачи…">
       <button id="assistantAskBtn" class="btn btn-primary btn-sm" type="button">Спросить</button>
     </div>
-    <div class="assistant-note">Работает на готовых расчётах по уже загруженным данным — это не нейросеть, а быстрый анализ по правилам, поэтому бесплатно и без ограничений.</div>
+    
   </div>
 </div>
 
