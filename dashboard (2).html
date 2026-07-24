@@ -560,6 +560,23 @@
   .editor-toggle.on{background:var(--accent-strong);}
   .editor-toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .15s;}
   .editor-toggle.on::after{transform:translateX(16px);}
+  /* Журнал ошибок */
+  .log-entry{padding:10px 12px;border-radius:10px;margin-bottom:8px;border:1px solid var(--line);}
+  .log-entry.error{background:#FEF2F2;border-color:#FCA5A5;}
+  html[data-theme="dark"] .log-entry.error{background:#3A1717;border-color:#7F1D1D;}
+  .log-entry.warning{background:#FFFBEB;border-color:#FCD34D;}
+  html[data-theme="dark"] .log-entry.warning{background:#2A2000;border-color:#92400E;}
+  .log-entry.info{background:var(--overlay-1);border-color:var(--line);}
+  .log-entry-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+  .log-entry-module{font-weight:700;font-size:11px;font-family:'JetBrains Mono',monospace;}
+  .log-entry-time{font-size:10px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;}
+  .log-entry-msg{font-size:12px;line-height:1.4;}
+  .log-entry-details{font-size:10.5px;color:var(--ink-soft);margin-top:4px;font-family:'JetBrains Mono',monospace;word-break:break-all;}
+  .log-empty{text-align:center;padding:48px 16px;color:var(--ink-soft);}
+  .log-level-dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .log-level-dot.error{background:var(--red-bad);}
+  .log-level-dot.warning{background:#F59E0B;}
+  .log-level-dot.info{background:var(--accent-strong);}
 
   .assistant-toggle{position:fixed;bottom:88px;right:20px;width:52px;height:52px;border-radius:50%;border:none;background:var(--ink);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 24px var(--shadow-color);z-index:90;transition:transform .15s ease;}
   .assistant-toggle:hover{transform:scale(1.06);}
@@ -668,9 +685,25 @@
 <button id="editorBtn" class="theme-toggle" style="right:152px;display:none;" title="Настроить интерфейс" aria-label="Настроить интерфейс">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 </button>
-<button id="settingsBtn" class="theme-toggle" style="right:196px;" title="Настройки подключения" aria-label="Настройки подключения">
+<button id="errorLogBtn" class="theme-toggle" style="right:196px;display:none;" title="Журнал ошибок" aria-label="Журнал ошибок">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+  <span id="errorLogBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--red-bad);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 3px;font-family:'JetBrains Mono',monospace;"></span>
+</button>
+<button id="settingsBtn" class="theme-toggle" style="right:240px;" title="Настройки подключения" aria-label="Настройки подключения">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
 </button>
+
+<!-- Панель журнала ошибок -->
+<div id="errorLogPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--surface);border-left:1px solid var(--line);z-index:300;flex-direction:column;box-shadow:-8px 0 32px var(--shadow-color);">
+  <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex:none;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;">Журнал ошибок</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button id="errorLogClearBtn" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;">Очистить</button>
+      <button id="errorLogCloseBtn" style="background:var(--overlay-1);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;color:var(--ink-soft);">✕</button>
+    </div>
+  </div>
+  <div id="errorLogBody" style="padding:12px 16px;overflow-y:auto;flex:1;font-size:12px;"></div>
+</div>
 
 <!-- Панель редактора интерфейса -->
 <div id="editorPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:300px;background:var(--surface);border-left:1px solid var(--line);z-index:300;display:none;flex-direction:column;box-shadow:-8px 0 32px var(--shadow-color);">
@@ -1218,6 +1251,42 @@ let lastRawTasks = [];
 let lastTasksFetched = false;
 let lastTaskStatsError = '';
 let taskFilterManagerId = 'all'; // выбранный менеджер для фильтра задач (внутри уже загруженных данных)
+
+// ===== ЖУРНАЛ ОШИБОК =====
+const errorLog = [];
+const MAX_LOG_ENTRIES = 100;
+
+function logError(module, message, details){
+  const entry = {
+    id: Date.now() + Math.random(),
+    ts: new Date().toISOString(),
+    module: module || 'System',
+    message: String(message || 'Неизвестная ошибка'),
+    details: details ? String(details) : null,
+    level: message && String(message).toLowerCase().includes('401') ? 'warning' : 'error'
+  };
+  errorLog.unshift(entry);
+  if(errorLog.length > MAX_LOG_ENTRIES) errorLog.pop();
+  updateErrorLogBadge();
+}
+
+function logInfo(module, message){
+  errorLog.unshift({
+    id: Date.now() + Math.random(),
+    ts: new Date().toISOString(),
+    module: module || 'System',
+    message: String(message),
+    details: null,
+    level: 'info'
+  });
+  if(errorLog.length > MAX_LOG_ENTRIES) errorLog.pop();
+}
+
+function updateErrorLogBadge(){
+  const badge = document.getElementById('errorLogBadge');
+  const count = errorLog.filter(e => e.level === 'error').length;
+  if(badge){ badge.textContent = count; badge.style.display = count > 0 ? 'flex' : 'none'; }
+}
 let lastWonPoints = [];
 const GOAL_MAX = 1e15; // защита от случайно введённых лишних нулей
 let autoRefreshTimer = null;
@@ -2239,7 +2308,7 @@ async function loadDashboard(){
     lastManagers = managers;
     lastDailyEntries = dailyEntries;
     lastNamesResolved = namesResolved;
-    lastNamesErrorMsg = namesErrorMsg;
+    lastNamesErrorMsg = namesErrorMsg; logError("Пользователи", "Не удалось получить имена сотрудников", namesErrorMsg);
     lastHasManagers = managerIds.length > 0;
     lastLostReasons = lostReasons;
 
@@ -2261,7 +2330,7 @@ async function loadDashboard(){
     if(callsResult && callsResult.__error){
       lastCallStats = null;
       lastRawCalls = [];
-      lastCallStatsError = callsResult.__error;
+      lastCallStatsError = callsResult.__error; logError("Звонки", "Не удалось получить статистику звонков", callsResult.__error);
     } else if(callsResult){
       lastCallStats = aggregateCallStats(callsResult);
       lastRawCalls = callsResult;
@@ -2276,7 +2345,7 @@ async function loadDashboard(){
     if(tasksResult && tasksResult.__error){
       lastRawTasks = [];
       lastTasksFetched = false;
-      lastTaskStatsError = tasksResult.__error;
+      lastTaskStatsError = tasksResult.__error; logError("Задачи", "Не удалось получить задачи", tasksResult.__error);
     } else if(tasksResult){
       lastRawTasks = tasksResult;
       lastTasksFetched = true;
@@ -2311,7 +2380,9 @@ async function loadDashboard(){
     document.getElementById('assistantToggleBtn').style.display = 'flex';
     document.getElementById('analyticsBtn').style.display = 'inline-flex';
     document.getElementById('editorBtn').style.display = 'flex';
+    document.getElementById('errorLogBtn').style.display = 'flex';
     showSearchBar();
+    logInfo('CRM Connection', `Данные загружены успешно: ${funnels.length} воронок, ${managers.length} менеджеров`);
     applyEditorConfig();
     renderAssistantInsights();
     if(hasLoadedOnce) flashUpdated();
@@ -2319,7 +2390,7 @@ async function loadDashboard(){
 
   }catch(e){
     if(myRequestId !== loadRequestId) return; // устаревший запрос — не перекрываем ошибкой то, что уже показал более новый
-    renderError(e.message || 'не удалось получить данные. Проверьте данные подключения и права доступа.', e);
+    const errMsg = e.message || 'не удалось получить данные'; logError('CRM Connection', errMsg, e.stack || null); renderError(errMsg + '. Проверьте данные подключения и права доступа.', e);
   }finally{
     if(myRequestId === loadRequestId){
       connectBtn.disabled = false;
@@ -3580,6 +3651,7 @@ disconnectBtn.addEventListener('click', () => {
   document.getElementById('chartHeroContainer').innerHTML = '';
   document.getElementById('companyBadge').style.display = 'none';
   document.getElementById('assistantToggleBtn').style.display = 'none';
+  document.getElementById('errorLogBtn').style.display = 'none';
   hideSearchBar();
   document.getElementById('assistantPanel').style.display = 'none';
   const assistantLogEl = document.getElementById('assistantLog');
@@ -4495,6 +4567,59 @@ document.addEventListener('keydown', e => {
 // Показываем поле поиска после подключения
 function showSearchBar(){ document.getElementById('searchWrap').style.display = 'flex'; }
 function hideSearchBar(){ document.getElementById('searchWrap').style.display = 'none'; closeSearch(); }
+
+// ===== ПАНЕЛЬ ЖУРНАЛА ОШИБОК =====
+function renderErrorLog(){
+  const body = document.getElementById('errorLogBody');
+  if(!body) return;
+  if(!errorLog.length){
+    body.innerHTML = '<div class="log-empty">Журнал пуст — ошибок не зафиксировано</div>';
+    return;
+  }
+  body.innerHTML = errorLog.map(e => {
+    const time = new Date(e.ts).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return `<div class="log-entry ${e.level}">
+      <div class="log-entry-header">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="log-level-dot ${e.level}"></span>
+          <span class="log-entry-module">${escapeHtml(e.module)}</span>
+        </div>
+        <span class="log-entry-time">${time}</span>
+      </div>
+      <div class="log-entry-msg">${escapeHtml(e.message)}</div>
+      ${e.details ? `<div class="log-entry-details">${escapeHtml(e.details)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function openErrorLog(){
+  const panel = document.getElementById('errorLogPanel');
+  panel.style.display = 'flex';
+  renderErrorLog();
+}
+
+function closeErrorLog(){
+  document.getElementById('errorLogPanel').style.display = 'none';
+}
+
+document.getElementById('errorLogBtn').addEventListener('click', openErrorLog);
+document.getElementById('errorLogCloseBtn').addEventListener('click', closeErrorLog);
+document.getElementById('errorLogClearBtn').addEventListener('click', () => {
+  errorLog.length = 0;
+  updateErrorLogBadge();
+  renderErrorLog();
+});
+
+// Закрытие по клику вне панели
+document.addEventListener('click', e => {
+  const panel = document.getElementById('errorLogPanel');
+  if(panel && panel.style.display !== 'none' &&
+     !panel.contains(e.target) &&
+     e.target.id !== 'errorLogBtn' &&
+     !document.getElementById('errorLogBtn').contains(e.target)){
+    closeErrorLog();
+  }
+});
 
 function buildPlanUpgradeHint(){
   const plan = PLANS[currentPlan];
