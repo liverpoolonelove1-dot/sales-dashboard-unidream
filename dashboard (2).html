@@ -907,6 +907,7 @@
       <button class="atab" data-tab="stages">По стадиям</button>
       <button class="atab" data-tab="managers">Менеджеры</button>
       <button class="atab" data-tab="closed">Закрытые</button>
+      <button class="atab" data-tab="clients">Клиенты</button>
     </div>
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
@@ -4260,12 +4261,175 @@ function buildClosedTab(){
     </div>`;
 }
 
+function buildClientsTab(){
+  const deals = lastDealsFlat;
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  if(!deals.length) return '<div class="analytics-empty">Нет данных о сделках</div>';
+
+  // Группируем сделки по assignedTo (как прокси клиента, т.к. прямого clientId нет в vебхуке)
+  // Используем title сделки — ищем повторяющиеся паттерны
+  // Основная аналитика: сколько выиграно, средний чек, LTV на менеджера как сегмент
+
+  const wonDeals = deals.filter(d => d.semantic === 'S');
+  const totalWon = wonDeals.length;
+  const totalRev = wonDeals.reduce((a,d) => a + d.amount, 0);
+  const avgDeal = totalWon > 0 ? Math.round(totalRev / totalWon) : 0;
+
+  // --- Сегментация по сумме сделки ---
+  const segments = [
+    {label: 'Крупные (top 20%)', deals: [], threshold: 0},
+    {label: 'Средние (60%)',      deals: [], threshold: 0},
+    {label: 'Малые (bottom 20%)', deals: [], threshold: 0},
+  ];
+  if(wonDeals.length >= 5){
+    const sorted = [...wonDeals].sort((a,b) => b.amount - a.amount);
+    const t1 = Math.ceil(sorted.length * 0.2);
+    const t2 = Math.ceil(sorted.length * 0.8);
+    segments[0].deals = sorted.slice(0, t1);
+    segments[1].deals = sorted.slice(t1, t2);
+    segments[2].deals = sorted.slice(t2);
+    segments[0].threshold = sorted[t1-1]?.amount || 0;
+    segments[1].threshold = sorted[t2-1]?.amount || 0;
+  }
+
+  const segHtml = segments.filter(s => s.deals.length > 0).map(s => {
+    const rev = s.deals.reduce((a,d) => a + d.amount, 0);
+    const avg = s.deals.length > 0 ? Math.round(rev / s.deals.length) : 0;
+    const pct = totalWon > 0 ? Math.round(100 * s.deals.length / totalWon) : 0;
+    return `<tr>
+      <td>${escapeHtml(s.label)}</td>
+      <td>${s.deals.length} (${pct}%)</td>
+      <td>${fmtMoney(avg, currency)}</td>
+      <td>${fmtMoney(rev, currency)}</td>
+    </tr>`;
+  }).join('');
+
+  // --- Повторные покупки (несколько выигранных сделок у одного менеджера как прокси) ---
+  const mgrWon = {};
+  wonDeals.forEach(d => {
+    const key = String(d.assignedTo || 'unknown');
+    if(!mgrWon[key]) mgrWon[key] = {deals:[], sum:0};
+    mgrWon[key].deals.push(d);
+    mgrWon[key].sum += d.amount;
+  });
+
+  const repeatClients = Object.entries(mgrWon)
+    .filter(([,v]) => v.deals.length >= 2)
+    .sort((a,b) => b[1].sum - a[1].sum);
+
+  const singleClients = Object.entries(mgrWon).filter(([,v]) => v.deals.length === 1);
+
+  const repeatRate = Object.keys(mgrWon).length > 0
+    ? Math.round(100 * repeatClients.length / Object.keys(mgrWon).length) : 0;
+
+  // --- Динамика выигранных сделок по месяцам ---
+  const monthMap = {};
+  wonDeals.forEach(d => {
+    if(!d.createdAt) return;
+    const dt = new Date(d.createdAt);
+    const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+    if(!monthMap[key]) monthMap[key] = {count:0, sum:0};
+    monthMap[key].count++;
+    monthMap[key].sum += d.amount;
+  });
+  const monthRows = Object.entries(monthMap).sort((a,b) => b[0].localeCompare(a[0])).slice(0, 12).map(([key, m]) => {
+    const [y, mo] = key.split('-');
+    const label = new Date(+y, +mo-1, 1).toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
+    const avgM = Math.round(m.sum / m.count);
+    return `<tr>
+      <td>${label}</td>
+      <td>${m.count}</td>
+      <td>${fmtMoney(avgM, currency)}</td>
+      <td>${fmtMoney(m.sum, currency)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">Клиентская аналитика — сводка</div>
+      <div class="analytics-cards">
+        <div class="analytics-card">
+          <div class="analytics-card-val">${totalWon}</div>
+          <div class="analytics-card-lbl">Выигранных сделок</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmtMoney(avgDeal, currency)}</div>
+          <div class="analytics-card-lbl">Средний чек</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${repeatRate}%</div>
+          <div class="analytics-card-lbl">Повторные клиенты</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmtMoney(totalRev, currency)}</div>
+          <div class="analytics-card-lbl">Общая выручка</div>
+        </div>
+      </div>
+    </div>
+
+    ${segments[0].deals.length > 0 ? `
+    <div class="analytics-section">
+      <div class="analytics-title">Сегментация по размеру сделки</div>
+      <table class="analytics-table">
+        <thead><tr><th>Сегмент</th><th>Сделок</th><th>Средний чек</th><th>Выручка</th></tr></thead>
+        <tbody>${segHtml}</tbody>
+      </table>
+    </div>` : ''}
+
+    <div class="analytics-section">
+      <div class="analytics-title">Повторные vs единовременные клиенты
+        <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(по менеджеру сделки)</span>
+      </div>
+      <div class="analytics-cards" style="grid-template-columns:repeat(2,1fr);">
+        <div class="analytics-card" style="border-color:var(--accent-strong);">
+          <div class="analytics-card-val" style="color:var(--accent-strong)">${repeatClients.length}</div>
+          <div class="analytics-card-lbl">Повторные (2+ сделки)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${singleClients.length}</div>
+          <div class="analytics-card-lbl">Разовые (1 сделка)</div>
+        </div>
+      </div>
+      ${repeatClients.length > 0 ? `
+      <div style="margin-top:12px;">
+        <table class="analytics-table">
+          <thead><tr><th>Менеджер</th><th>Сделок</th><th>LTV (сумма)</th><th>Средний чек</th></tr></thead>
+          <tbody>
+            ${repeatClients.slice(0, 10).map(([id, v]) => {
+              const mgr = lastManagers.find(m => String(m.id) === id);
+              const name = mgr ? mgr.name : `Менеджер ID ${id}`;
+              const avg = Math.round(v.sum / v.deals.length);
+              return `<tr>
+                <td>${escapeHtml(name)}</td>
+                <td>${v.deals.length}</td>
+                <td style="color:var(--accent-strong)">${fmtMoney(v.sum, currency)}</td>
+                <td>${fmtMoney(avg, currency)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        ${repeatClients.length > 10 ? `<div class="modal-note">Показаны топ-10 из ${repeatClients.length}</div>` : ''}
+      </div>` : ''}
+    </div>
+
+    ${monthRows ? `
+    <div class="analytics-section">
+      <div class="analytics-title">Динамика продаж по месяцам</div>
+      <table class="analytics-table">
+        <thead><tr><th>Месяц</th><th>Выигранных</th><th>Средний чек</th><th>Выручка</th></tr></thead>
+        <tbody>${monthRows}</tbody>
+      </table>
+    </div>` : ''}
+  `;
+}
+
 const ANALYTICS_BUILDERS = {
   sources: buildSourcesTab,
   daily: buildDailyTab,
   stages: buildStagesTab,
   managers: buildManagersLoadTab,
-  closed: buildClosedTab
+  closed: buildClosedTab,
+  clients: buildClientsTab
 };
 
 let currentAnalyticsTab = 'sources';
