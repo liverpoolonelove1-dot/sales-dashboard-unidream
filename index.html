@@ -2580,6 +2580,41 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const pipelineValue = funnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), 0);
   const lostValue = funnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0), 0);
 
+  // === Sales Velocity = (сделок × средний чек × конверсия%) / дней цикла ===
+  const totalDealsFlat = lastDealsFlat.length;
+  const overallConv = (lastMonthWonCount + lastMonthLostCount) > 0
+    ? lastMonthWonCount / (lastMonthWonCount + lastMonthLostCount) : 0;
+  // Средний цикл сделки в днях
+  const closedDeals = lastDealsFlat.filter(d => (d.semantic === 'S' || d.semantic === 'F') && d.createdAt && d.updatedAt);
+  const avgCycleDays = closedDeals.length > 0
+    ? closedDeals.reduce((a,d) => a + Math.max(1, Math.round((new Date(d.updatedAt) - new Date(d.createdAt)) / 86400000)), 0) / closedDeals.length
+    : 30;
+  const salesVelocity = avgCycleDays > 0 ? Math.round((lastMonthWonCount * avgDeal * overallConv) / avgCycleDays) : 0;
+
+  // === AI Forecast — прогноз выручки до конца месяца ===
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const dayOfMonth = now.getDate();
+  const daysLeft = daysInMonth - dayOfMonth;
+  const dailyRate = dayOfMonth > 0 ? lastMonthRevenue / dayOfMonth : 0;
+  const forecast = Math.round(lastMonthRevenue + dailyRate * daysLeft);
+  const forecastPct = goalAmount > 0 ? Math.min(150, Math.round(100 * forecast / goalAmount)) : 0;
+
+  // === Скоринг лидов Hot/Warm/Cold ===
+  const activeDeals = lastDealsFlat.filter(d => d.semantic === 'P');
+  const hotLeads = activeDeals.filter(d => {
+    const age = d.createdAt ? Math.floor((now - new Date(d.createdAt)) / 86400000) : 99;
+    return age <= 3;
+  });
+  const warmLeads = activeDeals.filter(d => {
+    const age = d.createdAt ? Math.floor((now - new Date(d.createdAt)) / 86400000) : 99;
+    return age > 3 && age <= 14;
+  });
+  const coldLeads = activeDeals.filter(d => {
+    const age = d.createdAt ? Math.floor((now - new Date(d.createdAt)) / 86400000) : 99;
+    return age > 14;
+  });
+
   const reportTiles = `
     ${avgDeal > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="avgdeal">
@@ -2600,6 +2635,31 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:var(--accent-strong)"></span>Крупнейшая сделка</div></div>
         <div class="report-tile-value">${fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency)}</div>
         <div class="report-tile-note">воронка «${lastBestDeal.funnelName}»</div>
+      </div>
+    ` : ''}
+    ${salesVelocity > 0 ? `
+      <div class="fcard fcard-compact report-tile" data-detail="kpi-velocity">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:#60A5FA"></span>Sales Velocity</div></div>
+        <div class="report-tile-value">${fmtMoney(salesVelocity, currency)}<span style="font-size:11px;font-weight:400;color:var(--ink-soft)">/день</span></div>
+        <div class="report-tile-note">цикл сделки ~${Math.round(avgCycleDays)} дн · конв. ${Math.round(overallConv*100)}%</div>
+      </div>
+    ` : ''}
+    ${dailyRate > 0 ? `
+      <div class="fcard fcard-compact report-tile" data-detail="kpi-forecast">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:#A78BFA"></span>Прогноз месяца</div></div>
+        <div class="report-tile-value">${fmtMoney(forecast, currency)}</div>
+        <div class="report-tile-note">${goalAmount > 0 ? `${forecastPct}% от плана · ` : ''}осталось ${daysLeft} дн.</div>
+      </div>
+    ` : ''}
+    ${activeDeals.length > 0 ? `
+      <div class="fcard fcard-compact report-tile" data-detail="kpi-scoring">
+        <div class="fcard-head"><div class="fcard-name"><span class="fcard-dot" style="background:#F59E0B"></span>Скоринг лидов</div></div>
+        <div class="report-tile-value" style="font-size:13px;display:flex;gap:10px;margin-top:6px;">
+          <span style="color:#EF4444;font-weight:800">${hotLeads.length} 🔥</span>
+          <span style="color:#F59E0B;font-weight:800">${warmLeads.length} ○</span>
+          <span style="color:var(--ink-soft);font-weight:800">${coldLeads.length} ◌</span>
+        </div>
+        <div class="report-tile-note">горячих · тёплых · холодных</div>
       </div>
     ` : ''}
   `;
@@ -3417,8 +3477,60 @@ function openKpiDetail(type){
       + (lastNewClientsCount !== null && lastPrevNewClientsCount !== null && lastPrevNewClientsCount > 0
         ? statRow('Динамика', (lastNewClientsCount >= lastPrevNewClientsCount ? '+' : '') + Math.round(100*(lastNewClientsCount - lastPrevNewClientsCount)/lastPrevNewClientsCount) + '%')
         : '')
-      + `<div class="modal-note">Количество новых контактов (crm.contact.list), созданных в текущем месяце. Данные показываются если у вебхука есть право доступа к CRM-контактам.</div>`;
+      + `<div class="modal-note">Количество новых контактов (crm.contact.list), созданных в текущем месяце.</div>`;
     openModal(title, html);
+    return;
+  } else if(type === 'kpi-velocity'){
+    title = 'Sales Velocity';
+    const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+    const closedD = lastDealsFlat.filter(d => (d.semantic==='S'||d.semantic==='F') && d.createdAt && d.updatedAt);
+    const avgCycle = closedD.length > 0 ? Math.round(closedD.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closedD.length) : 30;
+    const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
+    const avgD = lastMonthWonCount>0 ? Math.round(lastMonthRevenue/lastMonthWonCount) : 0;
+    const vel = avgCycle>0 ? Math.round((lastMonthWonCount*avgD*conv/100)/avgCycle) : 0;
+    const html = statRow('Sales Velocity (выручка/день)', fmtMoney(vel, currency))
+      + `<div class="modal-subtitle">Формула: (Сделок × Средний чек × Конверсия%) / Дней цикла</div>`
+      + statRow('Выигранных сделок', lastMonthWonCount)
+      + statRow('Средний чек', fmtMoney(avgD, currency))
+      + statRow('Конверсия', conv+'%')
+      + statRow('Средний цикл сделки', avgCycle+' дн.')
+      + `<div class="modal-note">Sales Velocity — это скорость генерации выручки. Показывает сколько денег отдел продаж зарабатывает в среднем за один день.</div>`;
+    openModal(title, html);
+    return;
+  } else if(type === 'kpi-forecast'){
+    title = 'Прогноз выручки на конец месяца';
+    const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+    const now2 = new Date();
+    const daysInM = new Date(now2.getFullYear(),now2.getMonth()+1,0).getDate();
+    const dayOfM = now2.getDate();
+    const dLeft = daysInM - dayOfM;
+    const rate = dayOfM>0 ? Math.round(lastMonthRevenue/dayOfM) : 0;
+    const fc = Math.round(lastMonthRevenue + rate*dLeft);
+    const html = statRow('Текущая выручка', fmtMoney(lastMonthRevenue, currency))
+      + statRow('Темп в день', fmtMoney(rate, currency))
+      + statRow('Осталось дней', dLeft)
+      + statRow('Прогноз на конец месяца', fmtMoney(fc, currency))
+      + (goalAmount>0 ? statRow('% от плана', Math.round(100*fc/goalAmount)+'%') : '')
+      + `<div class="modal-note">Прогноз рассчитан по линейной экстраполяции текущего темпа. Если темп ускорится — итог будет выше.</div>`;
+    openModal(title, html);
+    return;
+  } else if(type === 'kpi-scoring'){
+    title = 'Скоринг лидов';
+    const now3 = new Date();
+    const active = lastDealsFlat.filter(d=>d.semantic==='P');
+    const hot = active.filter(d=>d.createdAt && Math.floor((now3-new Date(d.createdAt))/86400000)<=3);
+    const warm = active.filter(d=>d.createdAt && Math.floor((now3-new Date(d.createdAt))/86400000)>3 && Math.floor((now3-new Date(d.createdAt))/86400000)<=14);
+    const cold = active.filter(d=>d.createdAt && Math.floor((now3-new Date(d.createdAt))/86400000)>14);
+    const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+    const html = `<div class="modal-summary-row">
+      <div class="modal-summary-cell"><div class="val" style="color:#EF4444">${hot.length}</div><div class="lbl">Горячие (0–3 дня)</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:#F59E0B">${warm.length}</div><div class="lbl">Тёплые (4–14 дней)</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--ink-soft)">${cold.length}</div><div class="lbl">Холодные (14+ дней)</div></div>
+    </div>`
+    + (hot.length>0 ? `<div class="modal-subtitle" style="color:#EF4444">Горячие лиды — требуют внимания сегодня</div><div class="modal-deal-list">${buildDealListRows(hot.map((d,i)=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '')
+    + (cold.length>0 ? `<div class="modal-subtitle" style="color:var(--ink-soft)">Холодные — риск потерять</div><div class="modal-deal-list">${buildDealListRows(cold.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).map(d=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '');
+    openModal(title, html);
+    document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
     return;
   }
   openModal(title, `<table class="modal-table"><tbody>${rows}</tbody></table>`);
@@ -3969,6 +4081,9 @@ function answerQuestion(query){
   if(q.includes('упущ') || q.includes('потер') || q.includes('проваль') || q.includes('провал') || q.includes('отказ')) return answerLost();
   // pipeline / в работе
   if(q.includes('работ') || q.includes('pipeline') || q.includes('актив') || q.includes('открыт')) return answerPipeline();
+  if(q.includes('velocity') || q.includes('скорост') || q.includes('день')) return answerVelocity();
+  if(q.includes('прогноз') || q.includes('forecast') || q.includes('конец месяца')) return answerForecast();
+  if(q.includes('горяч') || q.includes('тёпл') || q.includes('холодн') || q.includes('скоринг')) return answerScoring();
   return 'Не понял вопрос — попробуйте готовые вопросы ниже или спросите про:\n«воронки» · «менеджеры» · «зависшие сделки» · «план» · «задачи» · «звонки» · «средний чек» · «упущенные сделки» · «что в работе»';
 }
 
@@ -4016,16 +4131,52 @@ function answerPipeline(){
   return `В работе: ${total} сделок на сумму ${fmtMoney(sum, currency)}.\n\nПо воронкам:\n${top}`;
 }
 
+function answerVelocity(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+  const closedD = lastDealsFlat.filter(d=>(d.semantic==='S'||d.semantic==='F')&&d.createdAt&&d.updatedAt);
+  const avgCycle = closedD.length>0 ? Math.round(closedD.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closedD.length) : 30;
+  const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
+  const avgD = lastMonthWonCount>0 ? Math.round(lastMonthRevenue/lastMonthWonCount) : 0;
+  const vel = avgCycle>0 ? Math.round((lastMonthWonCount*avgD*conv/100)/avgCycle) : 0;
+  if(vel===0) return 'Недостаточно данных для расчёта Sales Velocity.';
+  return `Sales Velocity: ${fmtMoney(vel, currency)}/день.\n\nЭто сколько денег отдел генерирует в среднем за один день.\n\nСоставляющие:\n— Выигранных сделок: ${lastMonthWonCount}\n— Средний чек: ${fmtMoney(avgD, currency)}\n— Конверсия: ${conv}%\n— Цикл сделки: ~${avgCycle} дн.`;
+}
+
+function answerForecast(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+  const now = new Date();
+  const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const dayOfM = now.getDate();
+  if(dayOfM===0||lastMonthRevenue===0) return 'Недостаточно данных для прогноза.';
+  const rate = Math.round(lastMonthRevenue/dayOfM);
+  const fc = Math.round(lastMonthRevenue+(daysInM-dayOfM)*rate);
+  const pct = goalAmount>0 ? ` (${Math.round(100*fc/goalAmount)}% от плана)` : '';
+  return `Прогноз выручки на конец месяца: ${fmtMoney(fc, currency)}${pct}.\n\nТекущий темп: ${fmtMoney(rate, currency)}/день.\nПрошло дней: ${dayOfM} из ${daysInM}.`;
+}
+
+function answerScoring(){
+  const now = new Date();
+  const active = lastDealsFlat.filter(d=>d.semantic==='P');
+  if(!active.length) return 'Активных сделок в работе нет.';
+  const hot = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)<=3).length;
+  const warm = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>3&&Math.floor((now-new Date(d.createdAt))/86400000)<=14).length;
+  const cold = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>14).length;
+  return `Скоринг активных лидов (${active.length} всего):\n\n🔴 Горячие (0–3 дня): ${hot}\n🟡 Тёплые (4–14 дней): ${warm}\n⚪ Холодные (14+ дней): ${cold}\n\n${cold>0?`Холодные требуют срочного внимания — риск потерять ${cold} сделок.`:'Холодных лидов нет — хорошо!'}`;
+}
+
 const ASSISTANT_CHIPS = [
-  {label: 'Слабые воронки', query: 'слабые воронки'},
-  {label: 'Менеджеры', query: 'менеджеры'},
-  {label: 'Зависшие сделки', query: 'зависшие сделки'},
-  {label: 'План продаж', query: 'план'},
-  {label: 'Средний чек', query: 'средний чек'},
-  {label: 'Что в работе', query: 'что в работе'},
-  {label: 'Упущенные сделки', query: 'упущенные сделки'},
-  {label: 'Задачи', query: 'задачи'},
-  {label: 'Звонки', query: 'звонки'}
+  {label: 'Слабые воронки',    query: 'слабые воронки'},
+  {label: 'Менеджеры',         query: 'менеджеры'},
+  {label: 'Зависшие сделки',   query: 'зависшие сделки'},
+  {label: 'План продаж',       query: 'план'},
+  {label: 'Средний чек',       query: 'средний чек'},
+  {label: 'Что в работе',      query: 'что в работе'},
+  {label: 'Упущенные сделки',  query: 'упущенные сделки'},
+  {label: 'Задачи',            query: 'задачи'},
+  {label: 'Звонки',            query: 'звонки'},
+  {label: 'Sales Velocity',    query: 'sales velocity'},
+  {label: 'Прогноз месяца',    query: 'прогноз месяца'},
+  {label: 'Скоринг лидов',     query: 'скоринг лидов'},
 ];
 
 function renderAssistantChips(){
