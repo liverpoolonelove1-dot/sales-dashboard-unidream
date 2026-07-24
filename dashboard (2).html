@@ -510,10 +510,13 @@
 </head>
 <body>
 <button id="themeToggleBtn" class="theme-toggle" title="Переключить тему" aria-label="Переключить тему"></button>
-<button id="shortcutsBtn" class="theme-toggle" style="right:64px;" title="Горячие клавиши" aria-label="Горячие клавиши">
+<button id="langToggleBtn" class="theme-toggle" style="right:64px;" title="Язык / Til" aria-label="Язык / Til">
+  <span id="langLabel" style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;">RU</span>
+</button>
+<button id="shortcutsBtn" class="theme-toggle" style="right:108px;" title="Горячие клавиши" aria-label="Горячие клавиши">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
 </button>
-<button id="settingsBtn" class="theme-toggle" style="right:108px;" title="Настройки подключения" aria-label="Настройки подключения">
+<button id="settingsBtn" class="theme-toggle" style="right:152px;" title="Настройки подключения" aria-label="Настройки подключения">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
 </button>
 <div id="shortcutsPanel" class="filter-panel shortcuts-panel" style="display:none;">
@@ -671,6 +674,191 @@ const toolbar2 = document.getElementById('toolbar2');
 const autoRefreshSelect = document.getElementById('autoRefreshSelect');
 const exportBtn = document.getElementById('exportBtn');
 const dupWarning = document.getElementById('dupWarning');
+// ===== МУЛЬТИЯЗЫЧНОСТЬ RU / UZ =====
+const TRANSLATIONS = {
+  ru: {
+    // Интерфейс
+    brand: 'Sales Pulse · CRM аналитика',
+    tagline: 'Все воронки продаж — в одном окне, обновляются сами',
+    connectBtn: 'Подключить',
+    refreshBtn: 'Обновить',
+    disconnectBtn: 'Отключить',
+    allTime: 'Всё время',
+    today: 'Сегодня',
+    thisWeek: 'Эта неделя',
+    thisMonth: 'Этот месяц',
+    dateRange: 'Диапазон дат',
+    periodHint: 'период — по дате создания сделки',
+    autoRefreshOff: 'Автообновление: выкл',
+    autoRefresh5: 'Обновлять каждые 5 мин',
+    autoRefresh10: 'Обновлять каждые 10 мин',
+    autoRefresh30: 'Обновлять каждые 30 мин',
+    downloadCsv: 'Скачать CSV',
+    funnels: 'Воронки продаж',
+    salesKpi: 'Продажи (выиграно)',
+    dealsKpi: 'Сделок всего',
+    wonKpi: 'Выиграно сделок',
+    convKpi: 'Конверсия',
+    thisMonthSuffix: '· этот месяц',
+    setGoalPlaceholder: 'Задайте план продаж на этот период, чтобы видеть прогресс',
+    setGoalBtn: 'Утвердить план',
+    chartTitle: 'Динамика продаж · по дням этого месяца',
+    bestDay: 'Лучший день',
+    avgDay: 'В среднем в день с продажами',
+    monthTotal: 'итого в этом месяце',
+    daysWithSales: 'день с продажами',
+    daysWithSales2: 'дня с продажами',
+    daysWithSales5: 'дней с продажами',
+    // Карточки
+    byManagers: 'По менеджерам',
+    refusalReasons: 'Причины отказов',
+    calls: 'Звонки',
+    tasks: 'Задачи',
+    avgDeal: 'Средний чек',
+    bestManager: 'Лучший менеджер',
+    biggestDeal: 'Крупнейшая сделка',
+    inWork: 'В работе',
+    lost: 'Упущено',
+    incoming: 'Входящие',
+    outgoing: 'Исходящие',
+    successful: 'Успешные',
+    missed: 'Пропущенные',
+    allManagers: 'Все менеджеры',
+    totalTasks: 'Всего задач',
+    newTasks: 'Новые',
+    inProgress: 'В работе',
+    completed: 'Завершено',
+    overdue: 'Просрочено',
+    // Вход
+    loginTitle: 'Войдите для продолжения',
+    loginLabel: 'Логин',
+    loginPassLabel: 'Пароль',
+    loginBtn: 'Войти',
+    loginError: 'Неверный логин или пароль',
+  },
+  uz: {
+    brand: 'Sales Pulse · CRM tahlil',
+    tagline: 'Barcha savdo voronkalari — bitta oynada, o\'zi yangilanadi',
+    connectBtn: 'Ulash',
+    refreshBtn: 'Yangilash',
+    disconnectBtn: 'Uzish',
+    allTime: 'Barcha vaqt',
+    today: 'Bugun',
+    thisWeek: 'Bu hafta',
+    thisMonth: 'Bu oy',
+    dateRange: 'Sana oralig\'i',
+    periodHint: 'davr — bitim yaratilgan sana bo\'yicha',
+    autoRefreshOff: 'Avto yangilash: o\'chiq',
+    autoRefresh5: 'Har 5 daqiqada yangilash',
+    autoRefresh10: 'Har 10 daqiqada yangilash',
+    autoRefresh30: 'Har 30 daqiqada yangilash',
+    downloadCsv: 'CSV yuklash',
+    funnels: 'Savdo voronkalari',
+    salesKpi: 'Savdo (g\'alaba)',
+    dealsKpi: 'Jami bitimlar',
+    wonKpi: 'Yutilgan bitimlar',
+    convKpi: 'Konversiya',
+    thisMonthSuffix: '· bu oy',
+    setGoalPlaceholder: 'Ushbu davr uchun savdo rejasini belgilang',
+    setGoalBtn: 'Rejani tasdiqlash',
+    chartTitle: 'Savdo dinamikasi · bu oyning kunlari bo\'yicha',
+    bestDay: 'Eng yaxshi kun',
+    avgDay: 'Savdoli kunlarda o\'rtacha',
+    monthTotal: 'bu oyda jami',
+    daysWithSales: 'kun savdo bilan',
+    daysWithSales2: 'kun savdo bilan',
+    daysWithSales5: 'kun savdo bilan',
+    byManagers: 'Menejerlar bo\'yicha',
+    refusalReasons: 'Rad etish sabablari',
+    calls: 'Qo\'ng\'iroqlar',
+    tasks: 'Vazifalar',
+    avgDeal: 'O\'rtacha chek',
+    bestManager: 'Eng yaxshi menejer',
+    biggestDeal: 'Eng katta bitim',
+    inWork: 'Ishda',
+    lost: 'Yo\'qotilgan',
+    incoming: 'Kiruvchi',
+    outgoing: 'Chiquvchi',
+    successful: 'Muvaffaqiyatli',
+    missed: 'O\'tkazib yuborilgan',
+    allManagers: 'Barcha menejerlar',
+    totalTasks: 'Jami vazifalar',
+    newTasks: 'Yangi',
+    inProgress: 'Jarayonda',
+    completed: 'Bajarilgan',
+    overdue: 'Muddati o\'tgan',
+    loginTitle: 'Davom etish uchun kiring',
+    loginLabel: 'Login',
+    loginPassLabel: 'Parol',
+    loginBtn: 'Kirish',
+    loginError: 'Noto\'g\'ri login yoki parol',
+  }
+};
+
+let currentLang = localStorage.getItem('salesPulseLang') || 'ru';
+
+function t(key){ return TRANSLATIONS[currentLang][key] || TRANSLATIONS['ru'][key] || key; }
+
+function applyLang(){
+  // кнопки периода
+  const pbtns = document.querySelectorAll('.pbtn[data-period]');
+  pbtns.forEach(btn => {
+    const p = btn.dataset.period;
+    if(p === 'all') btn.textContent = t('allTime');
+    else if(p === 'today') btn.textContent = t('today');
+    else if(p === 'week') btn.textContent = t('thisWeek');
+    else if(p === 'month') btn.textContent = t('thisMonth');
+  });
+  // подсказка периода
+  const hint = document.querySelector('.period-hint');
+  if(hint) hint.textContent = t('periodHint');
+  // кнопки подключения
+  const cBtn = document.getElementById('connectBtn');
+  if(cBtn && cBtn.textContent !== '…' && cBtn.textContent !== 'Подключение…') cBtn.textContent = t('connectBtn');
+  const rBtn = document.getElementById('refreshBtn');
+  if(rBtn) rBtn.textContent = t('refreshBtn');
+  const dBtn = document.getElementById('disconnectBtn');
+  if(dBtn) dBtn.textContent = t('disconnectBtn');
+  // экспорт
+  const expBtn = document.getElementById('exportBtn');
+  if(expBtn) expBtn.textContent = t('downloadCsv');
+  // автообновление
+  const arSel = document.getElementById('autoRefreshSelect');
+  if(arSel){
+    const opts = arSel.querySelectorAll('option');
+    if(opts[0]) opts[0].textContent = t('autoRefreshOff');
+    if(opts[1]) opts[1].textContent = t('autoRefresh5');
+    if(opts[2]) opts[2].textContent = t('autoRefresh10');
+    if(opts[3]) opts[3].textContent = t('autoRefresh30');
+  }
+  // фильтр "Все менеджеры" в задачах
+  const tmf = document.getElementById('taskManagerFilter');
+  if(tmf){ const o = tmf.querySelector('option[value="all"]'); if(o) o.textContent = t('allManagers'); }
+  // метка языка
+  const lbl = document.getElementById('langLabel');
+  if(lbl) lbl.textContent = currentLang.toUpperCase();
+  // экран входа
+  const loginSub = document.querySelector('#loginView .login-sub');
+  if(loginSub) loginSub.textContent = 'Sales Pulse · ' + t('loginTitle');
+  const loginErrEl = document.getElementById('loginError');
+  if(loginErrEl) loginErrEl.textContent = t('loginError');
+  const loginUsernameLabel = document.querySelector('#loginView .login-field:first-of-type label');
+  if(loginUsernameLabel) loginUsernameLabel.textContent = t('loginLabel');
+  const loginPassLabelEl = document.querySelector('#loginView .login-field:last-of-type label');
+  if(loginPassLabelEl) loginPassLabelEl.textContent = t('loginPassLabel');
+  const loginBtnEl = document.getElementById('loginBtn');
+  if(loginBtnEl) loginBtnEl.textContent = t('loginBtn');
+}
+
+const langToggleBtn = document.getElementById('langToggleBtn');
+langToggleBtn.addEventListener('click', () => {
+  currentLang = currentLang === 'ru' ? 'uz' : 'ru';
+  localStorage.setItem('salesPulseLang', currentLang);
+  applyLang();
+  // Перерисовываем дашборд если подключён — обновит кнопки внутри сетки
+  if(lastFunnels.length > 0) rerenderCached();
+});
+
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 
 const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>`;
@@ -881,11 +1069,13 @@ const dashboardView = document.getElementById('dashboardView');
 function showLanding(){
   landingView.style.display = 'block';
   dashboardView.style.display = 'none';
+  setTimeout(applyLang, 0);
 }
 
 function showDashboard(){
   landingView.style.display = 'none';
   dashboardView.style.display = 'block';
+  setTimeout(applyLang, 0);
 }
 
 settingsBtn.addEventListener('click', () => {
@@ -3307,6 +3497,7 @@ connFields.addEventListener('keydown', e => { if(e.key === 'Enter') attemptConne
 renderCrmSelect();
 crmSelect.value = 'bitrix24';
 onCrmChange();
+applyLang(); // применяем язык сразу
 
 (function initFromUrl(){
   // Если список клиентов пуст — логин не нужен, работаем без защиты (режим разработки)
