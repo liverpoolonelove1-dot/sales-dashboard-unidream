@@ -950,6 +950,9 @@
       <button class="atab" data-tab="managers">Менеджеры</button>
       <button class="atab" data-tab="closed">Закрытые</button>
       <button class="atab" data-tab="clients">Клиенты</button>
+      <button class="atab" data-tab="roi">LTV / ROI</button>
+      <button class="atab" data-tab="forecast">Прогноз</button>
+      <button class="atab" data-tab="finance">Финансы / ROI</button>
     </div>
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
@@ -1037,17 +1040,25 @@
 
 <div id="assistantPanel" class="assistant-panel" style="display:none;">
   <div class="assistant-head">
-    <span>Аналитик дашборда</span>
+    <span>AI Аналитик <span style="font-size:9px;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:#fff;padding:2px 7px;border-radius:10px;font-weight:700;letter-spacing:.04em;vertical-align:middle;">Gemini</span></span>
     <button id="assistantCloseBtn" class="assistant-close" type="button" aria-label="Закрыть">✕</button>
   </div>
   <div class="assistant-body">
+    <div class="assistant-section-label">AI Аналитик (Gemini)</div>
+    <div id="geminiKeyWrap" style="margin-bottom:10px;">
+      <div style="display:flex;gap:6px;">
+        <input type="password" id="geminiKeyInput" placeholder="Вставьте Gemini API ключ…" style="flex:1;border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:12px;background:var(--surface);color:var(--ink);">
+        <button id="geminiKeySaveBtn" class="btn btn-primary btn-sm" type="button">Сохранить</button>
+      </div>
+      <div id="geminiKeyStatus" style="font-size:10.5px;color:var(--ink-soft);margin-top:5px;"></div>
+    </div>
     <div class="assistant-section-label">Что стоит проверить</div>
     <div id="assistantInsights" class="assistant-insights"></div>
     <div class="assistant-section-label">Быстрые вопросы</div>
     <div id="assistantChips" class="assistant-chips"></div>
     <div id="assistantLog" class="assistant-log"></div>
     <div class="assistant-input-row">
-      <input type="text" id="assistantInput" placeholder="Спросите про воронки, менеджеров, задачи…">
+      <input type="text" id="assistantInput" placeholder="Спросите AI про продажи, воронки, менеджеров…">
       <button id="assistantAskBtn" class="btn btn-primary btn-sm" type="button">Спросить</button>
     </div>
     
@@ -3595,32 +3606,287 @@ function celebrateGoal(){
   setTimeout(() => container.remove(), 3900);
 }
 
-exportBtn.addEventListener('click', () => {
-  if(lastFunnels.length === 0) return;
-  const rows = [];
-  rows.push(['Воронка','Стадия','Сделок','Сумма'].join(';'));
-  lastFunnels.forEach(f => {
-    f.stages.forEach(s => rows.push([f.name, s.name, s.count, Math.round(s.sum)].join(';')));
+exportBtn.addEventListener('click', () => openReportBuilder());
+
+function openReportBuilder(){
+  if(!lastFunnels.length) return;
+  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const now = new Date();
+  const period = currentPeriod.type === 'month' ? 'Этот месяц' :
+    currentPeriod.type === 'today' ? 'Сегодня' :
+    currentPeriod.type === 'week' ? 'Эта неделя' :
+    currentPeriod.type === 'all' ? 'Всё время' :
+    `${currentPeriod.from} — ${currentPeriod.to}`;
+
+  const html = `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Выберите разделы отчёта</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${[
+          ['rep-kpi','KPI сводка (продажи, конверсия, средний чек)'],
+          ['rep-velocity','Sales Velocity и прогноз'],
+          ['rep-funnels','Воронки продаж по стадиям'],
+          ['rep-managers','Рейтинг менеджеров'],
+          ['rep-sources','Источники лидов'],
+          ['rep-scoring','Скоринг лидов Hot/Warm/Cold'],
+          ['rep-calls','Статистика звонков'],
+          ['rep-tasks','Статистика задач'],
+          ['rep-lost','Причины отказов'],
+          ['rep-roi','LTV / ROI / Unit-экономика'],
+        ].map(([id,label]) => `
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="${id}" checked style="width:15px;height:15px;accent-color:var(--accent-strong);">
+            ${label}
+          </label>`).join('')}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-primary" id="repPdfBtn" style="flex:1;">Скачать PDF</button>
+      <button class="btn btn-ghost" id="repCsvBtn" style="flex:1;">Скачать CSV</button>
+    </div>`;
+
+  openModal('Конструктор отчёта', html);
+
+  document.getElementById('repPdfBtn').addEventListener('click', () => {
+    closeModal();
+    generatePdfReport(currency, period, now);
   });
+
+  document.getElementById('repCsvBtn').addEventListener('click', () => {
+    closeModal();
+    generateCsvReport(currency, period);
+  });
+}
+
+function chk(id){ const el = document.getElementById(id); return el && el.checked; }
+
+function generatePdfReport(currency, period, now){
+  const title = 'PulseCRM — Отчёт по продажам';
+  const date = now.toLocaleDateString('ru-RU', {day:'2-digit',month:'long',year:'numeric'});
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
+  const totalRev = lastMonthRevenue;
+  const avgDeal = lastMonthWonCount>0 ? Math.round(totalRev/lastMonthWonCount) : 0;
+  const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
+
+  // Sales Velocity
+  const closedD = lastDealsFlat.filter(d=>(d.semantic==='S'||d.semantic==='F')&&d.createdAt&&d.updatedAt);
+  const avgCycle = closedD.length>0 ? Math.round(closedD.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closedD.length) : 30;
+  const vel = avgCycle>0 ? Math.round((lastMonthWonCount*avgDeal*conv/100)/avgCycle) : 0;
+  const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const dayOfM = now.getDate();
+  const forecast = Math.round(lastMonthRevenue + (lastMonthRevenue/Math.max(dayOfM,1))*(daysInM-dayOfM));
+
+  // Скоринг
+  const active = lastDealsFlat.filter(d=>d.semantic==='P');
+  const hotL = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)<=3).length;
+  const warmL = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>3&&Math.floor((now-new Date(d.createdAt))/86400000)<=14).length;
+  const coldL = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>14).length;
+
+  const fmt = (n) => fmtMoney(n, currency);
+
+  const sectionKpi = chk('rep-kpi') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">KPI — Ключевые показатели <span class="rep-period">${period}</span></div>
+      <div class="rep-kpi-grid">
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${fmt(totalRev)}</div><div class="rep-kpi-lbl">Продажи (выиграно)</div></div>
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${lastMonthWonCount}</div><div class="rep-kpi-lbl">Выигранных сделок</div></div>
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${conv}%</div><div class="rep-kpi-lbl">Конверсия</div></div>
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${fmt(avgDeal)}</div><div class="rep-kpi-lbl">Средний чек</div></div>
+      </div>
+    </div>` : '';
+
+  const sectionVelocity = chk('rep-velocity') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Sales Velocity и прогноз</div>
+      <table class="rep-table">
+        <tr><td>Sales Velocity (выручка в день)</td><td><b>${fmt(vel)}/день</b></td></tr>
+        <tr><td>Средний цикл сделки</td><td>${avgCycle} дней</td></tr>
+        <tr><td>Прогноз на конец месяца</td><td><b>${fmt(forecast)}</b></td></tr>
+        ${goalAmount>0 ? `<tr><td>Выполнение плана</td><td>${Math.round(100*totalRev/goalAmount)}% (план ${fmt(goalAmount)})</td></tr>` : ''}
+      </table>
+    </div>` : '';
+
+  const sectionFunnels = chk('rep-funnels') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Воронки продаж</div>
+      ${lastFunnels.map(f => {
+        const fConv = (f.wonCount+f.lostCount)>0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
+        return `<div style="margin-bottom:14px;">
+          <div style="font-weight:700;margin-bottom:6px;">${f.name} — ${fmt(f.wonSum)} · конверсия ${fConv}%</div>
+          <table class="rep-table">
+            <tr style="background:#f5f5f5;"><th>Стадия</th><th>Сделок</th><th>Сумма</th></tr>
+            ${f.stages.map(s=>`<tr><td>${s.name}</td><td>${s.count}</td><td>${fmt(s.sum)}</td></tr>`).join('')}
+          </table>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const sectionManagers = chk('rep-managers') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Рейтинг менеджеров</div>
+      <table class="rep-table">
+        <tr style="background:#f5f5f5;"><th>#</th><th>Менеджер</th><th>Сделок</th><th>Продажи</th><th>Конверсия</th><th>Средний чек</th></tr>
+        ${lastManagers.filter(m=>m.id!=='unknown').map((m,i)=>{
+          const c=(m.wonCount+m.lostCount)>0?Math.round(100*m.wonCount/(m.wonCount+m.lostCount)):0;
+          const a=m.wonCount>0?Math.round(m.wonSum/m.wonCount):0;
+          return `<tr><td>${i+1}</td><td>${m.name}</td><td>${m.dealsCount}</td><td>${fmt(m.wonSum)}</td><td>${c}%</td><td>${fmt(a)}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>` : '';
+
+  const srcMap={};
+  lastDealsFlat.forEach(d=>{const s=d.source||'Не указан';if(!srcMap[s])srcMap[s]={total:0,won:0,sum:0};srcMap[s].total++;if(d.semantic==='S'){srcMap[s].won++;srcMap[s].sum+=d.amount;}});
+  const sectionSources = chk('rep-sources') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Источники лидов</div>
+      <table class="rep-table">
+        <tr style="background:#f5f5f5;"><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Конверсия</th><th>Продажи</th></tr>
+        ${Object.entries(srcMap).sort((a,b)=>b[1].total-a[1].total).map(([src,s])=>{
+          const c=(s.won>0&&s.total>0)?Math.round(100*s.won/s.total):0;
+          return `<tr><td>${src}</td><td>${s.total}</td><td>${s.won}</td><td>${c}%</td><td>${fmt(s.sum)}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>` : '';
+
+  const sectionScoring = chk('rep-scoring') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Скоринг лидов</div>
+      <table class="rep-table">
+        <tr><td>Горячие (0–3 дня)</td><td><b style="color:#ef4444">${hotL}</b></td></tr>
+        <tr><td>Тёплые (4–14 дней)</td><td><b style="color:#f59e0b">${warmL}</b></td></tr>
+        <tr><td>Холодные (14+ дней)</td><td><b style="color:#6b7280">${coldL}</b></td></tr>
+        <tr><td>Всего в работе</td><td>${active.length}</td></tr>
+      </table>
+    </div>` : '';
+
+  const sectionCalls = chk('rep-calls') && lastCallStats ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Статистика звонков</div>
+      <table class="rep-table">
+        <tr><td>Всего</td><td>${lastCallStats.total}</td></tr>
+        <tr><td>Входящие</td><td>${lastCallStats.incoming}</td></tr>
+        <tr><td>Исходящие</td><td>${lastCallStats.outgoing}</td></tr>
+        <tr><td>Успешные</td><td>${lastCallStats.successful}</td></tr>
+        <tr><td>Пропущенные</td><td>${lastCallStats.missed}</td></tr>
+        <tr><td>Общая длительность</td><td>${fmtDuration(lastCallStats.totalDuration)}</td></tr>
+      </table>
+    </div>` : '';
+
+  const taskStats = lastTasksFetched ? aggregateTaskStats(lastRawTasks,'all') : null;
+  const sectionTasks = chk('rep-tasks') && taskStats ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Статистика задач</div>
+      <table class="rep-table">
+        <tr><td>Всего задач</td><td>${taskStats.total}</td></tr>
+        <tr><td>Новые</td><td>${taskStats.neW}</td></tr>
+        <tr><td>В работе</td><td>${taskStats.inProgress}</td></tr>
+        <tr><td>Завершено</td><td>${taskStats.completed}</td></tr>
+        <tr><td>Просрочено</td><td><b style="color:#ef4444">${taskStats.overdue}</b></td></tr>
+      </table>
+    </div>` : '';
+
+  const sectionLost = chk('rep-lost') && lastLostReasons.length ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Причины отказов</div>
+      <table class="rep-table">
+        <tr style="background:#f5f5f5;"><th>Причина (стадия)</th><th>Количество</th><th>Сумма</th></tr>
+        ${lastLostReasons.map(r=>`<tr><td>${r.stageName}</td><td>${r.count}</td><td>${fmt(r.sum)}</td></tr>`).join('')}
+      </table>
+    </div>` : '';
+
+  const printHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  @page { margin: 20mm 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 0; }
+  .rep-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #C6F135; }
+  .rep-logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+  .rep-logo span { color: #A8D416; }
+  .rep-meta { text-align: right; font-size: 11px; color: #666; }
+  .rep-section { margin-bottom: 24px; page-break-inside: avoid; }
+  .rep-section-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; padding: 6px 10px; background: #f5f5f5; border-left: 3px solid #A8D416; }
+  .rep-period { font-size: 11px; font-weight: 400; color: #666; margin-left: 8px; }
+  .rep-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .rep-kpi-card { background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px; text-align: center; }
+  .rep-kpi-val { font-size: 18px; font-weight: 900; margin-bottom: 4px; }
+  .rep-kpi-lbl { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; }
+  .rep-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .rep-table th, .rep-table td { padding: 7px 8px; border: 1px solid #e5e5e5; text-align: left; }
+  .rep-table th { font-weight: 700; }
+  .rep-footer { margin-top: 32px; padding-top: 10px; border-top: 1px solid #e5e5e5; font-size: 10px; color: #999; display: flex; justify-content: space-between; }
+</style>
+</head><body>
+  <div class="rep-header">
+    <div class="rep-logo">Pulse<span>CRM</span></div>
+    <div class="rep-meta">
+      <div><b>Период:</b> ${period}</div>
+      <div><b>Дата отчёта:</b> ${date}</div>
+    </div>
+  </div>
+  ${sectionKpi}${sectionVelocity}${sectionFunnels}${sectionManagers}${sectionSources}${sectionScoring}${sectionCalls}${sectionTasks}${sectionLost}
+  <div class="rep-footer">
+    <span>PulseCRM — аналитика продаж Битрикс24</span>
+    <span>Сформировано: ${now.toLocaleString('ru-RU')}</span>
+  </div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(printHtml);
+  win.document.close();
+  win.onload = () => { win.print(); };
+}
+
+function generateCsvReport(currency, period){
+  const rows = [];
+  const fmt = n => Math.round(n);
+  const sep = ';';
+
+  rows.push(`PulseCRM — Отчёт по продажам`);
+  rows.push(`Период: ${period}`);
+  rows.push(`Дата: ${new Date().toLocaleDateString('ru-RU')}`);
   rows.push('');
-  if(lastManagers.length > 0){
-    rows.push(['Менеджер','Сделок','Продажи (выиграно)','Конверсия %'].join(';'));
-    lastManagers.forEach(m => {
-      const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
-      rows.push([m.name, m.dealsCount, Math.round(m.wonSum), conv].join(';'));
+
+  rows.push('=== KPI ===');
+  rows.push(['Метрика','Значение'].join(sep));
+  rows.push(['Продажи (выиграно)',fmt(lastMonthRevenue)+' '+currency].join(sep));
+  rows.push(['Выигранных сделок',lastMonthWonCount].join(sep));
+  rows.push(['Конверсия %',(lastMonthWonCount+lastMonthLostCount)>0?Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)):0].join(sep));
+  rows.push(['Средний чек',lastMonthWonCount>0?fmt(lastMonthRevenue/lastMonthWonCount):0].join(sep));
+  rows.push('');
+
+  rows.push('=== ВОРОНКИ ===');
+  rows.push(['Воронка','Стадия','Сделок','Сумма'].join(sep));
+  lastFunnels.forEach(f=>f.stages.forEach(s=>rows.push([f.name,s.name,s.count,fmt(s.sum)].join(sep))));
+  rows.push('');
+
+  if(lastManagers.length>0){
+    rows.push('=== МЕНЕДЖЕРЫ ===');
+    rows.push(['Менеджер','Сделок','Продажи','Конверсия %','Средний чек'].join(sep));
+    lastManagers.filter(m=>m.id!=='unknown').forEach(m=>{
+      const c=(m.wonCount+m.lostCount)>0?Math.round(100*m.wonCount/(m.wonCount+m.lostCount)):0;
+      const a=m.wonCount>0?fmt(m.wonSum/m.wonCount):0;
+      rows.push([m.name,m.dealsCount,fmt(m.wonSum),c,a].join(sep));
     });
+    rows.push('');
   }
-  const csv = rows.join('\n');
-  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+
+  if(lastDealsFlat.length>0){
+    rows.push('=== ИСТОЧНИКИ ЛИДОВ ===');
+    const srcMap={};
+    lastDealsFlat.forEach(d=>{const s=d.source||'Не указан';if(!srcMap[s])srcMap[s]={total:0,won:0,sum:0};srcMap[s].total++;if(d.semantic==='S'){srcMap[s].won++;srcMap[s].sum+=d.amount;}});
+    rows.push(['Источник','Лидов','Выиграно','Продажи'].join(sep));
+    Object.entries(srcMap).sort((a,b)=>b[1].total-a[1].total).forEach(([src,s])=>rows.push([src,s.total,s.won,fmt(s.sum)].join(sep)));
+    rows.push('');
+  }
+
+  const blob = new Blob(['\uFEFF'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `sales-report-${fmtDateISO(new Date())}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.href=url; a.download=`pulsecrm-report-${fmtDateISO(new Date())}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-});
+}
 
 autoRefreshSelect.addEventListener('change', () => {
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
@@ -4185,26 +4451,150 @@ function renderAssistantChips(){
   box.innerHTML = ASSISTANT_CHIPS.map(c => `<button type="button" class="assistant-chip" data-ask="${escapeHtml(c.query)}">${escapeHtml(c.label)}</button>`).join('');
 }
 
-function assistantAsk(query){
+// ===== GEMINI AI ИНТЕГРАЦИЯ =====
+const GEMINI_API_KEY = localStorage.getItem('salesPulseGeminiKey') || '';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+let aiEnabled = true;
+
+function buildDashboardContext(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const fmt = n => fmtMoney(n, currency);
+  const conv = (lastMonthWonCount+lastMonthLostCount)>0
+    ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
+
+  let ctx = `Ты — AI-аналитик CRM системы PulseCRM. Анализируй данные и давай конкретные советы на русском языке. Будь краток (3-5 предложений максимум).
+
+ТЕКУЩИЕ ДАННЫЕ ДАШБОРДА:
+— Период: ${currentPeriod.type === 'month' ? 'Этот месяц' : currentPeriod.type === 'all' ? 'Всё время' : currentPeriod.type}
+— Продажи (этот месяц): ${fmt(lastMonthRevenue)}
+— Выиграно сделок: ${lastMonthWonCount}
+— Конверсия: ${conv}%
+— Средний чек: ${lastMonthWonCount>0?fmt(Math.round(lastMonthRevenue/lastMonthWonCount)):'—'}
+`;
+
+  if(lastFunnels.length){
+    ctx += `\nВОРОНКИ (${lastFunnels.length} шт):\n`;
+    lastFunnels.slice(0,5).forEach(f=>{
+      const fc = (f.wonCount+f.lostCount)>0?Math.round(100*f.wonCount/(f.wonCount+f.lostCount)):0;
+      ctx += `— ${f.name}: ${fmt(f.wonSum)}, ${f.deals} сделок, конверсия ${fc}%\n`;
+      if(f.bottleneck) ctx += `  Узкое место: ${f.bottleneck.name} (~${f.bottleneck.avgAgeDays} дн)\n`;
+    });
+  }
+
+  if(lastManagers.length){
+    ctx += `\nМЕНЕДЖЕРЫ (топ-5):\n`;
+    lastManagers.slice(0,5).forEach(m=>{
+      const mc = (m.wonCount+m.lostCount)>0?Math.round(100*m.wonCount/(m.wonCount+m.lostCount)):0;
+      ctx += `— ${m.name}: ${fmt(m.wonSum)}, ${m.dealsCount} сделок, конверсия ${mc}%\n`;
+    });
+  }
+
+  if(lastCallStats){
+    const missedPct = lastCallStats.total>0?Math.round(100*lastCallStats.missed/lastCallStats.total):0;
+    ctx += `\nЗВОНКИ: всего ${lastCallStats.total}, пропущено ${lastCallStats.missed} (${missedPct}%)\n`;
+  }
+
+  if(lastTasksFetched){
+    const ts = aggregateTaskStats(lastRawTasks,'all');
+    ctx += `ЗАДАЧИ: всего ${ts.total}, просрочено ${ts.overdue}\n`;
+  }
+
+  if(lastLostReasons.length){
+    ctx += `\nПРИЧИНЫ ОТКАЗОВ:\n`;
+    lastLostReasons.slice(0,3).forEach(r=> ctx += `— ${r.stageName}: ${r.count} сделок\n`);
+  }
+
+  // Скоринг лидов
+  const now = new Date();
+  const active = lastDealsFlat.filter(d=>d.semantic==='P');
+  const hot = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)<=3).length;
+  const cold = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>14).length;
+  if(active.length) ctx += `\nСКОРИНГ ЛИДОВ: горячих ${hot}, холодных ${cold} из ${active.length} активных\n`;
+
+  return ctx;
+}
+
+async function askGeminiAI(query){
+  const context = buildDashboardContext();
+  const prompt = `${context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ: ${query}`;
+
+  try{
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          contents: [{parts: [{text: prompt}]}],
+          generationConfig: {temperature: 0.7, maxOutputTokens: 512}
+        })
+      }
+    );
+    const data = await res.json();
+    if(data.error) return `Ошибка AI: ${data.error.message}`;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'AI не ответил';
+  }catch(e){
+    return `Ошибка соединения с AI: ${e.message}`;
+  }
+}
+
+async function assistantAsk(query){
   if(!query || !query.trim()) return;
   const log = document.getElementById('assistantLog');
   if(!log) return;
+
   const qDiv = document.createElement('div');
   qDiv.className = 'assistant-log-q';
   qDiv.textContent = query;
   log.appendChild(qDiv);
 
-  const answer = answerQuestion(query);
   const aDiv = document.createElement('div');
   aDiv.className = 'assistant-log-a';
-  aDiv.textContent = answer;
-  log.appendChild(aDiv);
+
+  if(aiEnabled && lastFunnels.length > 0){
+    // Используем Gemini AI
+    aDiv.textContent = '⏳ AI анализирует данные…';
+    log.appendChild(aDiv);
+    const body = document.querySelector('.assistant-body');
+    if(body) body.scrollTop = body.scrollHeight;
+
+    const answer = await askGeminiAI(query);
+    aDiv.textContent = answer;
+  } else {
+    // Fallback на rule-based если нет данных
+    aDiv.textContent = answerQuestion(query);
+    log.appendChild(aDiv);
+  }
 
   const body = document.querySelector('.assistant-body');
   if(body) body.scrollTop = body.scrollHeight;
 }
 
 renderAssistantChips();
+
+// Инициализация поля Gemini ключа
+(function initGeminiKey(){
+  const input = document.getElementById('geminiKeyInput');
+  const status = document.getElementById('geminiKeyStatus');
+  const saved = localStorage.getItem('salesPulseGeminiKey');
+  if(saved){
+    input.value = saved;
+    status.textContent = '✓ Ключ сохранён — AI активен';
+    status.style.color = 'var(--accent-strong)';
+    aiEnabled = true;
+  } else {
+    status.textContent = 'Без ключа работает в режиме правил. Ключ: aistudio.google.com/apikey';
+    aiEnabled = false;
+  }
+  document.getElementById('geminiKeySaveBtn').addEventListener('click', () => {
+    const key = input.value.trim();
+    if(!key){ localStorage.removeItem('salesPulseGeminiKey'); aiEnabled = false; status.textContent = 'Ключ удалён'; return; }
+    localStorage.setItem('salesPulseGeminiKey', key);
+    aiEnabled = true;
+    status.textContent = '✓ Ключ сохранён — AI активен';
+    status.style.color = 'var(--accent-strong)';
+  });
+})();
 
 document.getElementById('assistantToggleBtn').addEventListener('click', () => {
   const panel = document.getElementById('assistantPanel');
@@ -4621,13 +5011,430 @@ function buildClientsTab(){
   `;
 }
 
+function buildForecastTab(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+  const fmt = n => fmtMoney(n, currency);
+  const now = new Date();
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S'&&d.createdAt);
+  if(wonDeals.length < 3) return '<div class="analytics-empty">Недостаточно данных для прогноза (нужно минимум 3 выигранных сделки)</div>';
+
+  // === Данные по месяцам ===
+  const monthMap = {};
+  wonDeals.forEach(d=>{
+    const dt = new Date(d.createdAt);
+    const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+    if(!monthMap[key]) monthMap[key]={sum:0,count:0,key};
+    monthMap[key].sum += d.amount;
+    monthMap[key].count++;
+  });
+  const months = Object.values(monthMap).sort((a,b)=>a.key.localeCompare(b.key));
+
+  // === Модель 1: Линейный тренд (наименьшие квадраты) ===
+  const n = months.length;
+  const xs = months.map((_,i)=>i);
+  const ys = months.map(m=>m.sum);
+  const sumX = xs.reduce((a,x)=>a+x,0);
+  const sumY = ys.reduce((a,y)=>a+y,0);
+  const sumXY = xs.reduce((a,x,i)=>a+x*ys[i],0);
+  const sumX2 = xs.reduce((a,x)=>a+x*x,0);
+  const slope = n>1 ? (n*sumXY - sumX*sumY)/(n*sumX2 - sumX*sumX) : 0;
+  const intercept = (sumY - slope*sumX)/n;
+  const linearForecast = Math.max(0, Math.round(intercept + slope*n));
+  const trend = slope > 0 ? 'up' : slope < 0 ? 'down' : 'flat';
+
+  // === Модель 2: Скользящее среднее (последние 3 месяца) ===
+  const last3 = months.slice(-3);
+  const maForecast = last3.length > 0 ? Math.round(last3.reduce((a,m)=>a+m.sum,0)/last3.length) : 0;
+
+  // === Модель 3: Pipeline-based (конверсия × активные сделки) ===
+  const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
+  const pipelineVal = activeDeals.reduce((a,d)=>a+d.amount,0);
+  const convRate = (wonDeals.length+lastDealsFlat.filter(d=>d.semantic==='F').length)>0
+    ? wonDeals.length/(wonDeals.length+lastDealsFlat.filter(d=>d.semantic==='F').length) : 0.3;
+  const pipelineForecast = Math.round(pipelineVal * convRate);
+
+  // === Итоговый взвешенный прогноз ===
+  // Линейный 40% + Скользящее среднее 40% + Pipeline 20%
+  const weightedForecast = Math.round(linearForecast*0.4 + maForecast*0.4 + pipelineForecast*0.2);
+
+  // === Прогноз до конца текущего месяца ===
+  const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const dayOfM = now.getDate();
+  const daysLeft = daysInM - dayOfM;
+  const monthToDate = lastMonthRevenue;
+  const dailyRate = dayOfM>0 ? monthToDate/dayOfM : 0;
+  const endOfMonthForecast = Math.round(monthToDate + dailyRate*daysLeft);
+
+  // % выполнения плана
+  const planPct = goalAmount>0 ? Math.round(100*endOfMonthForecast/goalAmount) : null;
+
+  // === Таблица прогнозов по следующим 3 месяцам ===
+  const futureMonths = [];
+  for(let i=1;i<=3;i++){
+    const dt = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    const label = dt.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+    const linVal = Math.max(0,Math.round(intercept + slope*(n+i-1)));
+    const maVal = maForecast;
+    const avg = Math.round((linVal+maVal)/2);
+    futureMonths.push({label, linVal, maVal, avg});
+  }
+
+  // === Динамика по месяцам для мини-графика ===
+  const maxSum = Math.max(...months.map(m=>m.sum), weightedForecast);
+  const barRows = months.slice(-6).map(m=>{
+    const pct = maxSum>0 ? Math.round(100*m.sum/maxSum) : 0;
+    const [y,mo] = m.key.split('-');
+    const lbl = new Date(+y,+mo-1,1).toLocaleDateString('ru-RU',{month:'short'});
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-soft);">${fmt(m.sum).split(' ')[0]}</div>
+      <div style="width:100%;height:${Math.max(4,pct*0.8)}px;background:var(--accent-strong);border-radius:4px 4px 0 0;"></div>
+      <div style="font-size:9px;color:var(--ink-soft);">${lbl}</div>
+    </div>`;
+  });
+  // Добавляем прогнозный столбик
+  const fcPct = maxSum>0 ? Math.round(100*weightedForecast/maxSum) : 0;
+  barRows.push(`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--violet);">${fmt(weightedForecast).split(' ')[0]}</div>
+    <div style="width:100%;height:${Math.max(4,fcPct*0.8)}px;background:#A78BFA;border-radius:4px 4px 0 0;border:2px dashed #7C3AED;"></div>
+    <div style="font-size:9px;color:#7C3AED;font-weight:700;">прогноз</div>
+  </div>`);
+
+  const trendIcon = trend==='up' ? '↑' : trend==='down' ? '↓' : '→';
+  const trendColor = trend==='up' ? 'var(--accent-strong)' : trend==='down' ? 'var(--red-bad)' : 'var(--ink-soft)';
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">Прогноз выручки — следующий месяц</div>
+      <div class="analytics-cards">
+        <div class="analytics-card" style="border-top:3px solid #A78BFA;">
+          <div class="analytics-card-val" style="color:#7C3AED;">${fmt(weightedForecast)}</div>
+          <div class="analytics-card-lbl">Взвешенный прогноз</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(linearForecast)}</div>
+          <div class="analytics-card-lbl">Линейный тренд</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(maForecast)}</div>
+          <div class="analytics-card-lbl">Скользящее среднее (3м)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(pipelineForecast)}</div>
+          <div class="analytics-card-lbl">Pipeline × конверсия</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-end;gap:6px;height:100px;margin:20px 0 8px;padding:0 4px;">
+        ${barRows.join('')}
+      </div>
+      <div style="font-size:11px;color:var(--ink-soft);text-align:center;">Последние 6 месяцев + прогноз следующего</div>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">До конца текущего месяца</div>
+      <table class="analytics-table"><tbody>
+        <tr><td>Уже заработано</td><td style="text-align:right;font-weight:700">${fmt(monthToDate)}</td></tr>
+        <tr><td>Темп в день</td><td style="text-align:right;font-weight:700">${fmt(Math.round(dailyRate))}/день</td></tr>
+        <tr><td>Осталось дней</td><td style="text-align:right;font-weight:700">${daysLeft}</td></tr>
+        <tr><td><b>Прогноз на конец месяца</b></td><td style="text-align:right;font-weight:800;font-size:15px">${fmt(endOfMonthForecast)}</td></tr>
+        ${planPct!==null?`<tr><td>Выполнение плана</td><td style="text-align:right;font-weight:700;color:${planPct>=100?'var(--accent-strong)':'var(--red-bad)'}">${planPct}%</td></tr>`:''}
+      </tbody></table>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">Прогноз на 3 месяца вперёд</div>
+      <table class="analytics-table">
+        <thead><tr><th>Месяц</th><th>Линейный тренд</th><th>Скользящее среднее</th><th>Итоговый прогноз</th></tr></thead>
+        <tbody>
+          ${futureMonths.map(m=>`<tr>
+            <td>${m.label}</td>
+            <td>${fmt(m.linVal)}</td>
+            <td>${fmt(m.maVal)}</td>
+            <td><b style="color:#7C3AED">${fmt(m.avg)}</b></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">Тренд и методология</div>
+      <table class="analytics-table"><tbody>
+        <tr><td>Тренд продаж</td><td style="text-align:right;font-weight:700;color:${trendColor}">${trendIcon} ${trend==='up'?'Растущий':trend==='down'?'Падающий':'Стабильный'}</td></tr>
+        <tr><td>Наклон тренда (в месяц)</td><td style="text-align:right;font-weight:700">${slope>=0?'+':''}${fmt(Math.round(slope))}</td></tr>
+        <tr><td>Pipeline (активные сделки)</td><td style="text-align:right;font-weight:700">${fmt(pipelineVal)}</td></tr>
+        <tr><td>Конверсия для расчёта</td><td style="text-align:right;font-weight:700">${Math.round(convRate*100)}%</td></tr>
+        <tr><td>Месяцев данных</td><td style="text-align:right;font-weight:700">${months.length}</td></tr>
+      </tbody></table>
+      <div class="modal-note" style="margin-top:10px;">
+        <b>Взвешенный прогноз</b> = Линейный тренд × 40% + Скользящее среднее × 40% + Pipeline × конверсия × 20%.<br>
+        Чем больше исторических данных — тем точнее прогноз.
+      </div>
+    </div>
+  `;
+}
+
+function buildRoiTab(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency||'';
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
+  const lostDeals = lastDealsFlat.filter(d=>d.semantic==='F');
+  const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
+  if(!wonDeals.length) return '<div class="analytics-empty">Нет выигранных сделок для расчёта LTV/ROI</div>';
+  const fmt = n => fmtMoney(n, currency);
+  const totalRev = wonDeals.reduce((a,d)=>a+d.amount,0);
+  const avgDeal = wonDeals.length>0 ? Math.round(totalRev/wonDeals.length) : 0;
+  const pipelineVal = activeDeals.reduce((a,d)=>a+d.amount,0);
+  const lostVal = lostDeals.reduce((a,d)=>a+d.amount,0);
+
+  // LTV по менеджерам
+  const clientMap={};
+  wonDeals.forEach(d=>{const k=String(d.assignedTo||'x');if(!clientMap[k])clientMap[k]={deals:0,sum:0};clientMap[k].deals++;clientMap[k].sum+=d.amount;});
+  const clients=Object.values(clientMap);
+  const avgLtv=clients.length>0?Math.round(clients.reduce((a,c)=>a+c.sum,0)/clients.length):0;
+  const maxLtv=clients.length>0?Math.max(...clients.map(c=>c.sum)):0;
+  const repeatClients=clients.filter(c=>c.deals>=2).length;
+  const repeatRate=clients.length>0?Math.round(100*repeatClients/clients.length):0;
+
+  // Цикл сделки
+  const closed=lastDealsFlat.filter(d=>(d.semantic==='S'||d.semantic==='F')&&d.createdAt&&d.updatedAt);
+  const avgCycle=closed.length>0?Math.round(closed.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closed.length):0;
+
+  // Velocity
+  const conv=(wonDeals.length+lostDeals.length)>0?wonDeals.length/(wonDeals.length+lostDeals.length):0;
+  const velocity=avgCycle>0?Math.round((wonDeals.length*avgDeal*conv)/avgCycle):0;
+
+  // ROI по источникам
+  const srcMap={};
+  lastDealsFlat.forEach(d=>{const src=d.source||'Не указан';if(!srcMap[src])srcMap[src]={total:0,won:0,wonSum:0,lostSum:0};srcMap[src].total++;if(d.semantic==='S'){srcMap[src].won++;srcMap[src].wonSum+=d.amount;}if(d.semantic==='F')srcMap[src].lostSum+=d.amount;});
+  const roiRows=Object.entries(srcMap).filter(([,s])=>s.wonSum>0).sort((a,b)=>b[1].wonSum-a[1].wonSum).map(([src,s])=>{
+    const cpa=s.total>0?Math.round(s.wonSum/s.total):0;
+    const wr=s.total>0?Math.round(100*s.won/s.total):0;
+    const roi=s.lostSum>0?Math.round(100*s.wonSum/s.lostSum):null;
+    return `<tr><td>${escapeHtml(src)}</td><td>${s.total}</td><td>${s.won} (${wr}%)</td><td>${fmt(s.wonSum)}</td><td>${fmt(cpa)}/лид</td><td>${roi!==null?`<b style="color:${roi>100?'var(--accent-strong)':'var(--red-bad)'}">${roi}%</b>`:'—'}</td></tr>`;
+  }).join('');
+
+  // LTV по менеджерам
+  const mgrRows=lastManagers.filter(m=>m.id!=='unknown'&&m.wonSum>0).sort((a,b)=>b.wonSum-a.wonSum).map((m,i)=>{
+    const ltv=clientMap[String(m.id)]?Math.round(clientMap[String(m.id)].sum/clientMap[String(m.id)].deals):0;
+    const c2=(m.wonCount+m.lostCount)>0?Math.round(100*m.wonCount/(m.wonCount+m.lostCount)):0;
+    const a2=m.wonCount>0?Math.round(m.wonSum/m.wonCount):0;
+    return `<tr><td>${i+1}. ${escapeHtml(m.name)}</td><td>${fmt(m.wonSum)}</td><td>${c2}%</td><td>${fmt(a2)}</td><td>${fmt(ltv)}</td></tr>`;
+  }).join('');
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">LTV / ROI — сводка</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(totalRev)}</div><div class="analytics-card-lbl">Общая выручка</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgLtv)}</div><div class="analytics-card-lbl">Средний LTV</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(maxLtv)}</div><div class="analytics-card-lbl">Макс. LTV</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgDeal)}</div><div class="analytics-card-lbl">Средний чек (AOV)</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${velocity>0?fmt(velocity)+'/д':'—'}</div><div class="analytics-card-lbl">Sales Velocity</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(pipelineVal)}</div><div class="analytics-card-lbl">Pipeline</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${fmt(lostVal)}</div><div class="analytics-card-lbl">Упущено</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${repeatRate}%</div><div class="analytics-card-lbl">Повторные клиенты</div></div>
+      </div>
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">Юнит-экономика</div>
+      <table class="analytics-table"><tbody>
+        <tr><td>Всего лидов</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length}</td></tr>
+        <tr><td>Выигранных</td><td style="text-align:right;font-weight:700">${wonDeals.length}</td></tr>
+        <tr><td>Конверсия лид→продажа</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length>0?Math.round(100*wonDeals.length/lastDealsFlat.length):0}%</td></tr>
+        <tr><td>Средний цикл сделки</td><td style="text-align:right;font-weight:700">${avgCycle} дней</td></tr>
+        <tr><td>Средний LTV</td><td style="text-align:right;font-weight:700">${fmt(avgLtv)}</td></tr>
+        <tr><td>Повторные клиенты</td><td style="text-align:right;font-weight:700">${repeatClients} (${repeatRate}%)</td></tr>
+        ${goalAmount>0?`<tr><td>Выполнение плана</td><td style="text-align:right;font-weight:700">${Math.round(100*lastMonthRevenue/goalAmount)}%</td></tr>`:''}
+      </tbody></table>
+    </div>
+    ${roiRows?`<div class="analytics-section">
+      <div class="analytics-title">ROI по источникам лидов</div>
+      <table class="analytics-table">
+        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Выручка</th><th>Выручка/лид</th><th>ROI</th></tr></thead>
+        <tbody>${roiRows}</tbody>
+      </table>
+      <div class="modal-note">ROI = Выручка / Упущенная сумма × 100%</div>
+    </div>`:''}
+    ${mgrRows?`<div class="analytics-section">
+      <div class="analytics-title">LTV по менеджерам</div>
+      <table class="analytics-table">
+        <thead><tr><th>Менеджер</th><th>Выручка</th><th>Конверсия</th><th>Средний чек</th><th>LTV</th></tr></thead>
+        <tbody>${mgrRows}</tbody>
+      </table>
+    </div>`:''}
+  `;
+}
+
+function buildFinanceTab(){
+  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const fmt = n => fmtMoney(n, currency);
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
+  const lostDeals = lastDealsFlat.filter(d=>d.semantic==='F');
+  const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
+
+  if(!wonDeals.length && !activeDeals.length) return '<div class="analytics-empty">Нет данных для финансового анализа</div>';
+
+  // === Базовые метрики ===
+  const totalRev = wonDeals.reduce((a,d)=>a+d.amount,0);
+  const wonCount = wonDeals.length;
+  const avgDeal = wonCount>0 ? Math.round(totalRev/wonCount) : 0;
+  const totalDeals = lastDealsFlat.length;
+  const overallConv = totalDeals>0 ? (wonCount/totalDeals*100).toFixed(1) : 0;
+
+  // === LTV (Life Time Value) — по менеджеру как прокси клиента ===
+  const mgrMap = {};
+  wonDeals.forEach(d=>{
+    const k = String(d.assignedTo||'unknown');
+    if(!mgrMap[k]) mgrMap[k] = {deals:0, sum:0, name:''};
+    mgrMap[k].deals++;
+    mgrMap[k].sum += d.amount;
+  });
+  lastManagers.forEach(m=>{
+    if(mgrMap[String(m.id)]) mgrMap[String(m.id)].name = m.name;
+  });
+  const repeatClients = Object.values(mgrMap).filter(v=>v.deals>=2);
+  const avgLTV = repeatClients.length>0
+    ? Math.round(repeatClients.reduce((a,v)=>a+v.sum,0)/repeatClients.length) : avgDeal;
+  const maxLTV = repeatClients.length>0
+    ? Math.max(...repeatClients.map(v=>v.sum)) : 0;
+
+  // === Цикл сделки ===
+  const closedD = lastDealsFlat.filter(d=>(d.semantic==='S'||d.semantic==='F')&&d.createdAt&&d.updatedAt);
+  const avgCycleDays = closedD.length>0
+    ? (closedD.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closedD.length).toFixed(1) : '—';
+
+  // === Sales Velocity ===
+  const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount) : 0;
+  const vel = avgCycleDays!=='—' && avgCycleDays>0
+    ? Math.round((lastMonthWonCount*avgDeal*conv)/avgCycleDays) : 0;
+
+  // === ROI по источникам ===
+  // ROI считаем как: (выручка с источника / количество лидов с источника) = доход на лид
+  // Без данных о затратах на рекламу — показываем выручку на лид (Revenue per Lead)
+  const srcMap = {};
+  lastDealsFlat.forEach(d=>{
+    const s = d.source||'Не указан';
+    if(!srcMap[s]) srcMap[s]={total:0,won:0,sum:0};
+    srcMap[s].total++;
+    if(d.semantic==='S'){srcMap[s].won++;srcMap[s].sum+=d.amount;}
+  });
+  const srcRows = Object.entries(srcMap)
+    .filter(([,v])=>v.total>0)
+    .sort((a,b)=>b[1].sum-a[1].sum)
+    .map(([src,v])=>{
+      const rpl = v.total>0 ? Math.round(v.sum/v.total) : 0; // Revenue per Lead
+      const conv2 = v.total>0 ? Math.round(100*v.won/v.total) : 0;
+      return `<tr>
+        <td>${escapeHtml(src)}</td>
+        <td>${v.total}</td>
+        <td>${v.won}</td>
+        <td>${conv2}%</td>
+        <td><b>${fmt(rpl)}</b></td>
+        <td>${fmt(v.sum)}</td>
+      </tr>`;
+    }).join('');
+
+  // === Прогноз и план ===
+  const now = new Date();
+  const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const dayOfM = now.getDate();
+  const dailyRate = dayOfM>0 ? lastMonthRevenue/dayOfM : 0;
+  const forecast = Math.round(lastMonthRevenue + dailyRate*(daysInM-dayOfM));
+  const planPct = goalAmount>0 ? Math.round(100*lastMonthRevenue/goalAmount) : null;
+  const forecastPct = goalAmount>0 ? Math.round(100*forecast/goalAmount) : null;
+
+  // === Pipeline Value ===
+  const pipelineSum = activeDeals.reduce((a,d)=>a+d.amount,0);
+  const lostSum = lostDeals.reduce((a,d)=>a+d.amount,0);
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">Финансовые метрики — Unit-экономика</div>
+      <div class="analytics-cards">
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(totalRev)}</div>
+          <div class="analytics-card-lbl">Общая выручка (период)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(avgDeal)}</div>
+          <div class="analytics-card-lbl">Средний чек (AOV)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${overallConv}%</div>
+          <div class="analytics-card-lbl">Общая конверсия</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${avgCycleDays} дн.</div>
+          <div class="analytics-card-lbl">Средний цикл сделки</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">LTV — Lifetime Value клиента</div>
+      <div class="analytics-cards">
+        <div class="analytics-card" style="border-color:var(--accent-strong);">
+          <div class="analytics-card-val" style="color:var(--accent-strong)">${fmt(avgLTV)}</div>
+          <div class="analytics-card-lbl">Средний LTV</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${fmt(maxLTV)}</div>
+          <div class="analytics-card-lbl">Макс. LTV (топ-клиент)</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${repeatClients.length}</div>
+          <div class="analytics-card-lbl">Повторных клиентов</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-val">${vel>0?fmt(vel)+'/д':'—'}</div>
+          <div class="analytics-card-lbl">Sales Velocity</div>
+        </div>
+      </div>
+      <div class="modal-note" style="margin-top:8px;">LTV рассчитан по клиентам с 2+ выигранными сделками. Для точного LTV нужна привязка сделок к клиентам через контакт Битрикс24.</div>
+    </div>
+
+    <div class="analytics-section">
+      <div class="analytics-title">Pipeline & потери</div>
+      <table class="analytics-table">
+        <tr><td>В работе (pipeline)</td><td><b>${fmt(pipelineSum)}</b> — ${activeDeals.length} сделок</td></tr>
+        <tr><td>Упущено (lost revenue)</td><td style="color:var(--red-bad)"><b>${fmt(lostSum)}</b> — ${lostDeals.length} сделок</td></tr>
+        <tr><td>Конверсия потерь</td><td>${totalDeals>0?Math.round(100*lostDeals.length/totalDeals):0}% сделок теряется</td></tr>
+        <tr><td>Потенциал если улучшить конверсию на 5%</td><td style="color:var(--accent-strong)"><b>+${fmt(Math.round(totalDeals*0.05*avgDeal))}</b></td></tr>
+      </table>
+    </div>
+
+    ${goalAmount>0 ? `
+    <div class="analytics-section">
+      <div class="analytics-title">План / Факт / Прогноз</div>
+      <table class="analytics-table">
+        <tr><td>План на месяц</td><td><b>${fmt(goalAmount)}</b></td></tr>
+        <tr><td>Факт (текущий месяц)</td><td><b>${fmt(lastMonthRevenue)}</b> — ${planPct}%</td></tr>
+        <tr><td>Прогноз до конца месяца</td><td style="color:${forecastPct>=100?'var(--accent-strong)':'var(--amber)'}"><b>${fmt(forecast)}</b> — ${forecastPct}%</td></tr>
+        <tr><td>Осталось выполнить</td><td><b>${fmt(Math.max(0,goalAmount-lastMonthRevenue))}</b> за ${daysInM-dayOfM} дней</td></tr>
+        <tr><td>Нужно в день</td><td><b>${fmt(Math.round(Math.max(0,goalAmount-lastMonthRevenue)/Math.max(1,daysInM-dayOfM)))}</b>/день</td></tr>
+      </table>
+    </div>` : '<div class="modal-note">Установите план продаж в баннере сверху для отображения Plan/Fact анализа.</div>'}
+
+    <div class="analytics-section">
+      <div class="analytics-title">ROI по источникам <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(Revenue per Lead — выручка на 1 лид)</span></div>
+      <table class="analytics-table">
+        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Конв.</th><th>Доход/лид</th><th>Выручка</th></tr></thead>
+        <tbody>${srcRows||'<tr><td colspan="6" style="color:var(--ink-soft)">Нет данных об источниках</td></tr>'}</tbody>
+      </table>
+      <div class="modal-note" style="margin-top:8px;">Для расчёта полного ROI (Return on Investment) введите данные о затратах на рекламу по каждому каналу. Сейчас показывается Revenue per Lead — выручка с каждого привлечённого лида.</div>
+    </div>
+  `;
+}
+
 const ANALYTICS_BUILDERS = {
   sources: buildSourcesTab,
   daily: buildDailyTab,
   stages: buildStagesTab,
   managers: buildManagersLoadTab,
   closed: buildClosedTab,
-  clients: buildClientsTab
+  clients: buildClientsTab,
+  finance: buildFinanceTab,
+  roi: buildRoiTab,
+  forecast: buildForecastTab
 };
 
 let currentAnalyticsTab = 'sources';
