@@ -235,7 +235,7 @@
   .warning-banner b{display:block;margin-bottom:4px;}
 
   /* ===== KPI-карточки ===== */
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:14px;margin-bottom:18px;}
   .kpi{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 22px;transition:box-shadow .2s ease, border-color .2s ease;position:relative;overflow:hidden;}
   .kpi::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--line);transition:background .2s ease;}
   .kpi:hover{box-shadow:0 8px 28px var(--shadow-color);border-color:var(--accent);}
@@ -1259,6 +1259,8 @@ let lastPrevMonthRevenue = 0;
 let lastMonthDealsTotal = 0;
 let lastMonthWonCount = 0;
 let lastMonthLostCount = 0;
+let lastNewClientsCount = null;  // новые клиенты этот месяц (null = нет прав)
+let lastPrevNewClientsCount = null; // новые клиенты прошлый месяц
 let lastCallStats = null;
 let lastRawCalls = [];
 let lastCallStatsError = '';
@@ -2137,15 +2139,26 @@ async function loadDashboard(){
       ? adapter.fetchCalls(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
       : Promise.resolve(null);
 
-    // то же самое для задач — параллельно, право task может отсутствовать
     const taskStatsPromise = (typeof adapter.fetchTasks === 'function')
       ? adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
       : Promise.resolve(null);
 
-    const prevPeriod = computePrevPeriod(currentPeriod);
+    // Новые клиенты за текущий месяц — параллельно
     const thisMonthRange = computePeriod('month');
+    const newClientsPromise = callMethod(conn.webhook, 'crm.contact.list', {
+      filter: {'>=DATE_CREATE': `${thisMonthRange.from} 00:00:00`, '<=DATE_CREATE': `${thisMonthRange.to} 23:59:59`},
+      select: ['ID'], start: 0
+    }).then(d => d.total || (Array.isArray(d.result) ? d.result.length : 0))
+      .catch(() => null); // если нет прав — просто null
+
+    const prevMonthRange = computePrevPeriod({type:'month', from:thisMonthRange.from, to:thisMonthRange.to});
+    const prevNewClientsPromise = callMethod(conn.webhook, 'crm.contact.list', {
+      filter: {'>=DATE_CREATE': `${prevMonthRange.from} 00:00:00`, '<=DATE_CREATE': `${prevMonthRange.to} 23:59:59`},
+      select: ['ID'], start: 0
+    }).then(d => d.total || (Array.isArray(d.result) ? d.result.length : 0))
+      .catch(() => null);
+    const prevPeriod = computePrevPeriod(currentPeriod);
     const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
-    const prevMonthRange = computePrevPeriod(thisMonthPeriod);
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
     const lostReasonMap = {}; // stageName -> {count, sum} — причины отказов
     const wonPoints = [];     // {date, amount} по каждой выигранной сделке — для гибкого графика
@@ -2340,6 +2353,8 @@ async function loadDashboard(){
     lastMonthDealsTotal = monthDealsTotal;
     lastMonthWonCount = monthWonCount;
     lastMonthLostCount = monthLostCount;
+    lastNewClientsCount = await newClientsPromise;
+    lastPrevNewClientsCount = await prevNewClientsPromise;
 
     const callsResult = await callStatsPromise;
     if(callsResult && callsResult.__error){
@@ -2657,6 +2672,12 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
             data-target-offset="${(2*Math.PI*18*(1-monthWinRate/100)).toFixed(1)}"></circle>
         </svg>
       </div>
+      ${lastNewClientsCount !== null ? `
+      <div class="kpi" data-detail="kpi-newclients">
+        <div class="label">Новые клиенты · этот месяц</div>
+        <div class="value" data-countup="${lastNewClientsCount}">0</div>
+        ${deltaBadge(lastNewClientsCount, lastPrevNewClientsCount, lastPrevNewClientsCount !== null, 'прошлому месяцу')}
+      </div>` : ''}
     </div>
 
     <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
@@ -3344,6 +3365,16 @@ function openKpiDetail(type){
       const c = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
       return {name: f.name, c};
     }).sort((a,b) => b.c - a.c).map(x => `<tr><td>${x.name}</td><td>${x.c}%</td></tr>`).join('');
+  } else if(type === 'kpi-newclients'){
+    title = 'Новые клиенты · этот месяц';
+    const html = statRow('Новых контактов', lastNewClientsCount ?? '—')
+      + (lastPrevNewClientsCount !== null ? statRow('В прошлом месяце', lastPrevNewClientsCount) : '')
+      + (lastNewClientsCount !== null && lastPrevNewClientsCount !== null && lastPrevNewClientsCount > 0
+        ? statRow('Динамика', (lastNewClientsCount >= lastPrevNewClientsCount ? '+' : '') + Math.round(100*(lastNewClientsCount - lastPrevNewClientsCount)/lastPrevNewClientsCount) + '%')
+        : '')
+      + `<div class="modal-note">Количество новых контактов (crm.contact.list), созданных в текущем месяце. Данные показываются если у вебхука есть право доступа к CRM-контактам.</div>`;
+    openModal(title, html);
+    return;
   }
   openModal(title, `<table class="modal-table"><tbody>${rows}</tbody></table>`);
 }
@@ -3730,6 +3761,8 @@ disconnectBtn.addEventListener('click', () => {
   lastTasksFetched = false;
   lastTaskStatsError = '';
   taskFilterManagerId = 'all';
+  lastNewClientsCount = null;
+  lastPrevNewClientsCount = null;
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
   connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
   content.innerHTML = '';
