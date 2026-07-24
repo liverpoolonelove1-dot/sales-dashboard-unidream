@@ -424,6 +424,30 @@
   .filter-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:8px;border-top:1px solid var(--line);flex:none;}
 
   .toolbar2-inline{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto;}
+  .search-wrap{display:flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:5px 10px;transition:border-color .15s, box-shadow .15s;min-width:260px;}
+  .search-wrap:focus-within{border-color:var(--accent-strong);box-shadow:0 0 0 3px rgba(198,241,53,.12);}
+  .search-icon{width:15px;height:15px;color:var(--ink-soft);flex:none;}
+  .search-input{border:none;background:transparent;font-size:13px;color:var(--ink);outline:none;flex:1;min-width:0;font-family:'Inter',sans-serif;}
+  .search-input::placeholder{color:var(--ink-soft);}
+  .search-clear{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;padding:0;line-height:1;flex:none;}
+  .search-clear:hover{color:var(--ink);}
+  /* Оверлей результатов поиска */
+  .search-results{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:150;overflow-y:auto;display:none;}
+  .search-results-inner{max-width:780px;margin:0 auto;padding:24px 32px;}
+  .search-results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .search-results-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;}
+  .search-results-close{background:var(--overlay-1);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--ink-soft);}
+  .search-results-close:hover{background:var(--overlay-2);}
+  .search-group-title{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin:20px 0 8px;display:flex;align-items:center;gap:8px;}
+  .search-group-title::after{content:'';flex:1;height:1px;background:var(--line);}
+  .search-result-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:12px;cursor:pointer;transition:background .12s;gap:12px;}
+  .search-result-row:hover{background:var(--overlay-1);}
+  .search-result-main{font-weight:600;font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .search-result-main mark{background:rgba(198,241,53,.4);color:inherit;border-radius:3px;padding:0 2px;}
+  .search-result-meta{font-size:11.5px;color:var(--ink-soft);white-space:nowrap;flex:none;}
+  .search-result-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--overlay-1);color:var(--ink-soft);flex:none;}
+  .search-empty{text-align:center;padding:64px 24px;color:var(--ink-soft);font-size:14px;}
+  @media(max-width:860px){.search-wrap{min-width:160px;}.search-results-inner{padding:16px 18px;}}
   .toolbar2-inline .btn-ghost{padding:7px 12px;font-size:12px;}
   .toolbar2-inline select{border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:11.5px;color:var(--ink-soft);background:var(--surface);cursor:pointer;}
 
@@ -840,6 +864,17 @@
   <div id="analyticsContent" class="analytics-content"></div>
 </div>
   <!-- Брендирование клиента -->
+  <!-- Оверлей результатов поиска -->
+  <div id="searchResults" class="search-results">
+    <div class="search-results-inner">
+      <div class="search-results-header">
+        <div class="search-results-title" id="searchResultsTitle">Результаты поиска</div>
+        <button class="search-results-close" id="searchResultsClose" type="button">✕</button>
+      </div>
+      <div id="searchResultsBody"></div>
+    </div>
+  </div>
+  <!-- Брендирование клиента -->
   <div id="clientBrandBar">
     <img id="clientLogo" src="" alt="" style="display:none;">
     <span id="clientBrandName"></span>
@@ -865,6 +900,11 @@
     </span>
     <span class="period-hint">период — по дате создания сделки</span>
     <div class="toolbar2-inline" id="toolbar2">
+      <div class="search-wrap" id="searchWrap" style="display:none;">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="globalSearchInput" class="search-input" placeholder="Поиск по сделкам, клиентам, менеджерам…" autocomplete="off">
+        <button id="searchClearBtn" class="search-clear" style="display:none;" type="button">✕</button>
+      </div>
       <select id="autoRefreshSelect">
         <option value="0">Автообновление: выкл</option>
         <option value="5">Обновлять каждые 5 мин</option>
@@ -2271,6 +2311,7 @@ async function loadDashboard(){
     document.getElementById('assistantToggleBtn').style.display = 'flex';
     document.getElementById('analyticsBtn').style.display = 'inline-flex';
     document.getElementById('editorBtn').style.display = 'flex';
+    showSearchBar();
     applyEditorConfig();
     renderAssistantInsights();
     if(hasLoadedOnce) flashUpdated();
@@ -3539,6 +3580,7 @@ disconnectBtn.addEventListener('click', () => {
   document.getElementById('chartHeroContainer').innerHTML = '';
   document.getElementById('companyBadge').style.display = 'none';
   document.getElementById('assistantToggleBtn').style.display = 'none';
+  hideSearchBar();
   document.getElementById('assistantPanel').style.display = 'none';
   const assistantLogEl = document.getElementById('assistantLog');
   if(assistantLogEl) assistantLogEl.innerHTML = '';
@@ -4314,6 +4356,145 @@ document.addEventListener('click', e => {
 });
 
 loadEditorConfig();
+
+// ===== ГЛОБАЛЬНЫЙ ПОИСК =====
+const globalSearchInput = document.getElementById('globalSearchInput');
+const searchResults = document.getElementById('searchResults');
+const searchResultsBody = document.getElementById('searchResultsBody');
+const searchResultsTitle = document.getElementById('searchResultsTitle');
+const searchClearBtn = document.getElementById('searchClearBtn');
+
+function highlightMatch(text, query){
+  if(!query || !text) return escapeHtml(String(text || ''));
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(${escaped})`, 'gi');
+  return escapeHtml(String(text)).replace(re, '<mark>$1</mark>');
+}
+
+function runSearch(query){
+  const q = query.trim().toLowerCase();
+  if(!q) return;
+
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+
+  // --- Поиск по сделкам ---
+  const dealResults = lastDealsFlat.filter(d => {
+    const title = (d.title || '').toLowerCase();
+    const id = String(d.id).toLowerCase();
+    return title.includes(q) || id.includes(q);
+  }).slice(0, 30);
+
+  // --- Поиск по менеджерам ---
+  const mgrResults = lastManagers.filter(m =>
+    m.name.toLowerCase().includes(q) ||
+    (m.position || '').toLowerCase().includes(q)
+  );
+
+  // --- Поиск по воронкам ---
+  const funnelResults = lastFunnels.filter(f =>
+    f.name.toLowerCase().includes(q)
+  );
+
+  const total = dealResults.length + mgrResults.length + funnelResults.length;
+  searchResultsTitle.textContent = total > 0
+    ? `Найдено: ${total} результат${total===1?'':'ов'} по запросу «${query}»`
+    : `Ничего не найдено по запросу «${query}»`;
+
+  let html = '';
+
+  if(dealResults.length > 0){
+    html += `<div class="search-group-title">Сделки (${dealResults.length})</div>`;
+    html += dealResults.map(d => {
+      const mgr = lastManagers.find(m => String(m.id) === String(d.assignedTo));
+      const mgrName = mgr ? mgr.name : '—';
+      const date = d.createdAt ? new Date(d.createdAt).toLocaleDateString('ru-RU') : '—';
+      return `<div class="search-result-row" data-detail="dealdetail" data-idx="${d._flatIdx}">
+        <div class="search-result-main">${highlightMatch(d.title || 'Сделка №'+d.id, query)}</div>
+        <div class="search-result-meta">${escapeHtml(mgrName)} · ${date}</div>
+        <div class="search-result-badge">${fmtMoney(d.amount, currency)}</div>
+        <span class="search-result-badge" style="background:var(--overlay-1)">${escapeHtml(d.stageName)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  if(mgrResults.length > 0){
+    html += `<div class="search-group-title">Менеджеры (${mgrResults.length})</div>`;
+    html += mgrResults.map((m, i) => {
+      const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
+      const realIdx = lastManagers.indexOf(m);
+      return `<div class="search-result-row" data-detail="manager" data-idx="${realIdx}">
+        <div class="search-result-main">${highlightMatch(m.name, query)}</div>
+        <div class="search-result-meta">${m.position ? escapeHtml(m.position) + ' · ' : ''}${m.dealsCount} сделок</div>
+        <div class="search-result-badge">${fmtMoney(m.wonSum, currency)}</div>
+        <span class="search-result-badge">${conv}% конверсия</span>
+      </div>`;
+    }).join('');
+  }
+
+  if(funnelResults.length > 0){
+    html += `<div class="search-group-title">Воронки (${funnelResults.length})</div>`;
+    html += funnelResults.map((f, i) => {
+      const realIdx = lastFunnels.indexOf(f);
+      const conv = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
+      return `<div class="search-result-row" data-detail="funnel" data-idx="${realIdx}">
+        <div class="search-result-main">${highlightMatch(f.name, query)}</div>
+        <div class="search-result-meta">${f.deals} сделок · ${conv}% конверсия</div>
+        <div class="search-result-badge">${fmtMoney(f.wonSum, currency)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  if(!html) html = `<div class="search-empty">По запросу «${escapeHtml(query)}» ничего не найдено.<br><br>Попробуйте название сделки, ID, имя менеджера или воронку.</div>`;
+
+  searchResultsBody.innerHTML = html;
+  searchResults.style.display = 'block';
+}
+
+function closeSearch(){
+  searchResults.style.display = 'none';
+  globalSearchInput.value = '';
+  searchClearBtn.style.display = 'none';
+}
+
+let searchTimer = null;
+globalSearchInput.addEventListener('input', e => {
+  const q = e.target.value.trim();
+  searchClearBtn.style.display = q ? 'block' : 'none';
+  clearTimeout(searchTimer);
+  if(!q){ searchResults.style.display = 'none'; return; }
+  searchTimer = setTimeout(() => runSearch(e.target.value.trim()), 200);
+});
+
+globalSearchInput.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closeSearch();
+  if(e.key === 'Enter') runSearch(globalSearchInput.value.trim());
+});
+
+searchClearBtn.addEventListener('click', closeSearch);
+document.getElementById('searchResultsClose').addEventListener('click', closeSearch);
+
+// Клик по результату поиска — открываем модалку и закрываем поиск
+document.getElementById('searchResults').addEventListener('click', e => {
+  const row = e.target.closest('[data-detail]');
+  if(!row) return;
+  closeSearch();
+  const type = row.dataset.detail;
+  const idx = parseInt(row.dataset.idx, 10);
+  setTimeout(() => {
+    if(type === 'dealdetail') openDealDetail(idx);
+    else if(type === 'manager') openManagerDetail(idx);
+    else if(type === 'funnel') openFunnelDetail(idx);
+  }, 100);
+});
+
+// Закрытие по Escape глобально
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && searchResults.style.display !== 'none') closeSearch();
+});
+
+// Показываем поле поиска после подключения
+function showSearchBar(){ document.getElementById('searchWrap').style.display = 'flex'; }
+function hideSearchBar(){ document.getElementById('searchWrap').style.display = 'none'; closeSearch(); }
 
 function buildPlanUpgradeHint(){
   const plan = PLANS[currentPlan];
