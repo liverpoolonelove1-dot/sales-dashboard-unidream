@@ -297,6 +297,7 @@
   .modal-overlay{position:fixed;inset:0;background:rgba(20,21,26,0.45);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;animation:overlayIn .15s ease;}
   @keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
   .modal-box{background:var(--surface);border-radius:16px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.35);animation:modalIn .18s cubic-bezier(.16,1,.3,1);}
+  .modal-box.modal-wide{max-width:680px;}
   @keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}
   .modal-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px;}
   .modal-head h3{font-family:'Space Grotesk',sans-serif;font-size:17px;margin:0;}
@@ -320,6 +321,31 @@
   .modal-deal-sum:hover{color:var(--accent-strong);border-color:var(--accent-strong);}
   .modal-open-link{display:inline-block;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--accent-strong);text-decoration:none;}
   .modal-open-link:hover{text-decoration:underline;}
+  .mgr-period-bar{display:flex;gap:6px;margin:12px 0 16px;}
+  .mgr-period-btn{background:var(--overlay-1);border:1px solid var(--line);color:var(--ink-soft);font-size:11px;font-family:'Inter',sans-serif;font-weight:600;padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
+  .mgr-period-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .mgr-leads-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+  .mgr-lead-kpi{background:var(--overlay-1);border-radius:10px;padding:10px 12px;}
+  .mgr-lead-kpi-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
+  .mgr-lead-kpi-value{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;margin-top:3px;}
+  .mgr-lead-kpi-value.good{color:var(--accent-strong);}
+  .mgr-lead-kpi-value.bad{color:var(--red-bad);}
+  .mgr-stages-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:16px;}
+  .mgr-stages-table th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);padding:0 0 8px;border-bottom:1px solid var(--line);}
+  .mgr-stages-table td{padding:7px 0;border-bottom:1px solid var(--line);}
+  .mgr-stages-table td:not(:first-child){text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;}
+  .mgr-progress-wrap{background:var(--overlay-1);border-radius:6px;height:8px;margin-top:14px;overflow:hidden;display:flex;}
+  .mgr-progress-seg{height:100%;transition:width .4s ease;}
+  .mgr-progress-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;}
+  .mgr-legend-item{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--ink-soft);}
+  .mgr-legend-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .mgr-day-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .mgr-day-table th{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;color:var(--ink-soft);padding:0 0 6px;border-bottom:1px solid var(--line);text-align:right;}
+  .mgr-day-table th:first-child{text-align:left;}
+  .mgr-day-table td{padding:5px 0;border-bottom:1px solid var(--line);text-align:right;}
+  .mgr-day-table td:first-child{text-align:left;color:var(--ink-soft);}
+  .mgr-day-table td.won{color:var(--accent-strong);font-weight:600;}
+  .mgr-day-table td.lost{color:var(--red-bad);}
   .modal-table-clickable tr{cursor:pointer;transition:background .12s ease;}
   .modal-table-clickable tr:hover{background:var(--overlay-1);}
   .modal-deal-row-rich{padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s ease;}
@@ -1982,6 +2008,8 @@ function openModal(title, bodyHtml){
 
 function closeModal(){
   document.getElementById('detailModal').style.display = 'none';
+  const box = document.getElementById('detailModal').querySelector('.modal-box');
+  if(box) box.classList.remove('modal-wide');
 }
 
 function statRow(label, value){
@@ -2141,39 +2169,167 @@ function openFunnelDetail(idx){
   openModal(f.name, html);
 }
 
+function getDateKey(dateStr, granularity){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  if(isNaN(d)) return null;
+  if(granularity === 'day'){
+    return d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
+  } else if(granularity === 'week'){
+    // начало недели (пн)
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    const mon = new Date(d); mon.setDate(d.getDate() + diff); mon.setHours(0,0,0,0);
+    return `${String(mon.getDate()).padStart(2,'0')}.${String(mon.getMonth()+1).padStart(2,'0')}`;
+  } else {
+    return d.toLocaleDateString('ru-RU', {month:'short', year:'2-digit'});
+  }
+}
+
+function buildManagerAnalytics(managerId, granularity){
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const deals = lastDealsFlat.filter(d => String(d.assignedTo) === String(managerId));
+  const total = deals.length;
+
+  // группируем по статусу
+  const won = deals.filter(d => d.semantic === 'S');
+  const lost = deals.filter(d => d.semantic === 'F');
+  const active = deals.filter(d => d.semantic === 'P');
+  const wonSum = won.reduce((a,d) => a + d.amount, 0);
+  const conv = (won.length + lost.length) > 0 ? Math.round(100 * won.length / (won.length + lost.length)) : 0;
+  const leadRate = total > 0 ? Math.round(100 * won.length / total) : 0;
+
+  // процентные доли для прогресс-бара
+  const pWon = total > 0 ? (won.length / total * 100).toFixed(1) : 0;
+  const pActive = total > 0 ? (active.length / total * 100).toFixed(1) : 0;
+  const pLost = total > 0 ? (lost.length / total * 100).toFixed(1) : 0;
+
+  // группировка по стадиям
+  const stageMap = {};
+  deals.forEach(d => {
+    if(!stageMap[d.stageName]) stageMap[d.stageName] = {total:0, sum:0, semantic: d.semantic};
+    stageMap[d.stageName].total += 1;
+    stageMap[d.stageName].sum += d.amount;
+    stageMap[d.stageName].semantic = d.semantic; // берём последний (обычно одинаковый)
+  });
+  const stageRows = Object.entries(stageMap)
+    .sort((a,b) => b[1].total - a[1].total)
+    .map(([name, s]) => {
+      const pct = total > 0 ? Math.round(100 * s.total / total) : 0;
+      return `<tr>
+        <td>${escapeHtml(name)}</td>
+        <td>${s.total}</td>
+        <td>${pct}%</td>
+        <td>${fmtMoney(s.sum, currency)}</td>
+      </tr>`;
+    }).join('');
+
+  // динамика по периоду (день/неделя/месяц)
+  const timeMap = {};
+  deals.forEach(d => {
+    const key = getDateKey(d.createdAt, granularity);
+    if(!key) return;
+    if(!timeMap[key]) timeMap[key] = {total:0, won:0, lost:0, active:0, sum:0};
+    timeMap[key].total += 1;
+    if(d.semantic === 'S'){ timeMap[key].won += 1; timeMap[key].sum += d.amount; }
+    else if(d.semantic === 'F') timeMap[key].lost += 1;
+    else timeMap[key].active += 1;
+  });
+  const periodLabel = granularity === 'day' ? 'День' : granularity === 'week' ? 'Неделя (пн)' : 'Месяц';
+  const timeRows = Object.entries(timeMap).slice(-20).map(([key, t]) => `
+    <tr>
+      <td>${key}</td>
+      <td>${t.total}</td>
+      <td class="won">${t.won}</td>
+      <td class="lost">${t.lost}</td>
+      <td>${t.active}</td>
+      <td class="won">${fmtMoney(t.sum, currency)}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div class="mgr-period-bar">
+      <button class="mgr-period-btn ${granularity==='day'?'active':''}" data-mgr-period="day" data-mgr-idx="${managerId}">День</button>
+      <button class="mgr-period-btn ${granularity==='week'?'active':''}" data-mgr-period="week" data-mgr-idx="${managerId}">Неделя</button>
+      <button class="mgr-period-btn ${granularity==='month'?'active':''}" data-mgr-period="month" data-mgr-idx="${managerId}">Месяц</button>
+    </div>
+
+    <div class="mgr-leads-summary">
+      <div class="mgr-lead-kpi">
+        <div class="mgr-lead-kpi-label">Всего лидов</div>
+        <div class="mgr-lead-kpi-value">${total}</div>
+      </div>
+      <div class="mgr-lead-kpi">
+        <div class="mgr-lead-kpi-label">Коэф. лидов (won/total)</div>
+        <div class="mgr-lead-kpi-value ${leadRate >= 30 ? 'good' : leadRate < 15 ? 'bad' : ''}">${leadRate}%</div>
+      </div>
+      <div class="mgr-lead-kpi">
+        <div class="mgr-lead-kpi-label">Конверсия (won/finished)</div>
+        <div class="mgr-lead-kpi-value ${conv >= 50 ? 'good' : conv < 25 ? 'bad' : ''}">${conv}%</div>
+      </div>
+      <div class="mgr-lead-kpi">
+        <div class="mgr-lead-kpi-label">Сумма продаж</div>
+        <div class="mgr-lead-kpi-value good">${fmtMoney(wonSum, currency)}</div>
+      </div>
+    </div>
+
+    <div class="mgr-progress-wrap">
+      <div class="mgr-progress-seg" style="width:${pWon}%;background:var(--accent-strong);"></div>
+      <div class="mgr-progress-seg" style="width:${pActive}%;background:var(--accent);opacity:.5;"></div>
+      <div class="mgr-progress-seg" style="width:${pLost}%;background:var(--red-bad);opacity:.5;"></div>
+    </div>
+    <div class="mgr-progress-legend">
+      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--accent-strong)"></span>Выиграно ${won.length} (${pWon}%)</span>
+      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--accent);opacity:.6"></span>В работе ${active.length} (${pActive}%)</span>
+      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--red-bad);opacity:.6"></span>Провалено ${lost.length} (${pLost}%)</span>
+    </div>
+
+    <div class="modal-subtitle" style="margin-top:16px;">По стадиям</div>
+    <table class="mgr-stages-table">
+      <thead><tr><th>Стадия</th><th style="text-align:right">Лидов</th><th style="text-align:right">%</th><th style="text-align:right">Сумма</th></tr></thead>
+      <tbody>${stageRows || '<tr><td colspan="4" style="color:var(--ink-soft)">Нет данных</td></tr>'}</tbody>
+    </table>
+
+    <div class="modal-subtitle">Динамика по ${periodLabel.toLowerCase()}</div>
+    ${timeRows ? `<table class="mgr-day-table">
+      <thead><tr><th>${periodLabel}</th><th>Всего</th><th>Выигр.</th><th>Провал.</th><th>В работе</th><th>Продажи</th></tr></thead>
+      <tbody>${timeRows}</tbody>
+    </table>` : '<div class="modal-note">Нет данных за период.</div>'}
+  `;
+}
+
 function openManagerDetail(idx){
   const m = lastManagers[idx];
   if(!m) return;
-  const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
 
-  let html = '';
-  if(m.position) html += statRow('Должность', escapeHtml(m.position));
-  html += statRow('Продажи (выиграно)', fmtMoney(m.wonSum, currency))
+  // базовые KPI
+  let header = '';
+  if(m.position) header += statRow('Должность', escapeHtml(m.position));
+  header += statRow('Продажи (выиграно)', fmtMoney(m.wonSum, currency))
     + statRow('Сделок всего', m.dealsCount)
-    + statRow('Активных сделок', m.activeCount)
-    + statRow('Выиграно сделок', m.wonCount)
-    + statRow('Провалено сделок', m.lostCount)
-    + statRow('Конверсия', conv + '%');
+    + statRow('Активных', m.activeCount);
 
+  // звонки
   if(lastRawCalls.length > 0){
     const managerCalls = lastRawCalls.filter(c => String(c.PORTAL_USER_ID) === String(m.id));
     if(managerCalls.length > 0){
-      const stats = aggregateCallStats(managerCalls);
-      html += `<div class="modal-subtitle">Звонки за период</div>`
-        + statRow('Входящие', stats.incoming)
-        + statRow('Исходящие', stats.outgoing)
-        + statRow('Успешные', stats.successful)
-        + statRow('Пропущенные', stats.missed);
+      const cs = aggregateCallStats(managerCalls);
+      header += `<div class="modal-subtitle">Звонки</div>`
+        + statRow('Входящие / исходящие', `${cs.incoming} / ${cs.outgoing}`)
+        + statRow('Успешные / пропущенные', `${cs.successful} / ${cs.missed}`);
     }
   }
 
-  const managerDeals = lastDealsFlat.filter(d => String(d.assignedTo) === String(m.id)).sort((a,b) => b.amount - a.amount);
-  if(managerDeals.length > 0){
-    html += `<div class="modal-subtitle">Сделки менеджера</div><div class="modal-deal-list">${buildDealListRows(managerDeals, 30)}</div>`;
-  }
+  const analyticsHtml = buildManagerAnalytics(m.id, 'month');
+  const html = header + `<div class="modal-subtitle" style="margin-top:16px;">Аналитика лидов</div><div data-analytics-wrap>` + analyticsHtml + `</div>`;
 
-  openModal(m.name, html);
+  // открываем широкую модалку
+  document.getElementById('modalTitle').textContent = m.name;
+  document.getElementById('modalBody').innerHTML = html;
+  const box = document.getElementById('detailModal').querySelector('.modal-box');
+  if(box) box.classList.add('modal-wide');
+  document.getElementById('detailModal').style.display = 'flex';
 }
 
 function openLossDetail(idx){
@@ -2683,6 +2839,25 @@ document.addEventListener('click', (e) => {
 function rerenderCached(){
   renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
 }
+
+document.addEventListener('click', (e) => {
+  const periodBtn = e.target.closest('[data-mgr-period]');
+  if(periodBtn){
+    const granularity = periodBtn.dataset.mgrPeriod;
+    const managerId = periodBtn.dataset.mgrIdx;
+    const m = lastManagers.find(x => String(x.id) === String(managerId));
+    if(!m) return;
+    // перерисовываем только блок аналитики, не закрывая модалку
+    const analyticsWrap = periodBtn.closest('.modal-body') || document.getElementById('modalBody');
+    const analyticsContainer = analyticsWrap.querySelector('[data-analytics-wrap]');
+    if(analyticsContainer){
+      analyticsContainer.innerHTML = buildManagerAnalytics(managerId, granularity);
+    }
+    // обновляем активную кнопку
+    analyticsWrap.querySelectorAll('[data-mgr-period]').forEach(b => b.classList.toggle('active', b.dataset.mgrPeriod === granularity));
+    return;
+  }
+});
 
 document.addEventListener('change', (e) => {
   if(e.target.id === 'taskManagerFilter'){
