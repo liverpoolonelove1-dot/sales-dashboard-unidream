@@ -313,6 +313,36 @@
   .modal-note{font-size:11.5px;color:var(--ink-soft);margin-top:12px;}
   .modal-subtitle{font-size:11.5px;font-weight:600;color:var(--ink-soft);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
   .modal-deal-list{max-height:200px;overflow-y:auto;border-top:1px solid var(--line);}
+  .modal-list-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .modal-list-table th{font-family:'JetBrains Mono',monospace;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);padding:6px 0 8px;border-bottom:1px solid var(--line);text-align:left;position:sticky;top:0;background:var(--surface);}
+  .modal-list-table th:not(:first-child){text-align:right;}
+  .modal-list-table td{padding:7px 0;border-bottom:1px solid var(--line);vertical-align:top;}
+  .modal-list-table td:not(:first-child){text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap;}
+  .modal-list-table tr:last-child td{border-bottom:none;}
+  .modal-list-scroll{max-height:320px;overflow-y:auto;}
+  .badge-in{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#EFF6FF;color:#1D4ED8;}
+  html[data-theme="dark"] .badge-in{background:#1e3a5f;color:#93c5fd;}
+  .badge-out{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:var(--overlay-1);color:var(--ink-soft);}
+  .badge-ok{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#F0FDF4;color:#166534;}
+  html[data-theme="dark"] .badge-ok{background:#132A1B;color:#86EFAC;}
+  .badge-miss{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#FEF2F2;color:#991B1B;}
+  html[data-theme="dark"] .badge-miss{background:#3A1717;color:#FCA5A5;}
+  .badge-done{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#F0FDF4;color:#166534;}
+  html[data-theme="dark"] .badge-done{background:#132A1B;color:#86EFAC;}
+  .badge-work{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#EFF6FF;color:#1D4ED8;}
+  html[data-theme="dark"] .badge-work{background:#1e3a5f;color:#93c5fd;}
+  .badge-new{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:var(--overlay-1);color:var(--ink-soft);}
+  .badge-overdue{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#FEF2F2;color:#991B1B;}
+  html[data-theme="dark"] .badge-overdue{background:#3A1717;color:#FCA5A5;}
+  .task-title{font-weight:600;font-size:12.5px;line-height:1.3;}
+  .task-meta{font-size:10.5px;color:var(--ink-soft);margin-top:2px;}
+  .modal-filter-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .modal-filter-chip{background:var(--overlay-1);border:1px solid var(--line);border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all .12s ease;}
+  .modal-filter-chip.active{background:var(--ink);color:var(--surface);border-color:var(--ink);}
+  .modal-summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .modal-summary-cell{background:var(--overlay-1);border-radius:12px;padding:10px 12px;text-align:center;}
+  .modal-summary-cell .val{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;}
+  .modal-summary-cell .lbl{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px;}
   .modal-deal-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px;gap:12px;}
   .modal-deal-stage{color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .modal-deal-sum{font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;flex:none;color:var(--ink);border-bottom:1px dashed var(--ink-soft);}
@@ -1893,19 +1923,19 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     tasksTile = `
       <div class="fcard tile tile-calls">
         <div class="tasks-tile-head">
-          <p class="section-title">Задачи</p>
+          <p class="section-title" style="cursor:pointer" data-detail="tasks">Задачи</p>
           <select id="taskManagerFilter" class="tasks-manager-select">
             <option value="all" ${taskFilterManagerId === 'all' ? 'selected' : ''}>Все менеджеры</option>
             ${managerOptions}
           </select>
         </div>
         <div class="calls-grid">
-          <div><span class="calls-label">Всего задач</span><span class="calls-value">${taskStats.total}</span></div>
-          <div><span class="calls-label">Новые</span><span class="calls-value">${taskStats.neW}</span></div>
-          <div><span class="calls-label">В работе</span><span class="calls-value">${taskStats.inProgress}</span></div>
-          <div><span class="calls-label">Завершено</span><span class="calls-value calls-good">${taskStats.completed}</span></div>
+          <div data-detail="tasks" style="cursor:pointer"><span class="calls-label">Всего задач</span><span class="calls-value">${taskStats.total}</span></div>
+          <div data-detail="tasks-new" style="cursor:pointer"><span class="calls-label">Новые</span><span class="calls-value">${taskStats.neW}</span></div>
+          <div data-detail="tasks-work" style="cursor:pointer"><span class="calls-label">В работе</span><span class="calls-value">${taskStats.inProgress}</span></div>
+          <div data-detail="tasks-done" style="cursor:pointer"><span class="calls-label">Завершено</span><span class="calls-value calls-good">${taskStats.completed}</span></div>
         </div>
-        <div class="calls-duration ${taskStats.overdue > 0 ? 'calls-bad' : ''}">${taskStats.overdue > 0 ? '⚠ ' : ''}Просрочено: ${taskStats.overdue}</div>
+        <div class="calls-duration ${taskStats.overdue > 0 ? 'calls-bad' : ''}" data-detail="tasks-overdue" style="cursor:pointer">${taskStats.overdue > 0 ? '⚠ ' : ''}Просрочено: ${taskStats.overdue}</div>
       </div>
     `;
   } else if(lastTaskStatsError){
@@ -2330,6 +2360,90 @@ function openManagerDetail(idx){
   document.getElementById('detailModal').style.display = 'flex';
 }
 
+function openTasksDetail(filterStatus){
+  if(!lastTasksFetched && lastRawTasks.length === 0) return;
+  filterStatus = filterStatus || 'all';
+
+  const now = Date.now();
+  const all = lastRawTasks;
+  const stats = aggregateTaskStats(all, taskFilterManagerId);
+
+  const summary = `
+    <div class="modal-summary-row">
+      <div class="modal-summary-cell"><div class="val">${stats.total}</div><div class="lbl">Всего</div></div>
+      <div class="modal-summary-cell"><div class="val">${stats.neW}</div><div class="lbl">Новые</div></div>
+      <div class="modal-summary-cell"><div class="val">${stats.inProgress}</div><div class="lbl">В работе</div></div>
+    </div>
+    <div class="modal-summary-row">
+      <div class="modal-summary-cell"><div class="val" style="color:var(--accent-strong)">${stats.completed}</div><div class="lbl">Завершено</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${stats.overdue}</div><div class="lbl">Просрочено</div></div>
+      <div class="modal-summary-cell"></div>
+    </div>
+  `;
+
+  const chips = [
+    {key:'all', label:'Все'},
+    {key:'new', label:'Новые'},
+    {key:'work', label:'В работе'},
+    {key:'done', label:'Завершённые'},
+    {key:'overdue', label:'Просроченные'}
+  ].map(ch => `<span class="modal-filter-chip ${filterStatus===ch.key?'active':''}" data-tasks-filter="${ch.key}">${ch.label}</span>`).join('');
+
+  let tasks = taskFilterManagerId !== 'all'
+    ? all.filter(t => String(t.responsibleId) === String(taskFilterManagerId))
+    : [...all];
+
+  if(filterStatus === 'new') tasks = tasks.filter(t => String(t.status) === '2');
+  else if(filterStatus === 'work') tasks = tasks.filter(t => String(t.status) === '3' || String(t.status) === '4');
+  else if(filterStatus === 'done') tasks = tasks.filter(t => String(t.status) === '5');
+  else if(filterStatus === 'overdue') tasks = tasks.filter(t => String(t.status) !== '5' && t.deadline && new Date(t.deadline).getTime() < now);
+
+  tasks.sort((a,b) => {
+    if(a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+    return a.deadline ? -1 : 1;
+  });
+
+  const statusBadge = (t) => {
+    const s = String(t.status);
+    const isOverdue = s !== '5' && t.deadline && new Date(t.deadline).getTime() < now;
+    if(isOverdue) return '<span class="badge-overdue">Просрочена</span>';
+    if(s === '5') return '<span class="badge-done">Завершена</span>';
+    if(s === '3' || s === '4') return '<span class="badge-work">В работе</span>';
+    return '<span class="badge-new">Новая</span>';
+  };
+
+  const rows = tasks.slice(0, 100).map(t => {
+    const mgr = lastManagers.find(m => String(m.id) === String(t.responsibleId));
+    const mgrName = mgr ? mgr.name : (t.responsibleId ? `ID ${t.responsibleId}` : '—');
+    const deadline = t.deadline ? new Date(t.deadline).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    const created = t.createdDate ? new Date(t.createdDate).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    return `<tr>
+      <td>
+        <div class="task-title">${escapeHtml(t.title || `Задача ${t.id}`)}</div>
+        <div class="task-meta">${escapeHtml(mgrName)} · создана ${created}</div>
+      </td>
+      <td style="text-align:center">${statusBadge(t)}</td>
+      <td>${deadline}</td>
+    </tr>`;
+  }).join('');
+
+  const table = tasks.length > 0
+    ? `<div class="modal-list-scroll"><table class="modal-list-table">
+        <thead><tr><th>Задача / Ответственный</th><th style="text-align:center">Статус</th><th>Дедлайн</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`
+    : `<div class="modal-note">По этому фильтру задач нет.</div>`;
+
+  const note = tasks.length > 100 ? `<div class="modal-note">Показаны первые 100 из ${tasks.length} задач.</div>` : '';
+
+  const html = summary
+    + `<div class="modal-filter-row" id="tasksFilterRow">${chips}</div>`
+    + table + note;
+
+  openModal(`Задачи (${stats.total})`, html);
+  document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+}
+
 function openLossDetail(idx){
   const r = lastLostReasons[idx];
   if(!r) return;
@@ -2371,17 +2485,85 @@ function openBestDealDetail(){
   openModal('Крупнейшая сделка', html);
 }
 
-function openCallsDetail(){
-  if(!lastCallStats) return;
-  const c = lastCallStats;
-  const html = statRow('Всего звонков', c.total)
-    + statRow('Входящие', c.incoming)
-    + statRow('Исходящие', c.outgoing)
-    + statRow('Успешные (был разговор)', c.successful)
-    + statRow('Пропущенные / не дозвонились', c.missed)
-    + statRow('Общая продолжительность', fmtDuration(c.totalDuration))
-    + `<div class="modal-note">За выбранный период фильтра. «Успешный» звонок — это звонок с ненулевой продолжительностью разговора.</div>`;
-  openModal('Звонки', html);
+function openCallsDetail(filterType){
+  if(!lastCallStats && lastRawCalls.length === 0) return;
+  const c = lastCallStats || {total:0, incoming:0, outgoing:0, successful:0, missed:0, totalDuration:0};
+  filterType = filterType || 'all';
+
+  // Итоговая строка
+  const summary = `
+    <div class="modal-summary-row">
+      <div class="modal-summary-cell"><div class="val">${c.incoming}</div><div class="lbl">Входящие</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.outgoing}</div><div class="lbl">Исходящие</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.successful}</div><div class="lbl">Успешные</div></div>
+    </div>
+    <div class="modal-summary-row">
+      <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${c.missed}</div><div class="lbl">Пропущено</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.total}</div><div class="lbl">Всего</div></div>
+      <div class="modal-summary-cell"><div class="val">${fmtDuration(c.totalDuration)}</div><div class="lbl">Длительность</div></div>
+    </div>
+  `;
+
+  // Фильтр-чипсы
+  const chips = [
+    {key:'all', label:'Все'},
+    {key:'in', label:'Входящие'},
+    {key:'out', label:'Исходящие'},
+    {key:'ok', label:'Успешные'},
+    {key:'miss', label:'Пропущенные'}
+  ].map(ch => `<span class="modal-filter-chip ${filterType===ch.key?'active':''}" data-calls-filter="${ch.key}">${ch.label}</span>`).join('');
+
+  // Список звонков с фильтром
+  let calls = [...lastRawCalls];
+  if(filterType === 'in') calls = calls.filter(c => String(c.CALL_TYPE) === '2');
+  else if(filterType === 'out') calls = calls.filter(c => String(c.CALL_TYPE) !== '2');
+  else if(filterType === 'ok') calls = calls.filter(c => (parseInt(c.CALL_DURATION,10)||0) > 0);
+  else if(filterType === 'miss') calls = calls.filter(c => (parseInt(c.CALL_DURATION,10)||0) === 0);
+
+  // Сортируем по дате убыв.
+  calls.sort((a,b) => new Date(b.CALL_START_DATE) - new Date(a.CALL_START_DATE));
+
+  const rows = calls.slice(0, 100).map(call => {
+    const isIn = String(call.CALL_TYPE) === '2';
+    const dur = parseInt(call.CALL_DURATION, 10) || 0;
+    const isOk = dur > 0;
+    const date = call.CALL_START_DATE ? new Date(call.CALL_START_DATE).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const mgr = lastManagers.find(m => String(m.id) === String(call.PORTAL_USER_ID));
+    const mgrName = mgr ? mgr.name : (call.PORTAL_USER_ID ? `ID ${call.PORTAL_USER_ID}` : '—');
+    const durStr = dur > 0 ? fmtDuration(dur) : '—';
+    const phone = call.PHONE_NUMBER || call.CALLER_ID || '—';
+    const dirBadge = isIn
+      ? '<span class="badge-in">↙ Входящий</span>'
+      : '<span class="badge-out">↗ Исходящий</span>';
+    const statusBadge = isOk
+      ? '<span class="badge-ok">Успешный</span>'
+      : '<span class="badge-miss">Пропущен</span>';
+    return `<tr>
+      <td>
+        <div style="font-weight:600;font-size:12.5px;">${escapeHtml(phone)}</div>
+        <div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">${escapeHtml(mgrName)}</div>
+      </td>
+      <td>${dirBadge} ${statusBadge}</td>
+      <td>${date}</td>
+      <td>${durStr}</td>
+    </tr>`;
+  }).join('');
+
+  const table = calls.length > 0
+    ? `<div class="modal-list-scroll"><table class="modal-list-table">
+        <thead><tr><th>Номер / Менеджер</th><th style="text-align:center">Тип</th><th>Дата</th><th>Длит.</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`
+    : `<div class="modal-note">По этому фильтру звонков нет.</div>`;
+
+  const note = calls.length > 100 ? `<div class="modal-note">Показаны последние 100 из ${calls.length} звонков.</div>` : '';
+
+  const html = summary
+    + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
+    + table + note;
+
+  openModal(`Звонки (${c.total})`, html);
+  document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
 }
 
 function openPipelineDetail(){
@@ -2461,6 +2643,11 @@ document.addEventListener('click', (e) => {
   else if(type === 'avgdeal') openAvgDealDetail();
   else if(type === 'bestdeal') openBestDealDetail();
   else if(type === 'calls') openCallsDetail();
+  else if(type === 'tasks') openTasksDetail('all');
+  else if(type === 'tasks-new') openTasksDetail('new');
+  else if(type === 'tasks-work') openTasksDetail('work');
+  else if(type === 'tasks-done') openTasksDetail('done');
+  else if(type === 'tasks-overdue') openTasksDetail('overdue');
   else if(type === 'pipeline') openPipelineDetail();
   else if(type === 'lostvalue') openLostValueDetail();
   else if(type === 'dealdetail') openDealDetail(idx);
@@ -2845,14 +3032,26 @@ document.addEventListener('click', (e) => {
     const managerId = periodBtn.dataset.mgrIdx;
     const m = lastManagers.find(x => String(x.id) === String(managerId));
     if(!m) return;
-    // перерисовываем только блок аналитики, не закрывая модалку
     const analyticsWrap = periodBtn.closest('.modal-body') || document.getElementById('modalBody');
     const analyticsContainer = analyticsWrap.querySelector('[data-analytics-wrap]');
     if(analyticsContainer){
       analyticsContainer.innerHTML = buildManagerAnalytics(managerId, granularity);
     }
-    // обновляем активную кнопку
     analyticsWrap.querySelectorAll('[data-mgr-period]').forEach(b => b.classList.toggle('active', b.dataset.mgrPeriod === granularity));
+    return;
+  }
+
+  // фильтр-чипсы внутри модалки звонков
+  const callsChip = e.target.closest('[data-calls-filter]');
+  if(callsChip){
+    openCallsDetail(callsChip.dataset.callsFilter);
+    return;
+  }
+
+  // фильтр-чипсы внутри модалки задач
+  const tasksChip = e.target.closest('[data-tasks-filter]');
+  if(tasksChip){
+    openTasksDetail(tasksChip.dataset.tasksFilter);
     return;
   }
 });
