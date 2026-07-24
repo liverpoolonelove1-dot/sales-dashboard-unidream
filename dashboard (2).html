@@ -524,6 +524,15 @@
 
   .theme-toggle{position:fixed;top:20px;right:20px;width:38px;height:38px;border:none;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;transition:background .15s ease, transform .15s ease;z-index:50;padding:0;}
 
+  .editor-size-btn, .editor-row-btn{background:var(--overlay-1);border:1px solid var(--line);border-radius:9px;padding:7px 0;font-size:12px;color:var(--ink-soft);cursor:pointer;transition:all .15s;}
+  .editor-size-btn.active, .editor-row-btn.active{background:var(--ink);color:var(--accent);border-color:var(--ink);}
+  .editor-block-row{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--overlay-1);border-radius:10px;font-size:13px;}
+  .editor-block-row.hidden-block{opacity:.5;}
+  .editor-toggle{position:relative;width:36px;height:20px;background:var(--line);border-radius:10px;border:none;cursor:pointer;transition:background .15s;flex:none;}
+  .editor-toggle.on{background:var(--accent-strong);}
+  .editor-toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .15s;}
+  .editor-toggle.on::after{transform:translateX(16px);}
+
   .assistant-toggle{position:fixed;bottom:88px;right:20px;width:52px;height:52px;border-radius:50%;border:none;background:var(--ink);color:var(--accent);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 24px var(--shadow-color);z-index:90;transition:transform .15s ease;}
   .assistant-toggle:hover{transform:scale(1.06);}
   .assistant-toggle svg{width:24px;height:24px;}
@@ -628,9 +637,45 @@
 <button id="shortcutsBtn" class="theme-toggle" style="right:108px;" title="Горячие клавиши" aria-label="Горячие клавиши">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
 </button>
-<button id="settingsBtn" class="theme-toggle" style="right:152px;" title="Настройки подключения" aria-label="Настройки подключения">
+<button id="editorBtn" class="theme-toggle" style="right:152px;display:none;" title="Настроить интерфейс" aria-label="Настроить интерфейс">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+</button>
+<button id="settingsBtn" class="theme-toggle" style="right:196px;" title="Настройки подключения" aria-label="Настройки подключения">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
 </button>
+
+<!-- Панель редактора интерфейса -->
+<div id="editorPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:300px;background:var(--surface);border-left:1px solid var(--line);z-index:300;display:none;flex-direction:column;box-shadow:-8px 0 32px var(--shadow-color);">
+  <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex:none;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;">Настроить интерфейс</span>
+    <button id="editorCloseBtn" style="background:var(--overlay-1);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;color:var(--ink-soft);">✕</button>
+  </div>
+  <div style="padding:16px 18px;overflow-y:auto;flex:1;">
+    <div style="font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Показать / скрыть блоки</div>
+    <div id="editorBlockList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+      <div style="font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Размер карточек</div>
+      <div style="display:flex;gap:8px;">
+        <button class="editor-size-btn active" data-size="180" style="flex:1;">Обычный</button>
+        <button class="editor-size-btn" data-size="220" style="flex:1;">Широкий</button>
+        <button class="editor-size-btn" data-size="140" style="flex:1;">Компактный</button>
+      </div>
+    </div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+      <div style="font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">Высота строки</div>
+      <div style="display:flex;gap:8px;">
+        <button class="editor-row-btn active" data-height="136" style="flex:1;">Обычная</button>
+        <button class="editor-row-btn" data-height="160" style="flex:1;">Высокая</button>
+        <button class="editor-row-btn" data-height="112" style="flex:1;">Низкая</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding:14px 18px;border-top:1px solid var(--line);flex:none;display:flex;gap:8px;">
+    <button id="editorResetBtn" class="btn btn-ghost" style="flex:1;">Сбросить</button>
+    <button id="editorSaveBtn" class="btn btn-primary" style="flex:1;">Сохранить</button>
+  </div>
+</div>
+
 <div id="shortcutsPanel" class="filter-panel shortcuts-panel" style="display:none;">
   <div class="shortcut-row"><kbd>R</kbd><span>Обновить данные</span></div>
   <div class="shortcut-row"><kbd>T</kbd><span>Переключить тему</span></div>
@@ -2221,6 +2266,8 @@ async function loadDashboard(){
     showDashboard();
     document.getElementById('assistantToggleBtn').style.display = 'flex';
     document.getElementById('analyticsBtn').style.display = 'inline-flex';
+    document.getElementById('editorBtn').style.display = 'flex';
+    applyEditorConfig();
     renderAssistantInsights();
     if(hasLoadedOnce) flashUpdated();
     hasLoadedOnce = true;
@@ -2306,6 +2353,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const currency = funnels.find(f => f.currency)?.currency || '';
 
   renderGoalBanner(totalRevenue, currency);
+  // Применяем настройки видимости из редактора
+  document.getElementById('chartHeroContainer').style.display = isBlockVisible('chart') ? '' : 'none';
+  document.getElementById('goalBannerContainer').style.display = isBlockVisible('goal') ? '' : 'none';
 
   const funnelCards = funnels.map((f, i) => {
     const color = PALETTE[i % PALETTE.length];
@@ -2480,7 +2530,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
 
     <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
     <p class="period-sub-note">Воронки, менеджеры и причины отказов ниже показывают период, выбранный в фильтре выше; KPI сверху и график динамики — всегда за текущий месяц.</p>
-    <div class="dash-tiles">${funnelCards}${managersHtml}${lossHtml}${callsTile}${tasksTile}${reportTiles}</div>
+    <div class="dash-tiles">
+      ${isBlockVisible('funnels') ? funnelCards : ''}
+      ${isBlockVisible('managers') ? managersHtml : ''}
+      ${isBlockVisible('loss') ? lossHtml : ''}
+      ${isBlockVisible('calls') ? callsTile : ''}
+      ${isBlockVisible('tasks') ? tasksTile : ''}
+      ${isBlockVisible('reports') ? reportTiles : ''}
+    </div>
   `;
 
   content.innerHTML = html;
@@ -4063,6 +4120,130 @@ function applyClientBranding(account){
   if(logo){ const img = document.getElementById('clientLogo'); img.src=logo; img.style.display='block'; }
   if(name || logo) bar.style.display = 'flex';
 }
+
+// ===== РЕДАКТОР ИНТЕРФЕЙСА =====
+const EDITOR_STORAGE_KEY = 'salesPulseEditor_v1';
+
+const EDITOR_BLOCKS = [
+  {id:'chart',    label:'График динамики продаж',   default:true},
+  {id:'goal',     label:'Баннер плана продаж',      default:true},
+  {id:'kpis',     label:'KPI карточки (сверху)',    default:true},
+  {id:'funnels',  label:'Воронки продаж',           default:true},
+  {id:'managers', label:'По менеджерам',            default:true},
+  {id:'loss',     label:'Причины отказов',          default:true},
+  {id:'calls',    label:'Звонки',                   default:true},
+  {id:'tasks',    label:'Задачи',                   default:true},
+  {id:'reports',  label:'Статистика (чек/сделка)',  default:true},
+];
+
+let editorConfig = {blocks:{}, cardSize:180, rowHeight:136};
+
+function loadEditorConfig(){
+  try{
+    const raw = localStorage.getItem(EDITOR_STORAGE_KEY);
+    if(raw) editorConfig = {...editorConfig, ...JSON.parse(raw)};
+  }catch(e){}
+  // defaults
+  EDITOR_BLOCKS.forEach(b => {
+    if(editorConfig.blocks[b.id] === undefined) editorConfig.blocks[b.id] = b.default;
+  });
+}
+
+function saveEditorConfig(){
+  try{ localStorage.setItem(EDITOR_STORAGE_KEY, JSON.stringify(editorConfig)); }catch(e){}
+}
+
+function isBlockVisible(id){ return editorConfig.blocks[id] !== false; }
+
+function applyEditorConfig(){
+  // Размер карточек
+  const tiles = document.querySelector('.dash-tiles');
+  if(tiles){
+    tiles.style.gridTemplateColumns = `repeat(auto-fill, minmax(${editorConfig.cardSize}px, 1fr))`;
+    tiles.style.gridAutoRows = `${editorConfig.rowHeight}px`;
+  }
+}
+
+function openEditor(){
+  const panel = document.getElementById('editorPanel');
+  panel.style.display = 'flex';
+
+  // Рендерим список блоков
+  const list = document.getElementById('editorBlockList');
+  list.innerHTML = EDITOR_BLOCKS.map(b => {
+    const on = isBlockVisible(b.id);
+    return `<div class="editor-block-row ${on?'':'hidden-block'}" data-block="${b.id}">
+      <span style="font-size:13px;">${b.label}</span>
+      <button class="editor-toggle ${on?'on':''}" data-block-toggle="${b.id}" title="${on?'Скрыть':'Показать'}"></button>
+    </div>`;
+  }).join('');
+
+  // Активные кнопки размера
+  document.querySelectorAll('.editor-size-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.size) === editorConfig.cardSize);
+  });
+  document.querySelectorAll('.editor-row-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.height) === editorConfig.rowHeight);
+  });
+}
+
+function closeEditor(){ document.getElementById('editorPanel').style.display = 'none'; }
+
+document.getElementById('editorBtn').addEventListener('click', openEditor);
+document.getElementById('editorCloseBtn').addEventListener('click', closeEditor);
+
+document.getElementById('editorPanel').addEventListener('click', e => {
+  // Тоггл блока
+  const toggle = e.target.closest('[data-block-toggle]');
+  if(toggle){
+    const id = toggle.dataset.blockToggle;
+    editorConfig.blocks[id] = !isBlockVisible(id);
+    const row = toggle.closest('.editor-block-row');
+    toggle.classList.toggle('on', editorConfig.blocks[id]);
+    row.classList.toggle('hidden-block', !editorConfig.blocks[id]);
+    return;
+  }
+  // Размер карточек
+  const sizeBtn = e.target.closest('.editor-size-btn');
+  if(sizeBtn){
+    editorConfig.cardSize = parseInt(sizeBtn.dataset.size);
+    document.querySelectorAll('.editor-size-btn').forEach(b => b.classList.toggle('active', b === sizeBtn));
+    return;
+  }
+  // Высота строки
+  const rowBtn = e.target.closest('.editor-row-btn');
+  if(rowBtn){
+    editorConfig.rowHeight = parseInt(rowBtn.dataset.height);
+    document.querySelectorAll('.editor-row-btn').forEach(b => b.classList.toggle('active', b === rowBtn));
+    return;
+  }
+});
+
+document.getElementById('editorSaveBtn').addEventListener('click', () => {
+  saveEditorConfig();
+  applyEditorConfig();
+  rerenderCached();
+  closeEditor();
+});
+
+document.getElementById('editorResetBtn').addEventListener('click', () => {
+  editorConfig = {blocks:{}, cardSize:180, rowHeight:136};
+  EDITOR_BLOCKS.forEach(b => { editorConfig.blocks[b.id] = b.default; });
+  saveEditorConfig();
+  applyEditorConfig();
+  rerenderCached();
+  openEditor(); // перерисовываем список
+});
+
+// Закрываем по клику вне панели
+document.addEventListener('click', e => {
+  const panel = document.getElementById('editorPanel');
+  if(panel.style.display !== 'none' && !panel.contains(e.target) && e.target.id !== 'editorBtn' && !document.getElementById('editorBtn').contains(e.target)){
+    closeEditor();
+  }
+});
+
+loadEditorConfig();
 
 function rerenderCached(){
   renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
