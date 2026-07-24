@@ -1044,14 +1044,6 @@
     <button id="assistantCloseBtn" class="assistant-close" type="button" aria-label="Закрыть">✕</button>
   </div>
   <div class="assistant-body">
-    <div class="assistant-section-label">AI Аналитик (Gemini)</div>
-    <div id="geminiKeyWrap" style="margin-bottom:10px;">
-      <div style="display:flex;gap:6px;">
-        <input type="password" id="geminiKeyInput" placeholder="Вставьте Gemini API ключ…" style="flex:1;border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:12px;background:var(--surface);color:var(--ink);">
-        <button id="geminiKeySaveBtn" class="btn btn-primary btn-sm" type="button">Сохранить</button>
-      </div>
-      <div id="geminiKeyStatus" style="font-size:10.5px;color:var(--ink-soft);margin-top:5px;"></div>
-    </div>
     <div class="assistant-section-label">Что стоит проверить</div>
     <div id="assistantInsights" class="assistant-insights"></div>
     <div class="assistant-section-label">Быстрые вопросы</div>
@@ -4452,9 +4444,9 @@ function renderAssistantChips(){
 }
 
 // ===== GEMINI AI ИНТЕГРАЦИЯ =====
-const GEMINI_API_KEY = localStorage.getItem('salesPulseGeminiKey') || '';
-const GEMINI_MODEL = 'gemini-2.0-flash';
-let aiEnabled = true;
+
+
+const aiEnabled = true;
 
 function buildDashboardContext(){
   const currency = lastFunnels.find(f=>f.currency)?.currency || '';
@@ -4514,25 +4506,21 @@ function buildDashboardContext(){
   return ctx;
 }
 
+// AI через Cloudflare Workers прокси — ключ скрыт от клиентов
+const AI_PROXY_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/ai';
+
 async function askGeminiAI(query){
   const context = buildDashboardContext();
   const prompt = `${context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ: ${query}`;
-
   try{
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          contents: [{parts: [{text: prompt}]}],
-          generationConfig: {temperature: 0.7, maxOutputTokens: 512}
-        })
-      }
-    );
+    const res = await fetch(AI_PROXY_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt})
+    });
     const data = await res.json();
-    if(data.error) return `Ошибка AI: ${data.error.message}`;
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'AI не ответил';
+    if(data.error) return `Ошибка AI: ${data.error}`;
+    return data.answer || 'AI не ответил';
   }catch(e){
     return `Ошибка соединения с AI: ${e.message}`;
   }
@@ -4572,29 +4560,7 @@ async function assistantAsk(query){
 
 renderAssistantChips();
 
-// Инициализация поля Gemini ключа
-(function initGeminiKey(){
-  const input = document.getElementById('geminiKeyInput');
-  const status = document.getElementById('geminiKeyStatus');
-  const saved = localStorage.getItem('salesPulseGeminiKey');
-  if(saved){
-    input.value = saved;
-    status.textContent = '✓ Ключ сохранён — AI активен';
-    status.style.color = 'var(--accent-strong)';
-    aiEnabled = true;
-  } else {
-    status.textContent = 'Без ключа работает в режиме правил. Ключ: aistudio.google.com/apikey';
-    aiEnabled = false;
-  }
-  document.getElementById('geminiKeySaveBtn').addEventListener('click', () => {
-    const key = input.value.trim();
-    if(!key){ localStorage.removeItem('salesPulseGeminiKey'); aiEnabled = false; status.textContent = 'Ключ удалён'; return; }
-    localStorage.setItem('salesPulseGeminiKey', key);
-    aiEnabled = true;
-    status.textContent = '✓ Ключ сохранён — AI активен';
-    status.style.color = 'var(--accent-strong)';
-  });
-})();
+
 
 document.getElementById('assistantToggleBtn').addEventListener('click', () => {
   const panel = document.getElementById('assistantPanel');
