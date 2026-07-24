@@ -4193,7 +4193,7 @@ document.getElementById('editorBtn').addEventListener('click', openEditor);
 document.getElementById('editorCloseBtn').addEventListener('click', closeEditor);
 
 document.getElementById('editorPanel').addEventListener('click', e => {
-  // Тоггл блока
+  // Тоггл блока — мгновенно перерисовываем
   const toggle = e.target.closest('[data-block-toggle]');
   if(toggle){
     const id = toggle.dataset.blockToggle;
@@ -4201,28 +4201,30 @@ document.getElementById('editorPanel').addEventListener('click', e => {
     const row = toggle.closest('.editor-block-row');
     toggle.classList.toggle('on', editorConfig.blocks[id]);
     row.classList.toggle('hidden-block', !editorConfig.blocks[id]);
+    applyEditorConfig();
+    rerenderCached();
     return;
   }
-  // Размер карточек
+  // Размер карточек — применяем мгновенно
   const sizeBtn = e.target.closest('.editor-size-btn');
   if(sizeBtn){
     editorConfig.cardSize = parseInt(sizeBtn.dataset.size);
     document.querySelectorAll('.editor-size-btn').forEach(b => b.classList.toggle('active', b === sizeBtn));
+    applyEditorConfig();
     return;
   }
-  // Высота строки
+  // Высота строки — применяем мгновенно
   const rowBtn = e.target.closest('.editor-row-btn');
   if(rowBtn){
     editorConfig.rowHeight = parseInt(rowBtn.dataset.height);
     document.querySelectorAll('.editor-row-btn').forEach(b => b.classList.toggle('active', b === rowBtn));
+    applyEditorConfig();
     return;
   }
 });
 
 document.getElementById('editorSaveBtn').addEventListener('click', () => {
   saveEditorConfig();
-  applyEditorConfig();
-  rerenderCached();
   closeEditor();
 });
 
