@@ -136,7 +136,69 @@
   .calls-duration.calls-bad{color:var(--red-bad);font-weight:600;}
   .tasks-tile-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
   .tasks-manager-select{border:1px solid var(--line);border-radius:8px;padding:3px 6px;font-size:10px;color:var(--ink-soft);background:var(--surface);max-width:130px;cursor:pointer;}
-  .glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.24;filter:blur(80px);border-radius:50%;pointer-events:none;z-index:0;}
+  .glow{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:640px;height:280px;background:var(--accent);opacity:.12;filter:blur(100px);border-radius:50%;pointer-events:none;z-index:0;}
+
+  /* ===== Landing ===== */
+  #landingView{position:relative;overflow:hidden;}
+  .landing-hero{display:flex;align-items:center;justify-content:space-between;gap:40px;padding:56px 64px 48px;max-width:1200px;margin:0 auto;flex-wrap:wrap;}
+  .landing-hero-inner{flex:1;min-width:300px;}
+  .landing-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(198,241,53,.15);border:1px solid rgba(198,241,53,.35);color:var(--accent-ink);font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;margin-bottom:20px;font-family:'JetBrains Mono',monospace;}
+  html[data-theme="dark"] .landing-badge{color:var(--accent);background:rgba(198,241,53,.08);}
+  .landing-h1{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:clamp(32px,4vw,52px);line-height:1.15;letter-spacing:-0.03em;margin:0 0 18px;}
+  .landing-h1-accent{color:var(--accent-strong);}
+  .landing-sub{font-size:16px;color:var(--ink-soft);line-height:1.6;max-width:460px;margin-bottom:32px;}
+  .landing-cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+  .landing-btn-primary{padding:14px 28px;border-radius:14px;border:none;background:var(--ink);color:var(--accent);font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:transform .15s,box-shadow .15s;}
+  .landing-btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow-lg);}
+  .landing-btn-ghost{padding:14px 24px;border-radius:14px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;cursor:pointer;transition:border-color .15s,background .15s;}
+  .landing-btn-ghost:hover{border-color:var(--ink);background:var(--overlay-1);}
+  .landing-trust{font-size:12px;color:var(--ink-soft);}
+  /* Мокап дашборда */
+  .landing-hero-visual{flex:none;width:420px;}
+  .landing-mockup{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 24px 60px var(--shadow-lg);}
+  .lm-bar{display:flex;gap:5px;margin-bottom:12px;}
+  .lm-bar span{width:8px;height:8px;border-radius:50%;background:var(--overlay-2);}
+  .lm-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+  .lm-kpi{background:var(--bg);border-radius:10px;padding:10px;}
+  .lm-kpi-val{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;}
+  .lm-kpi-lbl{font-size:9px;color:var(--ink-soft);margin-top:2px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;}
+  .lm-chart{margin-bottom:12px;}
+  .lm-bar-chart{display:flex;align-items:flex-end;gap:6px;height:60px;background:var(--bg);border-radius:10px;padding:8px;}
+  .lm-col{flex:1;background:var(--accent);border-radius:4px 4px 0 0;opacity:.7;}
+  .lm-managers{display:flex;flex-direction:column;gap:6px;}
+  .lm-mgr{display:flex;align-items:center;gap:8px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:600;}
+  .lm-mgr-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .lm-mgr-bar{flex:1;height:6px;background:var(--overlay-2);border-radius:6px;overflow:hidden;}
+  .lm-mgr-bar div{height:100%;background:currentColor;border-radius:6px;}
+  /* Фичи */
+  .landing-features{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:0 64px 56px;max-width:1200px;margin:0 auto;}
+  .landing-feat{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 24px;}
+  .landing-feat-icon{font-size:24px;margin-bottom:12px;}
+  .landing-feat-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin-bottom:6px;}
+  .landing-feat-desc{font-size:13px;color:var(--ink-soft);line-height:1.5;}
+  /* Форма подключения */
+  .landing-connect-wrap{padding:0 64px 56px;max-width:1200px;margin:0 auto;}
+  .landing-connect-box{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:32px 36px;max-width:560px;}
+  .landing-connect-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;margin-bottom:6px;}
+  .landing-connect-sub{font-size:13px;color:var(--ink-soft);margin-bottom:20px;}
+  .landing-connect-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+  @media(max-width:860px){
+    .landing-hero{padding:36px 24px 32px;gap:28px;}
+    .landing-hero-visual{display:none;}
+    .landing-features{padding:0 24px 40px;grid-template-columns:1fr 1fr;}
+    .landing-connect-wrap{padding:0 24px 40px;}
+  }
+  @media(max-width:520px){.landing-features{grid-template-columns:1fr;}}
+
+  /* ===== Брендирование клиента в шапке ===== */
+  #clientBrandBar{display:none;align-items:center;gap:10px;padding:8px 32px;background:var(--ink);border-bottom:1px solid var(--line);}
+  #clientBrandBar img{height:28px;border-radius:4px;}
+  #clientBrandBar span{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:#fff;}
+
+  /* ===== Демо-баннер ===== */
+  .demo-banner{background:linear-gradient(135deg,#1a1f00,#2a3200);border-bottom:2px solid var(--accent);padding:10px 32px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .demo-banner-text{font-size:13px;color:var(--accent);font-weight:600;}
+  .demo-banner-text span{color:rgba(198,241,53,.6);font-weight:400;}
   .wrap > *{position:relative;z-index:1;}
 
   .topbar{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:32px;}
@@ -619,26 +681,89 @@
 </div>
 
   <div id="landingView">
-    <div class="glow"></div>
-    <div class="topbar">
-      <div>
-        <p class="brand-eyebrow">PulseCRM · CRM аналитика</p>
-        <h1>Все воронки продаж — в одном окне, обновляются сами</h1>
-        <p class="sub" id="subText">Живые данные напрямую из Битрикс24 через бесплатный вебхук, без программистов и подписок</p>
+
+    <!-- LANDING HERO -->
+    <div class="landing-hero">
+      <div class="landing-hero-inner">
+        <div class="landing-badge">✦ CRM-аналитика для Битрикс24</div>
+        <h1 class="landing-h1">Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span></h1>
+        <p class="landing-sub">Живые данные из Битрикс24, аналитика по менеджерам, воронкам и источникам рекламы. Без программистов, без подписок.</p>
+        <div class="landing-cta-row">
+          <button class="landing-btn-primary" id="landingConnectBtn">Подключить Битрикс24 →</button>
+          <button class="landing-btn-ghost" id="landingDemoBtn">▶ Посмотреть демо</button>
+        </div>
+        <div class="landing-trust">🔒 Данные не покидают ваш браузер · Бесплатно</div>
+      </div>
+      <div class="landing-hero-visual">
+        <div class="landing-mockup">
+          <div class="lm-bar"><span></span><span></span><span></span></div>
+          <div class="lm-kpis">
+            <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">₸ 4.2M</div><div class="lm-kpi-lbl">Продажи</div></div>
+            <div class="lm-kpi"><div class="lm-kpi-val">234</div><div class="lm-kpi-lbl">Сделок</div></div>
+            <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">68%</div><div class="lm-kpi-lbl">Конверсия</div></div>
+          </div>
+          <div class="lm-chart">
+            <div class="lm-bar-chart">
+              <div class="lm-col" style="height:40%"></div>
+              <div class="lm-col" style="height:65%"></div>
+              <div class="lm-col" style="height:45%"></div>
+              <div class="lm-col" style="height:80%"></div>
+              <div class="lm-col" style="height:55%"></div>
+              <div class="lm-col" style="height:90%"></div>
+              <div class="lm-col" style="height:70%"></div>
+            </div>
+          </div>
+          <div class="lm-managers">
+            <div class="lm-mgr"><div class="lm-mgr-dot" style="background:#C6F135"></div><div class="lm-mgr-bar"><div style="width:85%"></div></div><span>1.8M</span></div>
+            <div class="lm-mgr"><div class="lm-mgr-dot" style="background:#60A5FA"></div><div class="lm-mgr-bar"><div style="width:60%"></div></div><span>1.2M</span></div>
+            <div class="lm-mgr"><div class="lm-mgr-dot" style="background:#F59E0B"></div><div class="lm-mgr-bar"><div style="width:40%"></div></div><span>0.8M</span></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="connect-box">
-      <select id="crmSelect"></select>
-      <div id="connFields" style="display:contents"></div>
-      <button class="btn btn-primary" id="connectBtn">Подключить</button>
-      <button class="btn btn-ghost" id="refreshBtn" style="display:none;">Обновить</button>
-      <button class="btn btn-ghost" id="disconnectBtn" style="display:none;" title="Забыть сохранённое подключение">Отключить</button>
+    <!-- ФИЧИ -->
+    <div class="landing-features">
+      <div class="landing-feat">
+        <div class="landing-feat-icon">📊</div>
+        <div class="landing-feat-title">Источники рекламы</div>
+        <div class="landing-feat-desc">Видите с какого канала пришёл каждый лид и сколько принёс денег</div>
+      </div>
+      <div class="landing-feat">
+        <div class="landing-feat-icon">👤</div>
+        <div class="landing-feat-title">Аналитика менеджеров</div>
+        <div class="landing-feat-desc">Конверсия, нагрузка по дням, стадии сделок каждого сотрудника</div>
+      </div>
+      <div class="landing-feat">
+        <div class="landing-feat-icon">🔄</div>
+        <div class="landing-feat-title">Все воронки</div>
+        <div class="landing-feat-desc">Узкие места, зависшие сделки и узнайте где теряются клиенты</div>
+      </div>
+      <div class="landing-feat">
+        <div class="landing-feat-icon">📞</div>
+        <div class="landing-feat-title">Звонки и задачи</div>
+        <div class="landing-feat-desc">Статистика звонков, просроченные задачи — всё в одном месте</div>
+      </div>
     </div>
 
-    <div id="statusLine" class="status-line">Ещё не подключено — заполните поля выше.</div>
+    <!-- ФОРМА ПОДКЛЮЧЕНИЯ (скрыта по умолчанию) -->
+    <div class="landing-connect-wrap" id="landingConnectWrap" style="display:none;">
+      <div class="landing-connect-box">
+        <div class="landing-connect-title">Подключение к Битрикс24</div>
+        <div class="landing-connect-sub">Вставьте ссылку входящего вебхука — данные будут загружены прямо в браузер</div>
+        <select id="crmSelect" style="display:none;"></select>
+        <div id="connFields" style="display:contents"></div>
+        <div class="landing-connect-actions">
+          <button class="btn btn-primary" id="connectBtn">Подключить →</button>
+          <button class="btn btn-ghost" id="refreshBtn" style="display:none;">Обновить</button>
+          <button class="btn btn-ghost" id="disconnectBtn" style="display:none;">Отключить</button>
+        </div>
+        <div id="statusLine" class="status-line" style="margin-top:12px;"></div>
+        <div class="help" id="helpBox"></div>
+      </div>
+    </div>
 
-    <div class="help" id="helpBox"></div>
+    <div class="glow"></div>
   </div>
 </div>
 
@@ -661,6 +786,16 @@
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
 </div>
+  <!-- Брендирование клиента -->
+  <div id="clientBrandBar">
+    <img id="clientLogo" src="" alt="" style="display:none;">
+    <span id="clientBrandName"></span>
+  </div>
+  <!-- Демо-баннер -->
+  <div id="demoBanner" class="demo-banner" style="display:none;">
+    <div class="demo-banner-text">🎯 Демо-режим <span>· Данные ненастоящие, для демонстрации возможностей</span></div>
+    <button class="btn btn-primary btn-sm" id="demoConnectBtn">Подключить реальный Битрикс24 →</button>
+  </div>
   <div id="chartHeroContainer"></div>
   <div id="goalBannerContainer"></div>
 
@@ -3116,8 +3251,9 @@ async function attemptLogin(){
   loginBtn.textContent = 'Войти';
   if(account){
     loginError.style.display = 'none';
-    setSessionAccount({login: account.login, webhook: account.webhook || null});
+    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null});
     hideLoginView();
+    applyClientBranding(account);
     // Если у аккаунта зашит вебхук — автоподключаемся
     if(account.webhook){
       crmSelect.value = 'bitrix24';
@@ -3764,6 +3900,142 @@ document.getElementById('analyticsTabs').addEventListener('click', e => {
   const tab = e.target.closest('.atab')?.dataset.tab;
   if(tab) openAnalytics(tab);
 });
+
+// ===== LANDING СТРАНИЦА =====
+const landingConnectBtn = document.getElementById('landingConnectBtn');
+const landingDemoBtn = document.getElementById('landingDemoBtn');
+const landingConnectWrap = document.getElementById('landingConnectWrap');
+
+landingConnectBtn && landingConnectBtn.addEventListener('click', () => {
+  landingConnectWrap.style.display = 'block';
+  landingConnectWrap.scrollIntoView({behavior:'smooth', block:'center'});
+  const wf = document.querySelector('#connFields [data-field="webhook"]');
+  if(wf) wf.focus();
+});
+
+document.getElementById('demoConnectBtn') && document.getElementById('demoConnectBtn').addEventListener('click', () => {
+  document.getElementById('demoBanner').style.display = 'none';
+  showLanding();
+  setTimeout(() => {
+    landingConnectWrap.style.display = 'block';
+    landingConnectWrap.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 100);
+});
+
+// ===== ДЕМО-РЕЖИМ =====
+function generateDemoData(){
+  const currency = 'UZS';
+  const now = new Date();
+  const managers = [
+    {id:'d1', name:'Артур Каипов', wonSum:4800000, wonCount:12, lostCount:5, dealsCount:24, activeCount:7, position:'Менеджер по продажам'},
+    {id:'d2', name:'Малика Юсупова', wonSum:3200000, wonCount:8, lostCount:4, dealsCount:18, activeCount:6, position:'Старший менеджер'},
+    {id:'d3', name:'Бахром Рашидов', wonSum:1900000, wonCount:5, lostCount:7, dealsCount:16, activeCount:4, position:'Менеджер по продажам'},
+  ];
+  const stages = ['Новая заявка','Переговоры','Коммерческое предложение','Согласование','Выиграно','Проиграно'];
+  const sources = ['Instagram','Telegram','Сайт','Реклама','Рекомендация','Звонок'];
+  const funnels = [
+    {id:1, name:'Основная воронка', deals:48, wonSum:5800000, wonCount:14, lostCount:9, currency, prevWonSum:4200000, hasPrevPeriod:true, activeCount:25,
+     stages:[
+       {id:'NEW', name:'Новая заявка', count:18, sum:2100000, semantic:'P', avgAgeDays:2},
+       {id:'NEGO', name:'Переговоры', count:12, sum:1800000, semantic:'P', avgAgeDays:8},
+       {id:'PROP', name:'КП отправлено', count:7, sum:1400000, semantic:'P', avgAgeDays:14},
+       {id:'WON', name:'Выиграно', count:14, sum:5800000, semantic:'S', avgAgeDays:null},
+       {id:'LOSE', name:'Проиграно', count:9, sum:0, semantic:'F', avgAgeDays:null},
+     ],
+     bottleneck:{name:'КП отправлено', avgAgeDays:14},
+     dealIds: new Set(['d1','d2','d3','d4','d5']),
+     dealsList:[]},
+    {id:2, name:'VIP клиенты', deals:12, wonSum:4100000, wonCount:5, lostCount:2, currency, prevWonSum:3100000, hasPrevPeriod:true, activeCount:5,
+     stages:[
+       {id:'CONTACT', name:'Первый контакт', count:3, sum:600000, semantic:'P', avgAgeDays:3},
+       {id:'MEET', name:'Встреча', count:2, sum:800000, semantic:'P', avgAgeDays:7},
+       {id:'WON', name:'Выиграно', count:5, sum:4100000, semantic:'S', avgAgeDays:null},
+       {id:'LOSE', name:'Отказ', count:2, sum:0, semantic:'F', avgAgeDays:null},
+     ],
+     bottleneck:null, dealIds: new Set(['d6','d7']), dealsList:[]},
+  ];
+
+  // Генерируем плоский список сделок
+  const deals = [];
+  for(let i=0;i<60;i++){
+    const daysAgo = Math.floor(Math.random()*30);
+    const d = new Date(now); d.setDate(d.getDate()-daysAgo);
+    const semantic = i<14?'S':i<23?'F':'P';
+    const mgr = managers[i%3];
+    const src = sources[i%sources.length];
+    const funnelIdx = i < 48 ? 0 : 1;
+    const f = funnels[funnelIdx];
+    const stage = semantic==='S'?'Выиграно':semantic==='F'?'Проиграно':stages[i%3];
+    const amt = semantic==='S' ? (300000+Math.floor(Math.random()*700000)) : Math.floor(Math.random()*200000);
+    const deal = {
+      id:`D${i+1}`, title:`Сделка №${i+1}`, stageId:'ST'+i, stageName:stage,
+      amount:amt, currency, assignedTo:mgr.id, semantic, source:src,
+      createdAt:d.toISOString(), closedAt:semantic!=='P'?d.toISOString():null,
+      updatedAt:d.toISOString(), funnelName:f.name, funnelId:f.id, _flatIdx:i
+    };
+    deals.push(deal);
+    f.dealsList.push(deal);
+  }
+
+  return {managers, funnels, deals};
+}
+
+let isDemoMode = false;
+
+landingDemoBtn && landingDemoBtn.addEventListener('click', () => {
+  isDemoMode = true;
+  const {managers, funnels, deals} = generateDemoData();
+  lastFunnels = funnels;
+  lastManagers = managers;
+  lastDealsFlat = deals;
+  lastDailyEntries = [];
+  lastWonPoints = deals.filter(d=>d.semantic==='S').map(d=>({date:d.createdAt,amount:d.amount}));
+  lastMonthRevenue = 9900000;
+  lastMonthCurrency = 'UZS';
+  lastPrevMonthRevenue = 7300000;
+  lastMonthDealsTotal = 60;
+  lastMonthWonCount = 19;
+  lastMonthLostCount = 11;
+  lastNamesResolved = true;
+  lastHasManagers = true;
+  lastCallStats = {incoming:48, outgoing:112, successful:124, missed:36, total:160, totalDuration:14400};
+  lastRawCalls = [];
+  lastTasksFetched = true;
+  lastRawTasks = [
+    {id:'t1',title:'Позвонить клиенту Ромашка',status:'3',deadline:null,createdDate:new Date().toISOString(),responsibleId:'d1'},
+    {id:'t2',title:'Отправить КП Акме',status:'2',deadline:new Date(Date.now()-86400000).toISOString(),createdDate:new Date().toISOString(),responsibleId:'d2'},
+    {id:'t3',title:'Встреча с VIP клиентом',status:'5',deadline:new Date().toISOString(),createdDate:new Date().toISOString(),responsibleId:'d1'},
+  ];
+  lastBestDeal = {amount:850000, funnelName:'Основная воронка', currency:'UZS'};
+  lastLostReasons = [{stageName:'Дорого', count:8, sum:1200000},{stageName:'Ушёл к конкуренту', count:4, sum:800000}];
+  const dailyEntries = [];
+  const now = new Date();
+  for(let i=0;i<new Date(now.getFullYear(),now.getMonth()+1,0).getDate();i++){
+    const d = new Date(now.getFullYear(), now.getMonth(), i+1);
+    const past = d <= now;
+    dailyEntries.push({label:d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}), shortLabel:String(i+1), sum:past&&i%3!==0?200000+Math.random()*500000:0, count:past&&i%3!==0?2:0, isFuture:d>now});
+  }
+  lastDailyEntries = dailyEntries;
+  document.getElementById('demoBanner').style.display = 'flex';
+  document.getElementById('analyticsBtn').style.display = 'inline-flex';
+  document.getElementById('assistantToggleBtn').style.display = 'flex';
+  renderAssistantInsights();
+  showDashboard();
+  renderDashboard(funnels, managers, dailyEntries, true, true, lastLostReasons);
+  renderChartHero(dailyEntries, 'UZS');
+  renderGoalBanner(9900000, 'UZS');
+});
+
+// ===== БРЕНДИРОВАНИЕ КЛИЕНТА =====
+// Можно задать в CLIENT_ACCOUNTS: { login:'...', hash:'...', webhook:'...', brand:{name:'Название компании', logo:'URL логотипа'} }
+function applyClientBranding(account){
+  const bar = document.getElementById('clientBrandBar');
+  if(!account || !account.brand) return;
+  const {name, logo} = account.brand;
+  if(name){ document.getElementById('clientBrandName').textContent = name; }
+  if(logo){ const img = document.getElementById('clientLogo'); img.src=logo; img.style.display='block'; }
+  if(name || logo) bar.style.display = 'flex';
+}
 
 function rerenderCached(){
   renderDashboard(lastFunnels, lastManagers, lastDailyEntries, lastNamesResolved, lastHasManagers, lastLostReasons);
