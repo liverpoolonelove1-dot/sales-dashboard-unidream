@@ -4511,7 +4511,7 @@ const AI_PROXY_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/ai'
 
 async function askGeminiAI(query){
   const context = buildDashboardContext();
-  const prompt = `${context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ: ${query}`;
+  const prompt = `${context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ: ${query}\n\nОтвечай кратко (3-4 предложения), конкретно, на русском языке.`;
   try{
     const res = await fetch(AI_PROXY_URL, {
       method: 'POST',
