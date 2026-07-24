@@ -858,7 +858,7 @@
           <button class="landing-btn-primary" id="landingConnectBtn">Подключить Битрикс24 →</button>
           <button class="landing-btn-ghost" id="landingDemoBtn">Посмотреть демо</button>
         </div>
-        <div class="landing-trust">Данные не покидают ваш браузер · Бесплатно</div>
+        <div class="landing-trust">Данные не покидают ваш браузер</div>
       </div>
       <div class="landing-hero-visual">
         <div class="landing-mockup">
@@ -1778,7 +1778,7 @@ const CRM_ADAPTERS = {
       {key: 'webhook', label: 'Вебхук', placeholder: 'https://ваш-портал.bitrix24.ru/rest/1/xxxxxxxxxxxxxxxx/', type: 'text'}
     ],
     helpHtml: `
-      <b>Как получить бесплатный вебхук (5 минут, без платных тарифов):</b>
+      <b>Как получить вебхук (5 минут):</b>
       <ol>
         <li>В Битрикс24 откройте <b>Разработчикам → Другое → Входящий вебхук</b> (или через поиск: «вебхук»).</li>
         <li>Отметьте право доступа <code>crm</code> (CRM) и сохраните. Для разбивки по менеджерам добавьте ещё право <code>user</code> (Пользователи), для статистики звонков — <code>telephony</code> (Телефония), для мониторинга задач — <code>task</code> (Задачи).</li>
@@ -1786,7 +1786,7 @@ const CRM_ADAPTERS = {
         <li>Нажмите «Подключить» — дашборд сам найдёт все воронки сделок и построит отчёт.</li>
       </ol>
       <b style="display:block;margin-top:10px;">Важно про постоянную ссылку:</b>
-      Эта страница — обычный файл. Чтобы у неё был постоянный адрес, разместите его на бесплатном хостинге (GitHub Pages, Cloudflare Pages, Netlify). Если открывать файл прямо с компьютера, часть браузеров блокирует запросы к Битрикс24.
+      Эта страница — обычный файл. Чтобы у неё был постоянный адрес, разместите его на хостинге (GitHub Pages, Cloudflare Pages, Netlify). Если открывать файл прямо с компьютера, часть браузеров блокирует запросы к Битрикс24.
     `,
     validate(raw){
       const url = (raw.webhook || '').trim();
