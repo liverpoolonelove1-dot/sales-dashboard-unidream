@@ -2951,22 +2951,81 @@ function answerCalls(){
 
 function answerQuestion(query){
   const q = query.toLowerCase();
-  if(q.includes('ворон') || q.includes('слаб') || q.includes('конверс')) return answerWeakFunnels();
-  if(q.includes('менеджер') || q.includes('сотрудник')) return answerManagers();
-  if(q.includes('зависа') || q.includes('стади') || q.includes('узк')) return answerBottlenecks();
-  if(q.includes('план') || q.includes('цел')) return answerGoal();
-  if(q.includes('задач') || q.includes('просроч')) return answerTasks();
-  if(q.includes('звон')) return answerCalls();
-  return 'Не совсем понял вопрос — попробуйте один из готовых вопросов ниже, или спросите про «воронки», «менеджеров», «зависшие сделки», «план» или «задачи».';
+  // воронки и конверсия
+  if(q.includes('ворон') || q.includes('слаб') || q.includes('конверс') || q.includes('лучш') || q.includes('худш')) return answerWeakFunnels();
+  // менеджеры
+  if(q.includes('менеджер') || q.includes('сотрудник') || q.includes('оператор') || q.includes('продавец')) return answerManagers();
+  // зависшие сделки — добавлено «зависш», «висят», «тормоз», «долго»
+  if(q.includes('зависа') || q.includes('зависш') || q.includes('висят') || q.includes('стади') || q.includes('узк') || q.includes('тормоз') || q.includes('долго') || q.includes('бутылоч')) return answerBottlenecks();
+  // план
+  if(q.includes('план') || q.includes('цел') || q.includes('выполн')) return answerGoal();
+  // задачи
+  if(q.includes('задач') || q.includes('просроч') || q.includes('дедлайн')) return answerTasks();
+  // звонки
+  if(q.includes('звон') || q.includes('пропущ') || q.includes('входящ') || q.includes('исходящ')) return answerCalls();
+  // средний чек
+  if(q.includes('средн') || q.includes('чек') || q.includes('average')) return answerAvgDeal();
+  // упущенные / потери
+  if(q.includes('упущ') || q.includes('потер') || q.includes('проваль') || q.includes('провал') || q.includes('отказ')) return answerLost();
+  // pipeline / в работе
+  if(q.includes('работ') || q.includes('pipeline') || q.includes('актив') || q.includes('открыт')) return answerPipeline();
+  return 'Не понял вопрос — попробуйте готовые вопросы ниже или спросите про:\n«воронки» · «менеджеры» · «зависшие сделки» · «план» · «задачи» · «звонки» · «средний чек» · «упущенные сделки» · «что в работе»';
+}
+
+function answerAvgDeal(){
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const totalWon = lastFunnels.reduce((a,f) => a + f.wonCount, 0);
+  const totalRev = lastFunnels.reduce((a,f) => a + f.wonSum, 0);
+  if(totalWon === 0) return 'За этот период нет выигранных сделок — рассчитать средний чек невозможно.';
+  const avg = Math.round(totalRev / totalWon);
+  const byFunnel = lastFunnels.filter(f => f.wonCount > 0)
+    .sort((a,b) => (b.wonSum/b.wonCount) - (a.wonSum/a.wonCount))
+    .slice(0, 3)
+    .map(f => `«${f.name}» — ${fmtMoney(Math.round(f.wonSum/f.wonCount), currency)}`)
+    .join('\n');
+  return `Средний чек по всем воронкам: ${fmtMoney(avg, currency)}.\n\nТоп-3 по среднему чеку:\n${byFunnel}`;
+}
+
+function answerLost(){
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const totalLost = lastFunnels.reduce((a,f) => a + f.lostCount, 0);
+  const lostVal = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0), 0);
+  if(totalLost === 0) return 'За этот период провальных сделок нет.';
+  const top = lastFunnels
+    .map(f => ({name: f.name, lost: f.lostCount, sum: f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0)}))
+    .filter(x => x.lost > 0)
+    .sort((a,b) => b.lost - a.lost)
+    .slice(0, 3)
+    .map(x => `«${x.name}» — ${x.lost} сделок (${fmtMoney(x.sum, currency)})`)
+    .join('\n');
+  return `Провалено сделок: ${totalLost}, упущено ${fmtMoney(lostVal, currency)}.\n\nГде больше всего потерь:\n${top}`;
+}
+
+function answerPipeline(){
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const total = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.count, 0), 0);
+  const sum = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), 0);
+  if(total === 0) return 'Активных незакрытых сделок в данный момент нет.';
+  const top = lastFunnels
+    .map(f => ({name: f.name, sum: f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), cnt: f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.count, 0)}))
+    .filter(x => x.cnt > 0)
+    .sort((a,b) => b.sum - a.sum)
+    .slice(0, 3)
+    .map(x => `«${x.name}» — ${x.cnt} сделок, ${fmtMoney(x.sum, currency)}`)
+    .join('\n');
+  return `В работе: ${total} сделок на сумму ${fmtMoney(sum, currency)}.\n\nПо воронкам:\n${top}`;
 }
 
 const ASSISTANT_CHIPS = [
-  {label: 'Слабые воронки', query: 'слабые воронки'},
-  {label: 'Менеджеры', query: 'менеджеры'},
-  {label: 'Где зависают сделки', query: 'зависшие сделки'},
-  {label: 'План продаж', query: 'план'},
-  {label: 'Задачи', query: 'задачи'},
-  {label: 'Звонки', query: 'звонки'}
+  {label: '📉 Слабые воронки', query: 'слабые воронки'},
+  {label: '👤 Менеджеры', query: 'менеджеры'},
+  {label: '⏳ Зависшие сделки', query: 'зависшие сделки'},
+  {label: '🎯 План продаж', query: 'план'},
+  {label: '💰 Средний чек', query: 'средний чек'},
+  {label: '🔥 Что в работе', query: 'что в работе'},
+  {label: '❌ Упущенные сделки', query: 'упущенные сделки'},
+  {label: '📋 Задачи', query: 'задачи'},
+  {label: '📞 Звонки', query: 'звонки'}
 ];
 
 function renderAssistantChips(){
