@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sales Pulse — дашборд продаж для Битрикс24</title>
+<title>PulseCRM — дашборд продаж для Битрикс24</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -533,7 +533,7 @@
 <!-- ===== ЭКРАН ВХОДА ===== -->
 <div id="loginView" style="display:none;">
   <div class="login-card">
-    <div class="login-logo">Sales<span>Pulse</span></div>
+    <div class="login-logo">Pulse<span>CRM</span></div>
     <div class="login-sub">CRM-аналитика · Войдите для продолжения</div>
     <div id="loginError" class="login-error">Неверный логин или пароль</div>
     <div class="login-field">
@@ -545,7 +545,7 @@
       <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="login-btn" id="loginBtn" type="button">Войти</button>
-    <div class="login-footer">Sales Pulse · защищённый доступ</div>
+    <div class="login-footer">PulseCRM · защищённый доступ</div>
   </div>
 </div>
 
@@ -553,7 +553,7 @@
     <div class="glow"></div>
     <div class="topbar">
       <div>
-        <p class="brand-eyebrow">Sales Pulse · CRM аналитика</p>
+        <p class="brand-eyebrow">PulseCRM · CRM аналитика</p>
         <h1>Все воронки продаж — в одном окне, обновляются сами</h1>
         <p class="sub" id="subText">Живые данные напрямую из Битрикс24 через бесплатный вебхук, без программистов и подписок</p>
       </div>
@@ -678,7 +678,7 @@ const dupWarning = document.getElementById('dupWarning');
 const TRANSLATIONS = {
   ru: {
     // Интерфейс
-    brand: 'Sales Pulse · CRM аналитика',
+    brand: 'PulseCRM · CRM аналитика',
     tagline: 'Все воронки продаж — в одном окне, обновляются сами',
     connectBtn: 'Подключить',
     refreshBtn: 'Обновить',
@@ -737,7 +737,7 @@ const TRANSLATIONS = {
     loginError: 'Неверный логин или пароль',
   },
   uz: {
-    brand: 'Sales Pulse · CRM tahlil',
+    brand: 'PulseCRM · CRM tahlil',
     tagline: 'Barcha savdo voronkalari — bitta oynada, o\'zi yangilanadi',
     connectBtn: 'Ulash',
     refreshBtn: 'Yangilash',
@@ -839,7 +839,7 @@ function applyLang(){
   if(lbl) lbl.textContent = currentLang.toUpperCase();
   // экран входа
   const loginSub = document.querySelector('#loginView .login-sub');
-  if(loginSub) loginSub.textContent = 'Sales Pulse · ' + t('loginTitle');
+  if(loginSub) loginSub.textContent = 'PulseCRM · ' + t('loginTitle');
   const loginErrEl = document.getElementById('loginError');
   if(loginErrEl) loginErrEl.textContent = t('loginError');
   const loginUsernameLabel = document.querySelector('#loginView .login-field:first-of-type label');
