@@ -4,20 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PulseCRM — дашборд продаж для Битрикс24</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2314151A'/><text y='22' x='4' font-size='20' font-family='Arial' font-weight='900' fill='%23C6F135'>P</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #FAF9F6;
+    --bg: #F7F6F3;
     --surface: #FFFFFF;
-    --surface-glass: rgba(255,255,255,0.62);
-    --ink: #14151A;
-    --ink-soft: #6B6E76;
-    --line: #E7E5DE;
-    --line-soft: rgba(20,21,26,0.07);
+    --surface-glass: rgba(255,255,255,0.72);
+    --ink: #0F1014;
+    --ink-soft: #64676F;
+    --line: #E4E2DB;
+    --line-soft: rgba(15,16,20,0.06);
     --accent: #C6F135;
-    --accent-strong: #AEDA1E;
-    --accent-ink: #333D00;
+    --accent-strong: #A8D416;
+    --accent-ink: #2C3600;
     --blue: #2F6FED;
     --teal: #14B8A6;
     --amber: #F59E0B;
@@ -25,20 +26,22 @@
     --violet: #8B5CF6;
     --green-good: #16A34A;
     --red-bad: #DC2626;
-    --shadow-color: rgba(20,21,26,0.06);
-    --overlay-1: rgba(0,0,0,0.03);
-    --overlay-2: rgba(0,0,0,0.05);
+    --shadow-color: rgba(15,16,20,0.08);
+    --shadow-lg: rgba(15,16,20,0.14);
+    --overlay-1: rgba(0,0,0,0.04);
+    --overlay-2: rgba(0,0,0,0.07);
   }
   html[data-theme="dark"]{
-    --bg: #101114;
-    --surface: #1A1B1F;
-    --surface-glass: rgba(26,27,31,0.62);
-    --ink: #F1F0EA;
-    --ink-soft: #9A9CA3;
-    --line: #2C2D33;
-    --line-soft: rgba(255,255,255,0.08);
-    --shadow-color: rgba(0,0,0,0.4);
-    --overlay-1: rgba(255,255,255,0.06);
+    --bg: #0D0E11;
+    --surface: #161719;
+    --surface-glass: rgba(22,23,25,0.72);
+    --ink: #EEECEA;
+    --ink-soft: #8F9199;
+    --line: #272830;
+    --line-soft: rgba(255,255,255,0.07);
+    --shadow-color: rgba(0,0,0,0.5);
+    --shadow-lg: rgba(0,0,0,0.6);
+    --overlay-1: rgba(255,255,255,0.05);
     --overlay-2: rgba(255,255,255,0.09);
   }
   html[data-theme="dark"] .connect-box input,
@@ -50,19 +53,37 @@
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;}
 
   /* ===== Экран входа ===== */
-  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .login-card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:36px 40px;width:100%;max-width:380px;box-shadow:0 20px 60px var(--shadow-color);}
-  .login-logo{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.01em;margin-bottom:6px;}
-  .login-logo span{color:var(--accent-strong);}
-  .login-sub{font-size:13px;color:var(--ink-soft);margin-bottom:28px;}
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;background:var(--bg);}
+  #loginView::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 60% 40%, rgba(198,241,53,.13) 0%, transparent 70%), radial-gradient(ellipse 50% 40% at 20% 80%, rgba(198,241,53,.07) 0%, transparent 60%);pointer-events:none;}
+  .login-wrap{display:flex;width:100%;max-width:860px;min-height:520px;border-radius:28px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.22);position:relative;z-index:1;}
+  .login-left{flex:1;background:var(--ink);padding:48px 44px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
+  .login-brand{display:flex;align-items:center;gap:10px;margin-bottom:auto;}
+  .login-brand-icon{width:40px;height:40px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:900;font-size:20px;color:var(--ink);flex:none;}
+  .login-brand-name{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;color:#fff;letter-spacing:-0.02em;}
+  .login-brand-name span{color:var(--accent);}
+  .login-hero{margin-top:48px;}
+  .login-hero-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:26px;color:#fff;line-height:1.3;margin-bottom:14px;}
+  .login-hero-title em{color:var(--accent);font-style:normal;}
+  .login-hero-desc{font-size:14px;color:rgba(255,255,255,.55);line-height:1.6;}
+  .login-features{display:flex;flex-direction:column;gap:10px;margin-top:32px;}
+  .login-feature{display:flex;align-items:center;gap:10px;font-size:13px;color:rgba(255,255,255,.7);}
+  .login-feature-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none;}
+  .login-left-footer{font-size:11px;color:rgba(255,255,255,.3);margin-top:auto;padding-top:32px;}
+  .login-right{width:380px;flex:none;background:var(--surface);padding:48px 40px;display:flex;flex-direction:column;justify-content:center;}
+  .login-right-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;margin-bottom:6px;}
+  .login-right-sub{font-size:13px;color:var(--ink-soft);margin-bottom:32px;}
   .login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
-  .login-field label{font-size:11.5px;font-weight:600;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;}
-  .login-field input{border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:14px;background:var(--surface);color:var(--ink);transition:border-color .15s;}
-  .login-field input:focus{outline:none;border-color:var(--accent-strong);}
-  .login-error{font-size:12px;color:var(--red-bad);background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.2);border-radius:9px;padding:8px 12px;margin-bottom:14px;display:none;}
-  .login-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--ink);color:var(--accent);font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:opacity .15s;}
-  .login-btn:hover{opacity:.88;}
+  .login-field label{font-size:10.5px;font-weight:700;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;}
+  .login-field input{border:1.5px solid var(--line);border-radius:12px;padding:12px 16px;font-size:14px;background:var(--bg);color:var(--ink);transition:border-color .15s, box-shadow .15s;font-family:'Inter',sans-serif;}
+  .login-field input:focus{outline:none;border-color:var(--accent-strong);box-shadow:0 0 0 3px rgba(198,241,53,.15);}
+  .login-error{font-size:12px;color:var(--red-bad);background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.2);border-radius:9px;padding:8px 12px;margin-bottom:14px;display:none;animation:loginShake .3s ease;}
+  @keyframes loginShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+  .login-btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--ink);color:var(--accent);font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:transform .15s, box-shadow .15s;margin-top:4px;letter-spacing:.01em;}
+  .login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,0,0,.18);}
+  .login-btn:active{transform:translateY(0);}
+  .login-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
   .login-footer{font-size:11px;color:var(--ink-soft);text-align:center;margin-top:20px;}
+  @media(max-width:680px){.login-wrap{flex-direction:column;min-height:auto;}.login-left{padding:32px 28px;}.login-hero,.login-features,.login-left-footer{display:none;}.login-right{width:100%;padding:32px 28px;}}
   .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 64px;position:relative;}
   #landingView{min-height:calc(100vh - 96px);display:flex;flex-direction:column;justify-content:center;}
 
@@ -532,20 +553,41 @@
 <div class="wrap">
 <!-- ===== ЭКРАН ВХОДА ===== -->
 <div id="loginView" style="display:none;">
-  <div class="login-card">
-    <div class="login-logo">Pulse<span>CRM</span></div>
-    <div class="login-sub">CRM-аналитика · Войдите для продолжения</div>
-    <div id="loginError" class="login-error">Неверный логин или пароль</div>
-    <div class="login-field">
-      <label>Логин</label>
-      <input type="text" id="loginUsername" placeholder="username" autocomplete="username">
+  <div class="login-wrap">
+    <!-- Левая колонка — брендинг -->
+    <div class="login-left">
+      <div class="login-brand">
+        <div class="login-brand-icon">P</div>
+        <div class="login-brand-name">Pulse<span>CRM</span></div>
+      </div>
+      <div class="login-hero">
+        <div class="login-hero-title">Все воронки продаж<br>в <em>одном окне</em></div>
+        <div class="login-hero-desc">Аналитика в реальном времени из Битрикс24 — без программистов и сложных настроек</div>
+        <div class="login-features">
+          <div class="login-feature"><span class="login-feature-dot"></span>Воронки, менеджеры, конверсия</div>
+          <div class="login-feature"><span class="login-feature-dot"></span>Звонки и задачи в одном месте</div>
+          <div class="login-feature"><span class="login-feature-dot"></span>Аналитик выявляет проблемы сам</div>
+          <div class="login-feature"><span class="login-feature-dot"></span>Русский и узбекский язык</div>
+        </div>
+      </div>
+      <div class="login-left-footer">PulseCRM © 2026 · Защищённый доступ</div>
     </div>
-    <div class="login-field">
-      <label>Пароль</label>
-      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    <!-- Правая колонка — форма входа -->
+    <div class="login-right">
+      <div class="login-right-title">Вход в кабинет</div>
+      <div class="login-right-sub" id="loginSubText">Введите логин и пароль</div>
+      <div id="loginError" class="login-error">Неверный логин или пароль</div>
+      <div class="login-field">
+        <label>Логин</label>
+        <input type="text" id="loginUsername" placeholder="username" autocomplete="username">
+      </div>
+      <div class="login-field">
+        <label>Пароль</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="login-btn" id="loginBtn" type="button">Войти →</button>
+      <div class="login-footer">PulseCRM · защищённый доступ</div>
     </div>
-    <button class="login-btn" id="loginBtn" type="button">Войти</button>
-    <div class="login-footer">PulseCRM · защищённый доступ</div>
   </div>
 </div>
 
