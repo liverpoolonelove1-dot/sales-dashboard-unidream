@@ -3595,32 +3595,286 @@ function celebrateGoal(){
   setTimeout(() => container.remove(), 3900);
 }
 
-exportBtn.addEventListener('click', () => {
-  if(lastFunnels.length === 0) return;
-  const rows = [];
-  rows.push(['Воронка','Стадия','Сделок','Сумма'].join(';'));
-  lastFunnels.forEach(f => {
-    f.stages.forEach(s => rows.push([f.name, s.name, s.count, Math.round(s.sum)].join(';')));
+exportBtn.addEventListener('click', () => openReportBuilder());
+
+function openReportBuilder(){
+  if(!lastFunnels.length) return;
+  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const now = new Date();
+  const period = currentPeriod.type === 'month' ? 'Этот месяц' :
+    currentPeriod.type === 'today' ? 'Сегодня' :
+    currentPeriod.type === 'week' ? 'Эта неделя' :
+    currentPeriod.type === 'all' ? 'Всё время' :
+    `${currentPeriod.from} — ${currentPeriod.to}`;
+
+  const html = `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Выберите разделы отчёта</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${[
+          ['rep-kpi','KPI сводка (продажи, конверсия, средний чек)'],
+          ['rep-velocity','Sales Velocity и прогноз'],
+          ['rep-funnels','Воронки продаж по стадиям'],
+          ['rep-managers','Рейтинг менеджеров'],
+          ['rep-sources','Источники лидов'],
+          ['rep-scoring','Скоринг лидов Hot/Warm/Cold'],
+          ['rep-calls','Статистика звонков'],
+          ['rep-tasks','Статистика задач'],
+          ['rep-lost','Причины отказов'],
+        ].map(([id,label]) => `
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
+            <input type="checkbox" id="${id}" checked style="width:15px;height:15px;accent-color:var(--accent-strong);">
+            ${label}
+          </label>`).join('')}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn btn-primary" id="repPdfBtn" style="flex:1;">Скачать PDF</button>
+      <button class="btn btn-ghost" id="repCsvBtn" style="flex:1;">Скачать CSV</button>
+    </div>`;
+
+  openModal('Конструктор отчёта', html);
+
+  document.getElementById('repPdfBtn').addEventListener('click', () => {
+    closeModal();
+    generatePdfReport(currency, period, now);
   });
+
+  document.getElementById('repCsvBtn').addEventListener('click', () => {
+    closeModal();
+    generateCsvReport(currency, period);
+  });
+}
+
+function chk(id){ const el = document.getElementById(id); return el && el.checked; }
+
+function generatePdfReport(currency, period, now){
+  const title = 'PulseCRM — Отчёт по продажам';
+  const date = now.toLocaleDateString('ru-RU', {day:'2-digit',month:'long',year:'numeric'});
+  const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
+  const totalRev = lastMonthRevenue;
+  const avgDeal = lastMonthWonCount>0 ? Math.round(totalRev/lastMonthWonCount) : 0;
+  const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
+
+  // Sales Velocity
+  const closedD = lastDealsFlat.filter(d=>(d.semantic==='S'||d.semantic==='F')&&d.createdAt&&d.updatedAt);
+  const avgCycle = closedD.length>0 ? Math.round(closedD.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closedD.length) : 30;
+  const vel = avgCycle>0 ? Math.round((lastMonthWonCount*avgDeal*conv/100)/avgCycle) : 0;
+  const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const dayOfM = now.getDate();
+  const forecast = Math.round(lastMonthRevenue + (lastMonthRevenue/Math.max(dayOfM,1))*(daysInM-dayOfM));
+
+  // Скоринг
+  const active = lastDealsFlat.filter(d=>d.semantic==='P');
+  const hotL = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)<=3).length;
+  const warmL = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>3&&Math.floor((now-new Date(d.createdAt))/86400000)<=14).length;
+  const coldL = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>14).length;
+
+  const fmt = (n) => fmtMoney(n, currency);
+
+  const sectionKpi = chk('rep-kpi') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">KPI — Ключевые показатели <span class="rep-period">${period}</span></div>
+      <div class="rep-kpi-grid">
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${fmt(totalRev)}</div><div class="rep-kpi-lbl">Продажи (выиграно)</div></div>
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${lastMonthWonCount}</div><div class="rep-kpi-lbl">Выигранных сделок</div></div>
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${conv}%</div><div class="rep-kpi-lbl">Конверсия</div></div>
+        <div class="rep-kpi-card"><div class="rep-kpi-val">${fmt(avgDeal)}</div><div class="rep-kpi-lbl">Средний чек</div></div>
+      </div>
+    </div>` : '';
+
+  const sectionVelocity = chk('rep-velocity') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Sales Velocity и прогноз</div>
+      <table class="rep-table">
+        <tr><td>Sales Velocity (выручка в день)</td><td><b>${fmt(vel)}/день</b></td></tr>
+        <tr><td>Средний цикл сделки</td><td>${avgCycle} дней</td></tr>
+        <tr><td>Прогноз на конец месяца</td><td><b>${fmt(forecast)}</b></td></tr>
+        ${goalAmount>0 ? `<tr><td>Выполнение плана</td><td>${Math.round(100*totalRev/goalAmount)}% (план ${fmt(goalAmount)})</td></tr>` : ''}
+      </table>
+    </div>` : '';
+
+  const sectionFunnels = chk('rep-funnels') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Воронки продаж</div>
+      ${lastFunnels.map(f => {
+        const fConv = (f.wonCount+f.lostCount)>0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
+        return `<div style="margin-bottom:14px;">
+          <div style="font-weight:700;margin-bottom:6px;">${f.name} — ${fmt(f.wonSum)} · конверсия ${fConv}%</div>
+          <table class="rep-table">
+            <tr style="background:#f5f5f5;"><th>Стадия</th><th>Сделок</th><th>Сумма</th></tr>
+            ${f.stages.map(s=>`<tr><td>${s.name}</td><td>${s.count}</td><td>${fmt(s.sum)}</td></tr>`).join('')}
+          </table>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const sectionManagers = chk('rep-managers') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Рейтинг менеджеров</div>
+      <table class="rep-table">
+        <tr style="background:#f5f5f5;"><th>#</th><th>Менеджер</th><th>Сделок</th><th>Продажи</th><th>Конверсия</th><th>Средний чек</th></tr>
+        ${lastManagers.filter(m=>m.id!=='unknown').map((m,i)=>{
+          const c=(m.wonCount+m.lostCount)>0?Math.round(100*m.wonCount/(m.wonCount+m.lostCount)):0;
+          const a=m.wonCount>0?Math.round(m.wonSum/m.wonCount):0;
+          return `<tr><td>${i+1}</td><td>${m.name}</td><td>${m.dealsCount}</td><td>${fmt(m.wonSum)}</td><td>${c}%</td><td>${fmt(a)}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>` : '';
+
+  const srcMap={};
+  lastDealsFlat.forEach(d=>{const s=d.source||'Не указан';if(!srcMap[s])srcMap[s]={total:0,won:0,sum:0};srcMap[s].total++;if(d.semantic==='S'){srcMap[s].won++;srcMap[s].sum+=d.amount;}});
+  const sectionSources = chk('rep-sources') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Источники лидов</div>
+      <table class="rep-table">
+        <tr style="background:#f5f5f5;"><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Конверсия</th><th>Продажи</th></tr>
+        ${Object.entries(srcMap).sort((a,b)=>b[1].total-a[1].total).map(([src,s])=>{
+          const c=(s.won>0&&s.total>0)?Math.round(100*s.won/s.total):0;
+          return `<tr><td>${src}</td><td>${s.total}</td><td>${s.won}</td><td>${c}%</td><td>${fmt(s.sum)}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>` : '';
+
+  const sectionScoring = chk('rep-scoring') ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Скоринг лидов</div>
+      <table class="rep-table">
+        <tr><td>Горячие (0–3 дня)</td><td><b style="color:#ef4444">${hotL}</b></td></tr>
+        <tr><td>Тёплые (4–14 дней)</td><td><b style="color:#f59e0b">${warmL}</b></td></tr>
+        <tr><td>Холодные (14+ дней)</td><td><b style="color:#6b7280">${coldL}</b></td></tr>
+        <tr><td>Всего в работе</td><td>${active.length}</td></tr>
+      </table>
+    </div>` : '';
+
+  const sectionCalls = chk('rep-calls') && lastCallStats ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Статистика звонков</div>
+      <table class="rep-table">
+        <tr><td>Всего</td><td>${lastCallStats.total}</td></tr>
+        <tr><td>Входящие</td><td>${lastCallStats.incoming}</td></tr>
+        <tr><td>Исходящие</td><td>${lastCallStats.outgoing}</td></tr>
+        <tr><td>Успешные</td><td>${lastCallStats.successful}</td></tr>
+        <tr><td>Пропущенные</td><td>${lastCallStats.missed}</td></tr>
+        <tr><td>Общая длительность</td><td>${fmtDuration(lastCallStats.totalDuration)}</td></tr>
+      </table>
+    </div>` : '';
+
+  const taskStats = lastTasksFetched ? aggregateTaskStats(lastRawTasks,'all') : null;
+  const sectionTasks = chk('rep-tasks') && taskStats ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Статистика задач</div>
+      <table class="rep-table">
+        <tr><td>Всего задач</td><td>${taskStats.total}</td></tr>
+        <tr><td>Новые</td><td>${taskStats.neW}</td></tr>
+        <tr><td>В работе</td><td>${taskStats.inProgress}</td></tr>
+        <tr><td>Завершено</td><td>${taskStats.completed}</td></tr>
+        <tr><td>Просрочено</td><td><b style="color:#ef4444">${taskStats.overdue}</b></td></tr>
+      </table>
+    </div>` : '';
+
+  const sectionLost = chk('rep-lost') && lastLostReasons.length ? `
+    <div class="rep-section">
+      <div class="rep-section-title">Причины отказов</div>
+      <table class="rep-table">
+        <tr style="background:#f5f5f5;"><th>Причина (стадия)</th><th>Количество</th><th>Сумма</th></tr>
+        ${lastLostReasons.map(r=>`<tr><td>${r.stageName}</td><td>${r.count}</td><td>${fmt(r.sum)}</td></tr>`).join('')}
+      </table>
+    </div>` : '';
+
+  const printHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  @page { margin: 20mm 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #111; margin: 0; }
+  .rep-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #C6F135; }
+  .rep-logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+  .rep-logo span { color: #A8D416; }
+  .rep-meta { text-align: right; font-size: 11px; color: #666; }
+  .rep-section { margin-bottom: 24px; page-break-inside: avoid; }
+  .rep-section-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; padding: 6px 10px; background: #f5f5f5; border-left: 3px solid #A8D416; }
+  .rep-period { font-size: 11px; font-weight: 400; color: #666; margin-left: 8px; }
+  .rep-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .rep-kpi-card { background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px; text-align: center; }
+  .rep-kpi-val { font-size: 18px; font-weight: 900; margin-bottom: 4px; }
+  .rep-kpi-lbl { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; }
+  .rep-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  .rep-table th, .rep-table td { padding: 7px 8px; border: 1px solid #e5e5e5; text-align: left; }
+  .rep-table th { font-weight: 700; }
+  .rep-footer { margin-top: 32px; padding-top: 10px; border-top: 1px solid #e5e5e5; font-size: 10px; color: #999; display: flex; justify-content: space-between; }
+</style>
+</head><body>
+  <div class="rep-header">
+    <div class="rep-logo">Pulse<span>CRM</span></div>
+    <div class="rep-meta">
+      <div><b>Период:</b> ${period}</div>
+      <div><b>Дата отчёта:</b> ${date}</div>
+    </div>
+  </div>
+  ${sectionKpi}${sectionVelocity}${sectionFunnels}${sectionManagers}${sectionSources}${sectionScoring}${sectionCalls}${sectionTasks}${sectionLost}
+  <div class="rep-footer">
+    <span>PulseCRM — аналитика продаж Битрикс24</span>
+    <span>Сформировано: ${now.toLocaleString('ru-RU')}</span>
+  </div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(printHtml);
+  win.document.close();
+  win.onload = () => { win.print(); };
+}
+
+function generateCsvReport(currency, period){
+  const rows = [];
+  const fmt = n => Math.round(n);
+  const sep = ';';
+
+  rows.push(`PulseCRM — Отчёт по продажам`);
+  rows.push(`Период: ${period}`);
+  rows.push(`Дата: ${new Date().toLocaleDateString('ru-RU')}`);
   rows.push('');
-  if(lastManagers.length > 0){
-    rows.push(['Менеджер','Сделок','Продажи (выиграно)','Конверсия %'].join(';'));
-    lastManagers.forEach(m => {
-      const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
-      rows.push([m.name, m.dealsCount, Math.round(m.wonSum), conv].join(';'));
+
+  rows.push('=== KPI ===');
+  rows.push(['Метрика','Значение'].join(sep));
+  rows.push(['Продажи (выиграно)',fmt(lastMonthRevenue)+' '+currency].join(sep));
+  rows.push(['Выигранных сделок',lastMonthWonCount].join(sep));
+  rows.push(['Конверсия %',(lastMonthWonCount+lastMonthLostCount)>0?Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)):0].join(sep));
+  rows.push(['Средний чек',lastMonthWonCount>0?fmt(lastMonthRevenue/lastMonthWonCount):0].join(sep));
+  rows.push('');
+
+  rows.push('=== ВОРОНКИ ===');
+  rows.push(['Воронка','Стадия','Сделок','Сумма'].join(sep));
+  lastFunnels.forEach(f=>f.stages.forEach(s=>rows.push([f.name,s.name,s.count,fmt(s.sum)].join(sep))));
+  rows.push('');
+
+  if(lastManagers.length>0){
+    rows.push('=== МЕНЕДЖЕРЫ ===');
+    rows.push(['Менеджер','Сделок','Продажи','Конверсия %','Средний чек'].join(sep));
+    lastManagers.filter(m=>m.id!=='unknown').forEach(m=>{
+      const c=(m.wonCount+m.lostCount)>0?Math.round(100*m.wonCount/(m.wonCount+m.lostCount)):0;
+      const a=m.wonCount>0?fmt(m.wonSum/m.wonCount):0;
+      rows.push([m.name,m.dealsCount,fmt(m.wonSum),c,a].join(sep));
     });
+    rows.push('');
   }
-  const csv = rows.join('\n');
-  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+
+  if(lastDealsFlat.length>0){
+    rows.push('=== ИСТОЧНИКИ ЛИДОВ ===');
+    const srcMap={};
+    lastDealsFlat.forEach(d=>{const s=d.source||'Не указан';if(!srcMap[s])srcMap[s]={total:0,won:0,sum:0};srcMap[s].total++;if(d.semantic==='S'){srcMap[s].won++;srcMap[s].sum+=d.amount;}});
+    rows.push(['Источник','Лидов','Выиграно','Продажи'].join(sep));
+    Object.entries(srcMap).sort((a,b)=>b[1].total-a[1].total).forEach(([src,s])=>rows.push([src,s.total,s.won,fmt(s.sum)].join(sep)));
+    rows.push('');
+  }
+
+  const blob = new Blob(['\uFEFF'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `sales-report-${fmtDateISO(new Date())}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.href=url; a.download=`pulsecrm-report-${fmtDateISO(new Date())}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-});
+}
 
 autoRefreshSelect.addEventListener('change', () => {
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
@@ -5413,6 +5667,7 @@ applyLang(); // применяем язык сразу
 (function initFromUrl(){
   // Если список клиентов пуст — логин не нужен, работаем без защиты (режим разработки)
   const authRequired = CLIENT_ACCOUNTS.length > 0;
+
   if(authRequired){
     const session = getSessionAccount();
     if(!session){
