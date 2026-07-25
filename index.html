@@ -880,52 +880,10 @@
 </div>
 
   <div id="landingView">
-
-    <!-- LANDING HERO -->
-    <div class="landing-hero">
-      <div class="glow"></div>
-      <div class="landing-hero-inner">
-        <div class="landing-badge">CRM-аналитика для Битрикс24</div>
-        <h1 class="landing-h1">Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span></h1>
-        <p class="landing-sub">Живые данные из Битрикс24, аналитика по менеджерам, воронкам и источникам рекламы. Без программистов и сложных настроек.</p>
-        <div class="landing-cta-row">
-          <button class="landing-btn-primary" id="landingConnectBtn">Подключить Битрикс24 →</button>
-          <button class="landing-btn-ghost" id="landingDemoBtn">Посмотреть демо</button>
-        </div>
-        <div class="landing-trust">Данные не покидают ваш браузер</div>
-      </div>
-      <div class="landing-hero-visual">
-        <div class="landing-mockup">
-          <div class="lm-bar"><span></span><span></span><span></span></div>
-          <div class="lm-kpis">
-            <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">₸ 4.2M</div><div class="lm-kpi-lbl">Продажи</div></div>
-            <div class="lm-kpi"><div class="lm-kpi-val">234</div><div class="lm-kpi-lbl">Сделок</div></div>
-            <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">68%</div><div class="lm-kpi-lbl">Конверсия</div></div>
-          </div>
-          <div class="lm-chart">
-            <div class="lm-bar-chart">
-              <div class="lm-col" style="height:40%"></div>
-              <div class="lm-col" style="height:65%"></div>
-              <div class="lm-col" style="height:45%"></div>
-              <div class="lm-col" style="height:80%"></div>
-              <div class="lm-col" style="height:55%"></div>
-              <div class="lm-col" style="height:90%"></div>
-              <div class="lm-col" style="height:70%"></div>
-            </div>
-          </div>
-          <div class="lm-managers">
-            <div class="lm-mgr"><div class="lm-mgr-dot" style="background:#C6F135"></div><div class="lm-mgr-bar"><div style="width:85%"></div></div><span>1.8M</span></div>
-            <div class="lm-mgr"><div class="lm-mgr-dot" style="background:#60A5FA"></div><div class="lm-mgr-bar"><div style="width:60%"></div></div><span>1.2M</span></div>
-            <div class="lm-mgr"><div class="lm-mgr-dot" style="background:#F59E0B"></div><div class="lm-mgr-bar"><div style="width:40%"></div></div><span>0.8M</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ФОРМА ПОДКЛЮЧЕНИЯ — широкая на весь экран -->
-    <div class="landing-connect-wrap" id="landingConnectWrap" style="display:none;">
+    <div class="landing-connect-wrap" id="landingConnectWrap">
       <div class="topbar">
         <div>
+          <a href="landing.html" style="font-size:12px;color:var(--ink-soft);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px;">← pulsecrm.uz</a>
           <p class="brand-eyebrow">PulseCRM · Подключение к Битрикс24</p>
           <h2 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;margin:0 0 4px;">Вставьте ссылку вебхука</h2>
           <p class="sub">Данные загрузятся прямо в браузер — без серверов и регистраций</p>
@@ -940,30 +898,6 @@
       </div>
       <div id="statusLine" class="status-line"></div>
       <div class="help" id="helpBox"></div>
-    </div>
-
-    <!-- ФИЧИ -->
-    <div class="landing-features">
-      <div class="landing-feat">
-        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-        <div class="landing-feat-title">Источники рекламы</div>
-        <div class="landing-feat-desc">Видите с какого канала пришёл каждый лид и сколько принёс денег</div>
-      </div>
-      <div class="landing-feat">
-        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-        <div class="landing-feat-title">Аналитика менеджеров</div>
-        <div class="landing-feat-desc">Конверсия, нагрузка по дням, стадии сделок каждого сотрудника</div>
-      </div>
-      <div class="landing-feat">
-        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h6l3 9-3.5 2.5A11 11 0 0 0 14 21h7"/><path d="M21 3h-6l-3 9 3.5 2.5"/></svg></div>
-        <div class="landing-feat-title">Все воронки</div>
-        <div class="landing-feat-desc">Узкие места, зависшие сделки и узнайте где теряются клиенты</div>
-      </div>
-      <div class="landing-feat">
-        <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.65 12 19.79 19.79 0 0 1 1.57 3.42 2 2 0 0 1 3.54 1H6.5a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.52 8.63a16 16 0 0 0 5.85 5.85l1-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg></div>
-        <div class="landing-feat-title">Звонки и задачи</div>
-        <div class="landing-feat-desc">Статистика звонков, просроченные задачи — всё в одном месте</div>
-      </div>
     </div>
   </div>
 </div>
@@ -5622,7 +5556,7 @@ function generateDemoData(){
 
 let isDemoMode = false;
 
-landingDemoBtn && landingDemoBtn.addEventListener('click', () => {
+function startDemoMode(){
   isDemoMode = true;
   const {managers, funnels, deals} = generateDemoData();
   lastFunnels = funnels;
@@ -5664,7 +5598,9 @@ landingDemoBtn && landingDemoBtn.addEventListener('click', () => {
   renderDashboard(funnels, managers, dailyEntries, true, true, lastLostReasons);
   renderChartHero(dailyEntries, 'UZS');
   renderGoalBanner(9900000, 'UZS');
-});
+}
+
+landingDemoBtn && landingDemoBtn.addEventListener('click', startDemoMode);
 
 // ===== БРЕНДИРОВАНИЕ КЛИЕНТА =====
 // Можно задать в CLIENT_ACCOUNTS: { login:'...', hash:'...', webhook:'...', brand:{name:'Название компании', logo:'URL логотипа'} }
@@ -6340,6 +6276,13 @@ applyLang(); // применяем язык сразу
   }
 
   const params = new URLSearchParams(window.location.search);
+
+  if(params.get('demo') === '1'){
+    try{ window.history.replaceState(null, '', window.location.pathname); }catch(e){}
+    startDemoMode();
+    return;
+  }
+
   const wh = params.get('wh');
   if(wh){
     try{
