@@ -283,7 +283,8 @@
   .analytics-section{margin-bottom:36px;}
   .analytics-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;margin:0 0 16px;}
   .analytics-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
-  .analytics-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;text-align:center;}
+  .analytics-card{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--line);border-radius:16px;padding:16px;text-align:center;transition:box-shadow .2s ease, transform .2s ease;}
+  .analytics-card:hover{box-shadow:0 8px 24px var(--shadow-color);transform:translateY(-2px);}
   .analytics-card-val{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;line-height:1;}
   .analytics-card-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin-top:6px;}
   .analytics-table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -292,6 +293,9 @@
   .analytics-table td{padding:10px 0;border-bottom:1px solid var(--line);vertical-align:middle;}
   .analytics-table td:not(:first-child){text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;}
   .analytics-table tr:last-child td{border-bottom:none;}
+  .analytics-table tbody tr{transition:background .12s ease;}
+  .analytics-table tbody tr:hover{background:var(--overlay-1);}
+  .analytics-table tbody tr:hover td{border-color:transparent;}
   .analytics-bar-cell{display:flex;align-items:center;gap:10px;}
   .analytics-bar{flex:1;height:6px;background:var(--overlay-2);border-radius:6px;overflow:hidden;min-width:60px;}
   .analytics-bar-fill{height:100%;border-radius:6px;background:var(--accent-strong);transition:width .4s ease;}
@@ -4688,9 +4692,22 @@ function buildSourcesTab(){
     </tr>`;
   }).join('');
 
+  const totalLeads = deals.length;
+  const totalWonSum = Object.values(map).reduce((a,s)=>a+s.wonSum,0);
+  const totalWon = Object.values(map).reduce((a,s)=>a+s.won,0);
+  const totalLost = Object.values(map).reduce((a,s)=>a+s.lost,0);
+  const avgConv = (totalWon+totalLost)>0 ? Math.round(100*totalWon/(totalWon+totalLost)) : 0;
+  const topSource = Object.entries(map).sort((a,b)=>b[1].total-a[1].total)[0];
+
   return `
     <div class="analytics-section">
       <div class="analytics-title">Источники лидов</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${totalLeads}</div><div class="analytics-card-lbl">Всего лидов</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${fmtMoney(totalWonSum,currency)}</div><div class="analytics-card-lbl">Сумма продаж</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${avgConv}%</div><div class="analytics-card-lbl">Средняя конверсия</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="font-size:16px;">${topSource ? escapeHtml(sourceName(topSource[0])) : '—'}</div><div class="analytics-card-lbl">Лучший источник</div></div>
+      </div>
       <table class="analytics-table">
         <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Конверсия</th><th>Сумма продаж</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -4734,9 +4751,21 @@ function buildDailyTab(){
     </tr>`;
   }).join('');
 
+  const totalLeads = Object.values(map).reduce((a,s)=>a+s.total,0);
+  const totalWonSum = Object.values(map).reduce((a,s)=>a+s.wonSum,0);
+  const bestDay = Object.entries(map).sort((a,b)=>b[1].total-a[1].total)[0];
+  const bestDayLabel = bestDay ? new Date(bestDay[0]).toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'}) : '—';
+  const avgPerDay = Object.keys(map).length ? Math.round(totalLeads/Object.keys(map).length) : 0;
+
   return `
     <div class="analytics-section">
       <div class="analytics-title">Поступление лидов по дням <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(последние 60 дней)</span></div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${totalLeads}</div><div class="analytics-card-lbl">Лидов за период</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${fmtMoney(totalWonSum,currency)}</div><div class="analytics-card-lbl">Сумма продаж</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="font-size:16px;">${bestDayLabel}</div><div class="analytics-card-lbl">Лучший день</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${avgPerDay}</div><div class="analytics-card-lbl">В среднем в день</div></div>
+      </div>
       <table class="analytics-table">
         <thead><tr><th>Дата</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Сумма продаж</th></tr></thead>
         <tbody>${rows}</tbody>
@@ -4748,6 +4777,18 @@ function buildStagesTab(){
   const deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+
+  const totalWon = deals.filter(d=>d.semantic==='S');
+  const overviewCards = `
+    <div class="analytics-section">
+      <div class="analytics-title">Сводка по воронкам</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${lastFunnels.length}</div><div class="analytics-card-lbl">Воронок</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${deals.length}</div><div class="analytics-card-lbl">Всего лидов</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${totalWon.length}</div><div class="analytics-card-lbl">Выиграно</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmtMoney(totalWon.reduce((a,d)=>a+d.amount,0),currency)}</div><div class="analytics-card-lbl">Сумма выиграно</div></div>
+      </div>
+    </div>`;
 
   // Группируем по воронкам и стадиям
   const sections = lastFunnels.map(f => {
@@ -4783,7 +4824,7 @@ function buildStagesTab(){
     </div>`;
   }).join('');
 
-  return sections || '<div class="analytics-empty">Нет данных</div>';
+  return sections ? overviewCards + sections : '<div class="analytics-empty">Нет данных</div>';
 }
 
 function buildManagersLoadTab(){
@@ -4827,7 +4868,20 @@ function buildManagersLoadTab(){
     </div>`;
   }).filter(Boolean).join('');
 
-  return sections || '<div class="analytics-empty">Нет данных по менеджерам</div>';
+  const activeManagers = lastManagers.filter(m => m.id !== 'unknown' && deals.some(d=>String(d.assignedTo)===String(m.id)));
+  const topManager = activeManagers.map(m=>({m, cnt:deals.filter(d=>String(d.assignedTo)===String(m.id)).length})).sort((a,b)=>b.cnt-a.cnt)[0];
+  const overviewCards = `
+    <div class="analytics-section">
+      <div class="analytics-title">Сводка по менеджерам</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${activeManagers.length}</div><div class="analytics-card-lbl">Менеджеров</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${deals.length}</div><div class="analytics-card-lbl">Всего лидов</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="font-size:16px;color:var(--accent-strong)">${topManager ? escapeHtml(topManager.m.name) : '—'}</div><div class="analytics-card-lbl">Лидер по объёму</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${activeManagers.length ? Math.round(deals.length/activeManagers.length) : 0}</div><div class="analytics-card-lbl">В среднем на менеджера</div></div>
+      </div>
+    </div>`;
+
+  return sections ? overviewCards + sections : '<div class="analytics-empty">Нет данных по менеджерам</div>';
 }
 
 function buildClosedTab(){
@@ -4852,7 +4906,19 @@ function buildClosedTab(){
     </tr>`;
   }).join('');
 
+  const wonSum = wonDeals.reduce((a,d)=>a+d.amount,0);
+  const lostSum = lostDeals.reduce((a,d)=>a+d.amount,0);
+  const winRate = (wonDeals.length+lostDeals.length)>0 ? Math.round(100*wonDeals.length/(wonDeals.length+lostDeals.length)) : 0;
+
   return `
+    <div class="analytics-section">
+      <div class="analytics-cards">
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${wonDeals.length}</div><div class="analytics-card-lbl">Выиграно сделок</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${lostDeals.length}</div><div class="analytics-card-lbl">Проиграно сделок</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${winRate}%</div><div class="analytics-card-lbl">Win rate</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmtMoney(wonSum,currency)}</div><div class="analytics-card-lbl">Сумма выиграно</div></div>
+      </div>
+    </div>
     <div class="analytics-section">
       <div class="analytics-title">Выигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${wonDeals.length} сделок</span></div>
       ${wonDeals.length ? `<table class="analytics-table">
