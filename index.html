@@ -94,6 +94,23 @@
 
   .kpis-row{flex:none;}
   .dash-tiles{display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:136px;grid-auto-flow:dense;gap:10px;align-content:start;}
+
+  /* ===== Сайдбар ===== */
+  .dash-body{display:flex;gap:20px;align-items:flex-start;flex:1;min-height:0;}
+  .dash-sidebar{flex:none;width:196px;display:flex;flex-direction:column;gap:2px;position:sticky;top:20px;}
+  .sbnav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:none;background:transparent;color:var(--ink-soft);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;text-align:left;transition:background .12s ease,color .12s ease;}
+  .sbnav-item svg{width:17px;height:17px;flex:none;}
+  .sbnav-item:hover{background:var(--overlay-1);color:var(--ink);}
+  .sbnav-item.active{background:var(--ink);color:var(--accent);}
+  .sbnav-spacer{flex:1;min-height:8px;}
+  .dash-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;}
+  @media(max-width:900px){
+    .dash-body{flex-direction:column;gap:12px;}
+    .dash-sidebar{position:static;width:100%;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .dash-sidebar::-webkit-scrollbar{display:none;}
+    .sbnav-item{flex:none;white-space:nowrap;padding:8px 12px;}
+    .sbnav-spacer{display:none;}
+  }
   .tile{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
   .tile .section-title{flex:none;margin-bottom:8px;}
   .tile-body-scroll{overflow-y:auto;min-height:0;flex:1;}
@@ -951,49 +968,84 @@
     <div class="subscription-banner-text" id="subscriptionBannerText"></div>
     <button class="btn btn-sm" style="background:#EF4444;color:#fff;border:none;" onclick="document.getElementById('subscriptionBanner').style.display='none'">Понятно</button>
   </div>
-  <div id="chartHeroContainer"></div>
-  <div id="goalBannerContainer"></div>
-
-  <div class="periodbar" id="periodBar" style="display:none;">
-    <span id="companyBadge" class="company-badge" style="display:none;"></span>
-    <button class="pbtn" data-period="all">Всё время</button>
-    <button class="pbtn" data-period="today">Сегодня</button>
-    <button class="pbtn" data-period="week">Эта неделя</button>
-    <button class="pbtn active" data-period="month">Этот месяц</button>
-    <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
-    <span id="customRange" class="custom-range" style="display:none;">
-      <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
-      <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
-    </span>
-    <span class="period-hint">период — по дате создания сделки</span>
-    <div class="toolbar2-inline" id="toolbar2">
-      <div class="search-wrap" id="searchWrap" style="display:none;">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="globalSearchInput" class="search-input" placeholder="Поиск по сделкам, клиентам, менеджерам…" autocomplete="off">
-        <button id="searchClearBtn" class="search-clear" style="display:none;" type="button">✕</button>
-      </div>
-      <select id="autoRefreshSelect">
-        <option value="0">Автообновление: выкл</option>
-        <option value="5">Обновлять каждые 5 мин</option>
-        <option value="10">Обновлять каждые 10 мин</option>
-        <option value="30">Обновлять каждые 30 мин</option>
-      </select>
-      <button class="btn btn-ghost" id="analyticsBtn" style="display:none;">Аналитика</button>
-      <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
-    </div>
-    <div class="filter-wrap">
-      <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
+  <div class="dash-body">
+    <nav class="dash-sidebar" id="dashSidebar">
+      <button class="sbnav-item active" data-nav="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Обзор</span>
       </button>
-      <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
+      <button class="sbnav-item" data-nav="funnels">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h6l3 9-3.5 2.5A11 11 0 0 0 14 21h7"/><path d="M21 3h-6l-3 9 3.5 2.5"/></svg>
+        <span>Воронки</span>
+      </button>
+      <button class="sbnav-item" data-nav="managers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Менеджеры</span>
+      </button>
+      <button class="sbnav-item" data-nav="calls">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.65 12 19.79 19.79 0 0 1 1.57 3.42 2 2 0 0 1 3.54 1H6.5a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.52 8.63a16 16 0 0 0 5.85 5.85l1-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
+        <span>Звонки</span>
+      </button>
+      <button class="sbnav-item" data-nav="tasks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Задачи</span>
+      </button>
+      <button class="sbnav-item" data-nav="analytics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Аналитика</span>
+      </button>
+      <div class="sbnav-spacer"></div>
+      <button class="sbnav-item" data-nav="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        <span>Настройки</span>
+      </button>
+    </nav>
+    <div class="dash-main">
+      <div id="chartHeroContainer"></div>
+      <div id="goalBannerContainer"></div>
+
+      <div class="periodbar" id="periodBar" style="display:none;">
+        <span id="companyBadge" class="company-badge" style="display:none;"></span>
+        <button class="pbtn" data-period="all">Всё время</button>
+        <button class="pbtn" data-period="today">Сегодня</button>
+        <button class="pbtn" data-period="week">Эта неделя</button>
+        <button class="pbtn active" data-period="month">Этот месяц</button>
+        <button class="pbtn toggle-btn" data-period="custom">Диапазон дат</button>
+        <span id="customRange" class="custom-range" style="display:none;">
+          <input type="date" id="dateFrom"> <span class="sep">—</span> <input type="date" id="dateTo">
+          <button class="btn btn-primary btn-sm" id="applyRangeBtn">Показать</button>
+        </span>
+        <span class="period-hint">период — по дате создания сделки</span>
+        <div class="toolbar2-inline" id="toolbar2">
+          <div class="search-wrap" id="searchWrap" style="display:none;">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="globalSearchInput" class="search-input" placeholder="Поиск по сделкам, клиентам, менеджерам…" autocomplete="off">
+            <button id="searchClearBtn" class="search-clear" style="display:none;" type="button">✕</button>
+          </div>
+          <select id="autoRefreshSelect">
+            <option value="0">Автообновление: выкл</option>
+            <option value="5">Обновлять каждые 5 мин</option>
+            <option value="10">Обновлять каждые 10 мин</option>
+            <option value="30">Обновлять каждые 30 мин</option>
+          </select>
+          <button class="btn btn-ghost" id="analyticsBtn" style="display:none;">Аналитика</button>
+          <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
+        </div>
+        <div class="filter-wrap">
+          <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
+          </button>
+          <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div id="dupWarning" class="warning-banner" style="display:none;"></div>
+
+      <div id="content"></div>
+
+      <footer><span class="live-dot"></span>обновлено: <span id="updatedAt">—</span></footer>
     </div>
   </div>
-
-  <div id="dupWarning" class="warning-banner" style="display:none;"></div>
-
-  <div id="content"></div>
-
-  <footer><span class="live-dot"></span>обновлено: <span id="updatedAt">—</span></footer>
 </div>
 
 <div id="detailModal" class="modal-overlay" style="display:none;">
@@ -5572,10 +5624,40 @@ function openAnalytics(tab){
 document.getElementById('analyticsBtn').addEventListener('click', () => openAnalytics('sources'));
 document.getElementById('analyticsBackBtn').addEventListener('click', () => {
   document.getElementById('analyticsView').style.display = 'none';
+  setSidebarActive('overview');
 });
 document.getElementById('analyticsTabs').addEventListener('click', e => {
   const tab = e.target.closest('.atab')?.dataset.tab;
   if(tab) openAnalytics(tab);
+});
+
+// ===== Навигация по сайдбару =====
+function setSidebarActive(key){
+  document.querySelectorAll('.sbnav-item').forEach(b => b.classList.toggle('active', b.dataset.nav === key));
+}
+document.getElementById('dashSidebar').addEventListener('click', (e) => {
+  const btn = e.target.closest('.sbnav-item');
+  if(!btn) return;
+  const nav = btn.dataset.nav;
+  setSidebarActive(nav);
+  if(nav === 'overview'){
+    document.getElementById('analyticsView').style.display = 'none';
+  } else if(nav === 'funnels'){
+    openAnalytics('stages');
+  } else if(nav === 'managers'){
+    openAnalytics('managers');
+  } else if(nav === 'analytics'){
+    openAnalytics('sources');
+  } else if(nav === 'calls'){
+    setSidebarActive('overview');
+    openCallsDetail();
+  } else if(nav === 'tasks'){
+    setSidebarActive('overview');
+    openTasksDetail();
+  } else if(nav === 'settings'){
+    setSidebarActive('overview');
+    settingsBtn.click();
+  }
 });
 
 // ===== LANDING СТРАНИЦА =====
