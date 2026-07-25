@@ -199,6 +199,9 @@
 
   /* ===== Демо-баннер ===== */
   .demo-banner{background:linear-gradient(135deg,#1a1f00,#2a3200);border-bottom:2px solid var(--accent);padding:10px 32px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .subscription-banner{background:linear-gradient(135deg,#3B0000,#5B1A00);border-bottom:2px solid var(--red-bad);padding:10px 32px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .subscription-banner-text{font-size:13px;color:#FCA5A5;font-weight:600;}
+  .subscription-banner-text b{color:#fff;}
   .demo-banner-text{font-size:13px;color:var(--accent);font-weight:600;}
   .demo-banner-text span{color:rgba(198,241,53,.6);font-weight:400;}
   .wrap > *{position:relative;z-index:1;}
@@ -853,7 +856,7 @@
       <div class="landing-hero-inner">
         <div class="landing-badge">CRM-аналитика для Битрикс24</div>
         <h1 class="landing-h1">Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span></h1>
-        <p class="landing-sub">Живые данные из Битрикс24, аналитика по менеджерам, воронкам и источникам рекламы. Без программистов, без подписок.</p>
+        <p class="landing-sub">Живые данные из Битрикс24, аналитика по менеджерам, воронкам и источникам рекламы. Без программистов и сложных настроек.</p>
         <div class="landing-cta-row">
           <button class="landing-btn-primary" id="landingConnectBtn">Подключить Битрикс24 →</button>
           <button class="landing-btn-ghost" id="landingDemoBtn">Посмотреть демо</button>
@@ -977,6 +980,11 @@
   <div id="demoBanner" class="demo-banner" style="display:none;">
     <div class="demo-banner-text">Демо-режим <span>· Данные ненастоящие, для демонстрации возможностей</span></div>
     <button class="btn btn-primary btn-sm" id="demoConnectBtn">Подключить реальный Битрикс24 →</button>
+  </div>
+  <!-- Баннер истечения подписки -->
+  <div id="subscriptionBanner" class="subscription-banner" style="display:none;">
+    <div class="subscription-banner-text" id="subscriptionBannerText"></div>
+    <button class="btn btn-sm" style="background:#EF4444;color:#fff;border:none;" onclick="document.getElementById('subscriptionBanner').style.display='none'">Понятно</button>
   </div>
   <div id="chartHeroContainer"></div>
   <div id="goalBannerContainer"></div>
@@ -3950,16 +3958,17 @@ function updatePlanBadge(){
 
 // ===== СИСТЕМА ВХОДА =====
 // Пароли хранятся как SHA-256 хеши — не в открытом виде
-// Формат: { login, hash, webhook?, plan?, brand? }
+// Формат: { login, hash, webhook?, plan?, brand?, expires? }
 // plan: 'starter' | 'business' | 'pro' (по умолчанию 'pro')
+// expires: 'YYYY-MM-DD' — дата истечения подписки (опционально)
 // Генерация хеша: https://emn178.github.io/online-tools/sha256.html
 // Пример: пароль "demo123" → "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791"
 
 const CLIENT_ACCOUNTS = [
-  // Примеры с разными тарифами:
-  // { login: 'client_start',    hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'starter'  },
-  // { login: 'client_business', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'business' },
-  // { login: 'client_pro',      hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'pro'      },
+  // Примеры с разными тарифами и сроками:
+  // { login: 'client1', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'starter',  expires: '2026-12-31' },
+  // { login: 'client2', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'business', expires: '2026-09-01' },
+  // { login: 'client3', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'pro'       }, // без ограничения
 
   // ТЕСТОВЫЙ АККАУНТ (удалите перед релизом):
   { login: 'demo', hash: 'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791', plan: 'pro' }, // demo123
@@ -4048,6 +4057,24 @@ async function attemptLogin(){
     setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro'});
     hideLoginView();
     currentPlan = account.plan || 'pro';
+    // Проверяем срок подписки
+    if(account.expires){
+      const expDate = new Date(account.expires);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const daysLeft = Math.ceil((expDate - today) / 86400000);
+      if(daysLeft < 0){
+        // Подписка истекла — блокируем доступ
+        loginError.style.display = 'block';
+        loginError.textContent = `Подписка истекла ${expDate.toLocaleDateString('ru-RU')}. Обратитесь к менеджеру PulseCRM.`;
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Войти →';
+        return;
+      } else if(daysLeft <= 7){
+        // Скоро истекает — показываем предупреждение после входа
+        setTimeout(() => showSubscriptionWarning(daysLeft, account.expires), 1500);
+      }
+    }
     applyClientBranding(account);
     applyPlanRestrictions();
     // Если у аккаунта зашит вебхук — автоподключаемся
@@ -5548,6 +5575,19 @@ landingDemoBtn && landingDemoBtn.addEventListener('click', () => {
 
 // ===== БРЕНДИРОВАНИЕ КЛИЕНТА =====
 // Можно задать в CLIENT_ACCOUNTS: { login:'...', hash:'...', webhook:'...', brand:{name:'Название компании', logo:'URL логотипа'} }
+function showSubscriptionWarning(daysLeft, expiresDate){
+  const banner = document.getElementById('subscriptionBanner');
+  const text = document.getElementById('subscriptionBannerText');
+  if(!banner || !text) return;
+  const expStr = new Date(expiresDate).toLocaleDateString('ru-RU', {day:'2-digit',month:'long',year:'numeric'});
+  if(daysLeft === 0){
+    text.innerHTML = `<b>Подписка истекает сегодня!</b> Обратитесь к менеджеру PulseCRM для продления.`;
+  } else {
+    text.innerHTML = `<b>Подписка истекает через ${daysLeft} дн.</b> (${expStr}) — обратитесь к менеджеру PulseCRM для продления.`;
+  }
+  banner.style.display = 'flex';
+}
+
 function applyClientBranding(account){
   const bar = document.getElementById('clientBrandBar');
   if(!account || !account.brand) return;
