@@ -3431,6 +3431,10 @@ function openCallsDetail(filterType){
     const statusBadge = isOk
       ? '<span class="badge-ok">Успешный</span>'
       : '<span class="badge-miss">Пропущен</span>';
+    const recordFileId = call.RECORD_FILE_ID;
+    const analyzeBtn = recordFileId
+      ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">🤖 Анализ</button>`
+      : '';
     return `<tr>
       <td>
         <div style="font-weight:600;font-size:12.5px;">${escapeHtml(phone)}</div>
@@ -3439,12 +3443,13 @@ function openCallsDetail(filterType){
       <td>${dirBadge} ${statusBadge}</td>
       <td>${date}</td>
       <td>${durStr}</td>
+      <td>${analyzeBtn}</td>
     </tr>`;
   }).join('');
 
   const table = calls.length > 0
     ? `<div class="modal-list-scroll"><table class="modal-list-table">
-        <thead><tr><th>Номер / Менеджер</th><th style="text-align:center">Тип</th><th>Дата</th><th>Длит.</th></tr></thead>
+        <thead><tr><th>Номер / Менеджер</th><th style="text-align:center">Тип</th><th>Дата</th><th>Длит.</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`
     : `<div class="modal-note">По этому фильтру звонков нет.</div>`;
@@ -4556,6 +4561,48 @@ function buildDashboardContext(){
 
 // AI через Cloudflare Workers прокси — ключ скрыт от клиентов
 const AI_PROXY_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/ai';
+const CALL_ANALYZE_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/analyze-call';
+
+async function analyzeCallRecording(fileId, btnEl){
+  const originalHtml = btnEl.innerHTML;
+  btnEl.disabled = true;
+  btnEl.innerHTML = '<span class="loader-bars"><span></span><span></span><span></span><span></span><span></span></span>Анализирую…';
+  try{
+    const res = await fetch(CALL_ANALYZE_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({fileId})
+    });
+    const data = await res.json();
+    btnEl.disabled = false;
+    btnEl.innerHTML = originalHtml;
+    if(data.error){
+      openModal('Анализ звонка', `<div class="modal-note" style="color:var(--red-bad)">Не удалось проанализировать: ${escapeHtml(data.error)}</div>`);
+      return;
+    }
+    const transcriptHtml = data.transcript
+      ? `<div class="help" style="max-height:220px;overflow-y:auto;white-space:pre-wrap;font-size:12.5px;">${escapeHtml(data.transcript)}</div>`
+      : '<div class="modal-note">Речь не распознана.</div>';
+    openModal('🤖 Анализ звонка', `
+      <div class="analytics-section" style="margin-bottom:16px;">
+        <div class="analytics-title" style="font-size:14px;">Разбор</div>
+        <div style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(data.analysis || 'Нет ответа')}</div>
+      </div>
+      <div class="analytics-section">
+        <div class="analytics-title" style="font-size:14px;">Расшифровка</div>
+        ${transcriptHtml}
+      </div>
+    `);
+  }catch(e){
+    btnEl.disabled = false;
+    btnEl.innerHTML = originalHtml;
+    openModal('Анализ звонка', `<div class="modal-note" style="color:var(--red-bad)">Ошибка соединения: ${escapeHtml(e.message)}</div>`);
+  }
+}
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.call-analyze-btn');
+  if(btn) analyzeCallRecording(btn.dataset.fileId, btn);
+});
 
 async function askGeminiAI(query){
   const context = buildDashboardContext();
