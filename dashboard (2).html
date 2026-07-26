@@ -1283,6 +1283,33 @@ const TRANSLATIONS = {
     top10shown: 'Показаны топ-10 из',
     salesByMonth: 'Динамика продаж по месяцам',
     monthCol: 'Месяц',
+    notEnoughForecastData: 'Недостаточно данных для прогноза (нужно минимум 3 выигранных сделки)',
+    forecastNextMonth: 'Прогноз выручки — следующий месяц',
+    weightedForecastLbl: 'Взвешенный прогноз',
+    linearTrend: 'Линейный тренд',
+    movingAvg3m: 'Скользящее среднее (3м)',
+    pipelineConv: 'Pipeline × конверсия',
+    last6MonthsForecast: 'Последние 6 месяцев + прогноз следующего',
+    forecastLabel: 'прогноз',
+    untilMonthEnd: 'До конца текущего месяца',
+    alreadyEarned: 'Уже заработано',
+    dailyRateLabel: 'Темп в день',
+    daysLeftLabel: 'Осталось дней',
+    forecastEndMonth: 'Прогноз на конец месяца',
+    planExecution: 'Выполнение плана',
+    forecast3months: 'Прогноз на 3 месяца вперёд',
+    movingAvgShort: 'Скользящее среднее',
+    finalForecast: 'Итоговый прогноз',
+    trendMethodology: 'Тренд и методология',
+    salesTrend: 'Тренд продаж',
+    trendGrowing: 'Растущий',
+    trendFalling: 'Падающий',
+    trendStable: 'Стабильный',
+    trendSlope: 'Наклон тренда (в месяц)',
+    pipelineActive: 'Pipeline (активные сделки)',
+    convForCalc: 'Конверсия для расчёта',
+    monthsOfData: 'Месяцев данных',
+    weightedFormulaNote: '<b>Взвешенный прогноз</b> = Линейный тренд × 40% + Скользящее среднее × 40% + Pipeline × конверсия × 20%.<br>Чем больше исторических данных — тем точнее прогноз.',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1452,6 +1479,33 @@ const TRANSLATIONS = {
     top10shown: 'Top-10 ko\'rsatilgan, jami',
     salesByMonth: 'Oylar bo\'yicha savdo dinamikasi',
     monthCol: 'Oy',
+    notEnoughForecastData: 'Prognoz uchun ma\'lumot yetarli emas (kamida 3 ta yutilgan bitim kerak)',
+    forecastNextMonth: 'Daromad prognozi — keyingi oy',
+    weightedForecastLbl: 'Vaznli prognoz',
+    linearTrend: 'Chiziqli trend',
+    movingAvg3m: 'Harakatlanuvchi o\'rtacha (3 oy)',
+    pipelineConv: 'Pipeline × konversiya',
+    last6MonthsForecast: 'Oxirgi 6 oy + keyingi oy prognozi',
+    forecastLabel: 'prognoz',
+    untilMonthEnd: 'Joriy oy oxirigacha',
+    alreadyEarned: 'Allaqachon topilgan',
+    dailyRateLabel: 'Kunlik sur\'at',
+    daysLeftLabel: 'Qolgan kunlar',
+    forecastEndMonth: 'Oy oxiri prognozi',
+    planExecution: 'Reja bajarilishi',
+    forecast3months: '3 oy oldinga prognoz',
+    movingAvgShort: 'Harakatlanuvchi o\'rtacha',
+    finalForecast: 'Yakuniy prognoz',
+    trendMethodology: 'Trend va metodologiya',
+    salesTrend: 'Savdo trendi',
+    trendGrowing: 'O\'sayotgan',
+    trendFalling: 'Tushayotgan',
+    trendStable: 'Barqaror',
+    trendSlope: 'Trend nishabligi (oyiga)',
+    pipelineActive: 'Pipeline (faol bitimlar)',
+    convForCalc: 'Hisoblash uchun konversiya',
+    monthsOfData: 'Ma\'lumot oylari',
+    weightedFormulaNote: '<b>Vaznli prognoz</b> = Chiziqli trend × 40% + Harakatlanuvchi o\'rtacha × 40% + Pipeline × konversiya × 20%.<br>Tarixiy ma\'lumot qancha ko\'p bo\'lsa — prognoz shuncha aniq.',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -5415,7 +5469,7 @@ function buildForecastTab(){
   const fmt = n => fmtMoney(n, currency);
   const now = new Date();
   const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S'&&d.createdAt);
-  if(wonDeals.length < 3) return '<div class="analytics-empty">Недостаточно данных для прогноза (нужно минимум 3 выигранных сделки)</div>';
+  if(wonDeals.length < 3) return `<div class="analytics-empty">${t('notEnoughForecastData')}</div>`;
 
   // === Данные по месяцам ===
   const monthMap = {};
@@ -5495,7 +5549,7 @@ function buildForecastTab(){
   barRows.push(`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
     <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--violet);">${fmt(weightedForecast).split(' ')[0]}</div>
     <div style="width:100%;height:${Math.max(4,fcPct*0.8)}px;background:#A78BFA;border-radius:4px 4px 0 0;border:2px dashed #7C3AED;"></div>
-    <div style="font-size:9px;color:#7C3AED;font-weight:700;">прогноз</div>
+    <div style="font-size:9px;color:#7C3AED;font-weight:700;">${t('forecastLabel')}</div>
   </div>`);
 
   const trendIcon = trend==='up' ? '↑' : trend==='down' ? '↓' : '→';
@@ -5503,47 +5557,47 @@ function buildForecastTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">Прогноз выручки — следующий месяц</div>
+      <div class="analytics-title">${t('forecastNextMonth')}</div>
       <div class="analytics-cards">
         <div class="analytics-card" style="border-top:3px solid #A78BFA;">
           <div class="analytics-card-val" style="color:#7C3AED;">${fmt(weightedForecast)}</div>
-          <div class="analytics-card-lbl">Взвешенный прогноз</div>
+          <div class="analytics-card-lbl">${t('weightedForecastLbl')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${fmt(linearForecast)}</div>
-          <div class="analytics-card-lbl">Линейный тренд</div>
+          <div class="analytics-card-lbl">${t('linearTrend')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${fmt(maForecast)}</div>
-          <div class="analytics-card-lbl">Скользящее среднее (3м)</div>
+          <div class="analytics-card-lbl">${t('movingAvg3m')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${fmt(pipelineForecast)}</div>
-          <div class="analytics-card-lbl">Pipeline × конверсия</div>
+          <div class="analytics-card-lbl">${t('pipelineConv')}</div>
         </div>
       </div>
 
       <div style="display:flex;align-items:flex-end;gap:6px;height:100px;margin:20px 0 8px;padding:0 4px;">
         ${barRows.join('')}
       </div>
-      <div style="font-size:11px;color:var(--ink-soft);text-align:center;">Последние 6 месяцев + прогноз следующего</div>
+      <div style="font-size:11px;color:var(--ink-soft);text-align:center;">${t('last6MonthsForecast')}</div>
     </div>
 
     <div class="analytics-section">
-      <div class="analytics-title">До конца текущего месяца</div>
+      <div class="analytics-title">${t('untilMonthEnd')}</div>
       <table class="analytics-table"><tbody>
-        <tr><td>Уже заработано</td><td style="text-align:right;font-weight:700">${fmt(monthToDate)}</td></tr>
-        <tr><td>Темп в день</td><td style="text-align:right;font-weight:700">${fmt(Math.round(dailyRate))}/день</td></tr>
-        <tr><td>Осталось дней</td><td style="text-align:right;font-weight:700">${daysLeft}</td></tr>
-        <tr><td><b>Прогноз на конец месяца</b></td><td style="text-align:right;font-weight:800;font-size:15px">${fmt(endOfMonthForecast)}</td></tr>
-        ${planPct!==null?`<tr><td>Выполнение плана</td><td style="text-align:right;font-weight:700;color:${planPct>=100?'var(--accent-strong)':'var(--red-bad)'}">${planPct}%</td></tr>`:''}
+        <tr><td>${t('alreadyEarned')}</td><td style="text-align:right;font-weight:700">${fmt(monthToDate)}</td></tr>
+        <tr><td>${t('dailyRateLabel')}</td><td style="text-align:right;font-weight:700">${fmt(Math.round(dailyRate))}${t('perDay')}</td></tr>
+        <tr><td>${t('daysLeftLabel')}</td><td style="text-align:right;font-weight:700">${daysLeft}</td></tr>
+        <tr><td><b>${t('forecastEndMonth')}</b></td><td style="text-align:right;font-weight:800;font-size:15px">${fmt(endOfMonthForecast)}</td></tr>
+        ${planPct!==null?`<tr><td>${t('planExecution')}</td><td style="text-align:right;font-weight:700;color:${planPct>=100?'var(--accent-strong)':'var(--red-bad)'}">${planPct}%</td></tr>`:''}
       </tbody></table>
     </div>
 
     <div class="analytics-section">
-      <div class="analytics-title">Прогноз на 3 месяца вперёд</div>
+      <div class="analytics-title">${t('forecast3months')}</div>
       <table class="analytics-table">
-        <thead><tr><th>Месяц</th><th>Линейный тренд</th><th>Скользящее среднее</th><th>Итоговый прогноз</th></tr></thead>
+        <thead><tr><th>${t('monthCol')}</th><th>${t('linearTrend')}</th><th>${t('movingAvgShort')}</th><th>${t('finalForecast')}</th></tr></thead>
         <tbody>
           ${futureMonths.map(m=>`<tr>
             <td>${m.label}</td>
@@ -5556,17 +5610,16 @@ function buildForecastTab(){
     </div>
 
     <div class="analytics-section">
-      <div class="analytics-title">Тренд и методология</div>
+      <div class="analytics-title">${t('trendMethodology')}</div>
       <table class="analytics-table"><tbody>
-        <tr><td>Тренд продаж</td><td style="text-align:right;font-weight:700;color:${trendColor}">${trendIcon} ${trend==='up'?'Растущий':trend==='down'?'Падающий':'Стабильный'}</td></tr>
-        <tr><td>Наклон тренда (в месяц)</td><td style="text-align:right;font-weight:700">${slope>=0?'+':''}${fmt(Math.round(slope))}</td></tr>
-        <tr><td>Pipeline (активные сделки)</td><td style="text-align:right;font-weight:700">${fmt(pipelineVal)}</td></tr>
-        <tr><td>Конверсия для расчёта</td><td style="text-align:right;font-weight:700">${Math.round(convRate*100)}%</td></tr>
-        <tr><td>Месяцев данных</td><td style="text-align:right;font-weight:700">${months.length}</td></tr>
+        <tr><td>${t('salesTrend')}</td><td style="text-align:right;font-weight:700;color:${trendColor}">${trendIcon} ${trend==='up'?t('trendGrowing'):trend==='down'?t('trendFalling'):t('trendStable')}</td></tr>
+        <tr><td>${t('trendSlope')}</td><td style="text-align:right;font-weight:700">${slope>=0?'+':''}${fmt(Math.round(slope))}</td></tr>
+        <tr><td>${t('pipelineActive')}</td><td style="text-align:right;font-weight:700">${fmt(pipelineVal)}</td></tr>
+        <tr><td>${t('convForCalc')}</td><td style="text-align:right;font-weight:700">${Math.round(convRate*100)}%</td></tr>
+        <tr><td>${t('monthsOfData')}</td><td style="text-align:right;font-weight:700">${months.length}</td></tr>
       </tbody></table>
       <div class="modal-note" style="margin-top:10px;">
-        <b>Взвешенный прогноз</b> = Линейный тренд × 40% + Скользящее среднее × 40% + Pipeline × конверсия × 20%.<br>
-        Чем больше исторических данных — тем точнее прогноз.
+        ${t('weightedFormulaNote')}
       </div>
     </div>
   `;
