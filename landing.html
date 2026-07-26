@@ -21,10 +21,9 @@
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;font-variant-numeric:tabular-nums;}
   html{transition:background .2s ease;} body{transition:background .2s ease, color .2s ease;}
 
-  .theme-toggle{position:fixed;top:16px;right:20px;width:38px;height:38px;border:none;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;transition:background .15s ease;z-index:50;padding:0;}
-  .theme-toggle:hover{background:var(--overlay-2);}
-  .theme-toggle svg{width:20px;height:20px;}
-  @media(max-width:640px){.theme-toggle{top:10px;right:10px;width:32px;height:32px;}.theme-toggle svg{width:16px;height:16px;}}
+  .lang-toggle{position:fixed;top:16px;right:20px;width:38px;height:38px;border:none;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;transition:background .15s ease;z-index:50;padding:0;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;}
+  .lang-toggle:hover{background:var(--overlay-2);}
+  @media(max-width:640px){.lang-toggle{top:10px;right:10px;width:32px;height:32px;}}
 
   #landingView{position:relative;overflow:hidden;}
   .landing-hero{position:relative;display:flex;align-items:center;justify-content:space-between;gap:40px;padding:56px 64px 48px;max-width:1200px;margin:0 auto;flex-wrap:wrap;}
@@ -106,27 +105,28 @@
 </style>
 </head>
 <body>
+<button id="langToggleBtn" class="lang-toggle" title="Язык / Til" aria-label="Язык / Til"><span id="langLabel">RU</span></button>
 
 <div id="landingView">
   <div class="landing-hero">
     <div class="glow"></div>
     <div class="landing-hero-inner">
-      <div class="landing-badge">CRM-аналитика для отделов продаж</div>
-      <h1 class="landing-h1">Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span></h1>
-      <p class="landing-sub">У вашего бизнеса есть пульс — вы просто его не видите. Мы показываем его вживую: воронки, менеджеры, звонки и реклама — в реальном времени.</p>
+      <div class="landing-badge" data-i18n="heroBadge">CRM-аналитика для отделов продаж</div>
+      <h1 class="landing-h1" data-i18n-html="heroTitle">Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span></h1>
+      <p class="landing-sub" data-i18n="heroSub">У вашего бизнеса есть пульс — вы просто его не видите. Мы показываем его вживую: воронки, менеджеры, звонки и реклама — в реальном времени.</p>
       <div class="landing-cta-row">
-        <a class="landing-btn-primary" href="dashboard.html">Подключить Bitrix24 →</a>
-        <a class="landing-btn-ghost" href="dashboard.html?demo=1">Посмотреть демо</a>
+        <a class="landing-btn-primary" href="dashboard.html" data-i18n="ctaPrimary">Подключить Bitrix24 →</a>
+        <a class="landing-btn-ghost" href="dashboard.html?demo=1" data-i18n="ctaDemo">Посмотреть демо</a>
       </div>
-      <div class="landing-trust">Данные не покидают ваш браузер · Bitrix24 уже доступен, amoCRM и другие CRM — скоро</div>
+      <div class="landing-trust" data-i18n="heroTrust">Данные не покидают ваш браузер · Bitrix24 уже доступен, amoCRM и другие CRM — скоро</div>
     </div>
     <div class="landing-hero-visual">
       <div class="landing-mockup">
         <div class="lm-bar"><span></span><span></span><span></span></div>
         <div class="lm-kpis">
-          <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">₸ 4.2M</div><div class="lm-kpi-lbl">Продажи</div></div>
-          <div class="lm-kpi"><div class="lm-kpi-val">234</div><div class="lm-kpi-lbl">Сделок</div></div>
-          <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">68%</div><div class="lm-kpi-lbl">Конверсия</div></div>
+          <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">₸ 4.2M</div><div class="lm-kpi-lbl" data-i18n="mockSales">Продажи</div></div>
+          <div class="lm-kpi"><div class="lm-kpi-val">234</div><div class="lm-kpi-lbl" data-i18n="mockDeals">Сделок</div></div>
+          <div class="lm-kpi"><div class="lm-kpi-val" style="color:var(--accent-strong)">68%</div><div class="lm-kpi-lbl" data-i18n="mockConv">Конверсия</div></div>
         </div>
         <div class="lm-chart">
           <div class="lm-bar-chart">
@@ -151,32 +151,32 @@
   <div class="landing-features">
     <div class="landing-feat">
       <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-      <div class="landing-feat-title">Источники рекламы</div>
-      <div class="landing-feat-desc">Видите с какого канала пришёл каждый лид и сколько принёс денег</div>
+      <div class="landing-feat-title" data-i18n="feat1Title">Источники рекламы</div>
+      <div class="landing-feat-desc" data-i18n="feat1Desc">Видите с какого канала пришёл каждый лид и сколько принёс денег</div>
     </div>
     <div class="landing-feat">
       <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-      <div class="landing-feat-title">Аналитика менеджеров</div>
-      <div class="landing-feat-desc">Конверсия, нагрузка по дням, стадии сделок каждого сотрудника</div>
+      <div class="landing-feat-title" data-i18n="feat2Title">Аналитика менеджеров</div>
+      <div class="landing-feat-desc" data-i18n="feat2Desc">Конверсия, нагрузка по дням, стадии сделок каждого сотрудника</div>
     </div>
     <div class="landing-feat">
       <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h6l3 9-3.5 2.5A11 11 0 0 0 14 21h7"/><path d="M21 3h-6l-3 9 3.5 2.5"/></svg></div>
-      <div class="landing-feat-title">Все воронки</div>
-      <div class="landing-feat-desc">Узкие места, зависшие сделки и узнайте где теряются клиенты</div>
+      <div class="landing-feat-title" data-i18n="feat3Title">Все воронки</div>
+      <div class="landing-feat-desc" data-i18n="feat3Desc">Узкие места, зависшие сделки и узнайте где теряются клиенты</div>
     </div>
     <div class="landing-feat">
       <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.65 12 19.79 19.79 0 0 1 1.57 3.42 2 2 0 0 1 3.54 1H6.5a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.52 8.63a16 16 0 0 0 5.85 5.85l1-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg></div>
-      <div class="landing-feat-title">Звонки и задачи</div>
-      <div class="landing-feat-desc">Статистика звонков, просроченные задачи — всё в одном месте</div>
+      <div class="landing-feat-title" data-i18n="feat4Title">Звонки и задачи</div>
+      <div class="landing-feat-desc" data-i18n="feat4Desc">Статистика звонков, просроченные задачи — всё в одном месте</div>
     </div>
   </div>
 
   <div class="landing-about" id="about">
     <div class="landing-about-inner">
-      <div class="landing-badge">О нас</div>
+      <div class="landing-badge" data-i18n="aboutBadge">О нас</div>
       <div class="landing-about-card">
-        <p class="landing-about-text">PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.</p>
-        <p class="landing-about-text">Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.</p>
+        <p class="landing-about-text" data-i18n="aboutText1">PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.</p>
+        <p class="landing-about-text" data-i18n="aboutText2">Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.</p>
       </div>
     </div>
   </div>
@@ -185,58 +185,177 @@
     <div class="landing-setup-card">
       <div class="landing-setup-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
       <div>
-        <div class="landing-setup-title">Настроим лично, а не отдадим инструкцию</div>
-        <div class="landing-setup-desc">Не просто присылаем ссылку на дашборд — сами подключим вебхук в вашем Bitrix24, настроим нужные права доступа и поможем с первым запуском. Разбираться самостоятельно не придётся.</div>
+        <div class="landing-setup-title" data-i18n="setupTitle">Настроим лично, а не отдадим инструкцию</div>
+        <div class="landing-setup-desc" data-i18n="setupDesc">Не просто присылаем ссылку на дашборд — сами подключим вебхук в вашем Bitrix24, настроим нужные права доступа и поможем с первым запуском. Разбираться самостоятельно не придётся.</div>
       </div>
     </div>
   </div>
 
   <div class="landing-pricing" id="pricing">
     <div class="landing-pricing-head">
-      <div class="landing-badge">Тарифы</div>
-      <h2 class="landing-pricing-title">Выберите план под ваш отдел продаж</h2>
+      <div class="landing-badge" data-i18n="pricingBadge">Тарифы</div>
+      <h2 class="landing-pricing-title" data-i18n="pricingTitle">Выберите план под ваш отдел продаж</h2>
     </div>
     <div class="landing-pricing-grid">
       <div class="pricing-card">
-        <div class="pricing-name">Старт</div>
-        <div class="pricing-price"><b style="color:var(--ink);font-size:20px;font-family:'Space Grotesk',sans-serif;">350 000 UZS</b> / мес</div>
+        <div class="pricing-name" data-i18n="planStartName">Старт</div>
+        <div class="pricing-price"><b style="color:var(--ink);font-size:20px;font-family:'Space Grotesk',sans-serif;">350 000 UZS</b> <span data-i18n="perMonth">/ мес</span></div>
         <ul class="pricing-list">
-          <li>KPI и сводка по продажам</li>
-          <li>График продаж + план на период</li>
-          <li>Воронки сделок</li>
-          <li>Аналитика по менеджерам</li>
+          <li data-i18n="planStartF1">KPI и сводка по продажам</li>
+          <li data-i18n="planStartF2">График продаж + план на период</li>
+          <li data-i18n="planStartF3">Воронки сделок</li>
+          <li data-i18n="planStartF4">Аналитика по менеджерам</li>
         </ul>
-        <a class="landing-btn-ghost pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Старт">Оставить заявку</a>
+        <a class="landing-btn-ghost pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Старт" data-i18n="applyBtn">Оставить заявку</a>
       </div>
       <div class="pricing-card featured">
-        <div class="pricing-badge">Популярный</div>
-        <div class="pricing-name">Бизнес</div>
-        <div class="pricing-price"><b style="color:var(--accent-strong);font-size:20px;font-family:'Space Grotesk',sans-serif;">500 000 UZS</b> / мес</div>
+        <div class="pricing-badge" data-i18n="popularBadge">Популярный</div>
+        <div class="pricing-name" data-i18n="planBizName">Бизнес</div>
+        <div class="pricing-price"><b style="color:var(--accent-strong);font-size:20px;font-family:'Space Grotesk',sans-serif;">500 000 UZS</b> <span data-i18n="perMonth">/ мес</span></div>
         <ul class="pricing-list">
-          <li>Всё из тарифа «Старт»</li>
-          <li>Причины отказов</li>
-          <li>Статистика звонков</li>
-          <li>Контроль задач и дедлайнов</li>
-          <li>Средний чек, лучший менеджер, крупнейшая сделка, Sales Velocity, прогноз, скоринг лидов</li>
+          <li data-i18n="planBizF1">Всё из тарифа «Старт»</li>
+          <li data-i18n="planBizF2">Причины отказов</li>
+          <li data-i18n="planBizF3">Статистика звонков</li>
+          <li data-i18n="planBizF4">Контроль задач и дедлайнов</li>
+          <li data-i18n="planBizF5">Средний чек, лучший менеджер, крупнейшая сделка, Sales Velocity, прогноз, скоринг лидов</li>
         </ul>
-        <a class="landing-btn-primary pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Бизнес">Оставить заявку</a>
+        <a class="landing-btn-primary pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Бизнес" data-i18n="applyBtn">Оставить заявку</a>
       </div>
       <div class="pricing-card">
-        <div class="pricing-name">Про</div>
-        <div class="pricing-price"><b style="color:var(--ink);font-size:16px;font-family:'Space Grotesk',sans-serif;">Индивидуально</b><br><span style="font-size:11.5px;">зависит от объёма и задач</span></div>
+        <div class="pricing-name" data-i18n="planProName">Про</div>
+        <div class="pricing-price"><b style="color:var(--ink);font-size:16px;font-family:'Space Grotesk',sans-serif;" data-i18n="planProPrice">Индивидуально</b><br><span style="font-size:11.5px;" data-i18n="planProPriceNote">зависит от объёма и задач</span></div>
         <ul class="pricing-list">
-          <li>Всё из тарифа «Бизнес»</li>
-          <li>Полная аналитика — источники, LTV/ROI, финансы и ещё 6 разделов</li>
-          <li>Редактор интерфейса дашборда</li>
-          <li>ИИ-анализ звонков</li>
+          <li data-i18n="planProF1">Всё из тарифа «Бизнес»</li>
+          <li data-i18n="planProF2">Полная аналитика — источники, LTV/ROI, финансы и ещё 6 разделов</li>
+          <li data-i18n="planProF3">Редактор интерфейса дашборда</li>
+          <li data-i18n="planProF4">ИИ-анализ звонков</li>
         </ul>
-        <a class="landing-btn-ghost pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Про">Оставить заявку</a>
+        <a class="landing-btn-ghost pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Про" data-i18n="applyBtn">Оставить заявку</a>
       </div>
     </div>
   </div>
 </div>
 
 <footer>PulseCRM © 2026</footer>
+
+<script>
+const LANDING_TRANSLATIONS = {
+  ru: {
+    heroBadge: 'CRM-аналитика для отделов продаж',
+    heroTitle: 'Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span>',
+    heroSub: 'У вашего бизнеса есть пульс — вы просто его не видите. Мы показываем его вживую: воронки, менеджеры, звонки и реклама — в реальном времени.',
+    ctaPrimary: 'Подключить Bitrix24 →',
+    ctaDemo: 'Посмотреть демо',
+    heroTrust: 'Данные не покидают ваш браузер · Bitrix24 уже доступен, amoCRM и другие CRM — скоро',
+    mockSales: 'Продажи', mockDeals: 'Сделок', mockConv: 'Конверсия',
+    feat1Title: 'Источники рекламы',
+    feat1Desc: 'Видите с какого канала пришёл каждый лид и сколько принёс денег',
+    feat2Title: 'Аналитика менеджеров',
+    feat2Desc: 'Конверсия, нагрузка по дням, стадии сделок каждого сотрудника',
+    feat3Title: 'Все воронки',
+    feat3Desc: 'Узкие места, зависшие сделки и узнайте где теряются клиенты',
+    feat4Title: 'Звонки и задачи',
+    feat4Desc: 'Статистика звонков, просроченные задачи — всё в одном месте',
+    aboutBadge: 'О нас',
+    aboutText1: 'PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.',
+    aboutText2: 'Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.',
+    setupTitle: 'Настроим лично, а не отдадим инструкцию',
+    setupDesc: 'Не просто присылаем ссылку на дашборд — сами подключим вебхук в вашем Bitrix24, настроим нужные права доступа и поможем с первым запуском. Разбираться самостоятельно не придётся.',
+    pricingBadge: 'Тарифы',
+    pricingTitle: 'Выберите план под ваш отдел продаж',
+    planStartName: 'Старт', perMonth: '/ мес',
+    planStartF1: 'KPI и сводка по продажам',
+    planStartF2: 'График продаж + план на период',
+    planStartF3: 'Воронки сделок',
+    planStartF4: 'Аналитика по менеджерам',
+    applyBtn: 'Оставить заявку',
+    popularBadge: 'Популярный',
+    planBizName: 'Бизнес',
+    planBizF1: 'Всё из тарифа «Старт»',
+    planBizF2: 'Причины отказов',
+    planBizF3: 'Статистика звонков',
+    planBizF4: 'Контроль задач и дедлайнов',
+    planBizF5: 'Средний чек, лучший менеджер, крупнейшая сделка, Sales Velocity, прогноз, скоринг лидов',
+    planProName: 'Про',
+    planProPrice: 'Индивидуально',
+    planProPriceNote: 'зависит от объёма и задач',
+    planProF1: 'Всё из тарифа «Бизнес»',
+    planProF2: 'Полная аналитика — источники, LTV/ROI, финансы и ещё 6 разделов',
+    planProF3: 'Редактор интерфейса дашборда',
+    planProF4: 'ИИ-анализ звонков',
+  },
+  uz: {
+    heroBadge: 'Savdo bo\'limlari uchun CRM-tahlili',
+    heroTitle: 'Barcha savdolar —<br><span class="landing-h1-accent">bitta dashboardda</span>',
+    heroSub: 'Sizning biznesingizning pulsi bor — siz uni shunchaki ko\'rmayapsiz. Biz uni jonli ko\'rsatamiz: voronkalar, menejerlar, qo\'ng\'iroqlar va reklama — real vaqtda.',
+    ctaPrimary: 'Bitrix24 ni ulash →',
+    ctaDemo: 'Demoni ko\'rish',
+    heroTrust: 'Ma\'lumotlar brauzeringizdan chiqmaydi · Bitrix24 allaqachon mavjud, amoCRM va boshqa CRM\'lar — tez orada',
+    mockSales: 'Savdo', mockDeals: 'Bitimlar', mockConv: 'Konversiya',
+    feat1Title: 'Reklama manbalari',
+    feat1Desc: 'Har bir lid qaysi kanaldan kelganini va qancha pul keltirganini ko\'rasiz',
+    feat2Title: 'Menejerlar tahlili',
+    feat2Desc: 'Har bir xodimning konversiyasi, kunlik yuklamasi, bitim bosqichlari',
+    feat3Title: 'Barcha voronkalar',
+    feat3Desc: 'Tor joylar, to\'xtab qolgan bitimlar va mijozlar qayerda yo\'qolayotganini bilib oling',
+    feat4Title: 'Qo\'ng\'iroqlar va vazifalar',
+    feat4Desc: 'Qo\'ng\'iroqlar statistikasi, muddati o\'tgan vazifalar — barchasi bir joyda',
+    aboutBadge: 'Biz haqimizda',
+    aboutText1: 'PulseCRM oddiy bir kuzatuvdan paydo bo\'ldi: O\'zbekistondagi ko\'pchilik savdo bo\'limlarida ma\'lumotlar allaqachon bor — Bitrix24\'da, qo\'ng\'iroqlarda, yozishmalarda. Shunchaki hech kim ularni jonli ko\'rmaydi. Rahbarlar muammolar haqida keyin bilib olishadi — bitim allaqachon yo\'qotilganda, menejer esa ikkinchi haftadir mijozlarga javob bermayotganda.',
+    aboutText2: 'Biz bitta dashboard yaratamiz — bularning barchasini darhol ko\'rsatadi, hisobot kutmasdan, Excel\'siz. Qarorlar taxminlarga emas, faktlarga asoslanib qabul qilinishi uchun.',
+    setupTitle: 'Shaxsan sozlab beramiz, ko\'rsatma bilan qoldirmaymiz',
+    setupDesc: 'Shunchaki dashboard havolasini yubormaymiz — Bitrix24\'ingizda vebhukni o\'zimiz ulaymiz, kerakli huquqlarni sozlaymiz va birinchi ishga tushirishda yordam beramiz. Mustaqil tushunishga to\'g\'ri kelmaydi.',
+    pricingBadge: 'Tariflar',
+    pricingTitle: 'Savdo bo\'limingiz uchun tarifni tanlang',
+    planStartName: 'Start', perMonth: '/ oy',
+    planStartF1: 'KPI va savdo xulosasi',
+    planStartF2: 'Savdo grafigi + davr uchun reja',
+    planStartF3: 'Bitimlar voronkasi',
+    planStartF4: 'Menejerlar bo\'yicha tahlil',
+    applyBtn: 'Ariza qoldirish',
+    popularBadge: 'Mashhur',
+    planBizName: 'Biznes',
+    planBizF1: '«Start» tarifidagi hammasi',
+    planBizF2: 'Rad etish sabablari',
+    planBizF3: 'Qo\'ng\'iroqlar statistikasi',
+    planBizF4: 'Vazifalar va muddatlarni nazorat qilish',
+    planBizF5: 'O\'rtacha chek, eng yaxshi menejer, eng katta bitim, Sales Velocity, prognoz, lidlarni baholash',
+    planProName: 'Pro',
+    planProPrice: 'Individual',
+    planProPriceNote: 'hajm va vazifalarga bog\'liq',
+    planProF1: '«Biznes» tarifidagi hammasi',
+    planProF2: 'To\'liq tahlil — manbalar, LTV/ROI, moliya va yana 6 bo\'lim',
+    planProF3: 'Dashboard interfeysi muharriri',
+    planProF4: 'Qo\'ng\'iroqlarni AI bilan tahlil qilish',
+  }
+};
+
+let landingLang = (() => { try{ return localStorage.getItem('salesPulseLang') || 'ru'; }catch(e){ return 'ru'; } })();
+
+function applyLandingLang(){
+  const dict = LANDING_TRANSLATIONS[landingLang] || LANDING_TRANSLATIONS.ru;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if(dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    const key = el.dataset.i18nHtml;
+    if(dict[key] !== undefined) el.innerHTML = dict[key];
+  });
+  const label = document.getElementById('langLabel');
+  if(label) label.textContent = landingLang.toUpperCase();
+  document.documentElement.lang = landingLang;
+}
+
+const langToggleBtn = document.getElementById('langToggleBtn');
+langToggleBtn.addEventListener('click', () => {
+  landingLang = landingLang === 'ru' ? 'uz' : 'ru';
+  try{ localStorage.setItem('salesPulseLang', landingLang); }catch(e){}
+  applyLandingLang();
+});
+
+applyLandingLang();
+</script>
 
 </body>
 </html>
