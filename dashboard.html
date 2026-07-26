@@ -2308,6 +2308,12 @@ async function callMethodRaw(webhook, method, qs, attempt){
   }catch(e){
     clearTimeout(timeout);
     if(e.name === 'AbortError') throw new Error('Превышено время ожидания (15 сек). Проверьте соединение.');
+    // Сбой на уровне самого браузера (обрыв соединения, временная блокировка CORS,
+    // "Load failed" в Safari) — раньше падало сразу без повтора. Теперь пробуем ещё раз с паузой.
+    if(e instanceof TypeError && attempt < 3){
+      await sleep(500 * (attempt + 1));
+      return callMethodRaw(webhook, method, qs, attempt + 1);
+    }
     throw e;
   }
 }
