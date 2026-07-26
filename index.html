@@ -9,16 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #F7F6F3; --surface: #FFFFFF; --ink: #0F1014; --ink-soft: #64676F;
-    --line: #E4E2DB; --accent: #C6F135; --accent-strong: #A8D416; --accent-ink: #2C3600;
-    --shadow-lg: rgba(15,16,20,0.14); --overlay-2: rgba(0,0,0,0.07);
+    --bg: #FAFAF9; --surface: #FFFFFF; --ink: #0F1014; --ink-soft: #6B6F76;
+    --line: rgba(15,16,20,0.09); --accent: #C6F135; --accent-strong: #A8D416; --accent-ink: #2C3600;
+    --shadow-lg: rgba(15,16,20,0.10); --overlay-2: rgba(0,0,0,0.06);
   }
   html[data-theme="dark"]{
-    --bg: #0D0E11; --surface: #161719; --ink: #EEECEA; --ink-soft: #8F9199;
-    --line: #272830; --shadow-lg: rgba(0,0,0,0.6); --overlay-2: rgba(255,255,255,0.09);
+    --bg: #08090A; --surface: #131415; --ink: #F7F8F8; --ink-soft: #8A8F98;
+    --line: rgba(255,255,255,0.09); --shadow-lg: rgba(0,0,0,0.5); --overlay-2: rgba(255,255,255,0.08);
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;font-variant-numeric:tabular-nums;}
   html{transition:background .2s ease;} body{transition:background .2s ease, color .2s ease;}
 
   .theme-toggle{position:fixed;top:16px;right:20px;width:38px;height:38px;border:none;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%;transition:background .15s ease;z-index:50;padding:0;}
