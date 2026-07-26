@@ -1395,6 +1395,20 @@ const TRANSLATIONS = {
     wonShortCol: 'Выигр.',
     lostShortCol: 'Провал.',
     noDataForPeriod: 'Нет данных за период.',
+    allChip: 'Все',
+    durationLbl: 'Длительность',
+    numberManagerCol: 'Номер / Менеджер',
+    typeCol: 'Тип',
+    dateShortCol: 'Дата',
+    durShortCol: 'Длит.',
+    noCallsFilter: 'По этому фильтру звонков нет.',
+    last100shown: 'Показаны последние 100 из',
+    callsWord: 'звонков',
+    incomingBadge: '↙ Входящий',
+    outgoingBadge: '↗ Исходящий',
+    successBadge: 'Успешный',
+    missedBadge: 'Пропущен',
+    analyzeBtnLabel: '🤖 Анализ',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1676,6 +1690,20 @@ const TRANSLATIONS = {
     wonShortCol: 'Yutildi',
     lostShortCol: 'Yutqazildi',
     noDataForPeriod: 'Davr uchun ma\'lumot yo\'q.',
+    allChip: 'Barchasi',
+    durationLbl: 'Davomiylik',
+    numberManagerCol: 'Raqam / Menejer',
+    typeCol: 'Turi',
+    dateShortCol: 'Sana',
+    durShortCol: 'Davomiyligi',
+    noCallsFilter: 'Bu filtr bo\'yicha qo\'ng\'iroqlar yo\'q.',
+    last100shown: 'Oxirgi 100 tasi ko\'rsatilgan, jami',
+    callsWord: 'qo\'ng\'iroq',
+    incomingBadge: '↙ Kiruvchi',
+    outgoingBadge: '↗ Chiquvchi',
+    successBadge: 'Muvaffaqiyatli',
+    missedBadge: 'O\'tkazib yuborilgan',
+    analyzeBtnLabel: '🤖 Tahlil',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -3889,24 +3917,24 @@ function openCallsDetail(filterType){
   // Итоговая строка
   const summary = `
     <div class="modal-summary-row">
-      <div class="modal-summary-cell"><div class="val">${c.incoming}</div><div class="lbl">Входящие</div></div>
-      <div class="modal-summary-cell"><div class="val">${c.outgoing}</div><div class="lbl">Исходящие</div></div>
-      <div class="modal-summary-cell"><div class="val">${c.successful}</div><div class="lbl">Успешные</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.incoming}</div><div class="lbl">${t('incoming')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.outgoing}</div><div class="lbl">${t('outgoing')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.successful}</div><div class="lbl">${t('successful')}</div></div>
     </div>
     <div class="modal-summary-row">
-      <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${c.missed}</div><div class="lbl">Пропущено</div></div>
-      <div class="modal-summary-cell"><div class="val">${c.total}</div><div class="lbl">Всего</div></div>
-      <div class="modal-summary-cell"><div class="val">${fmtDuration(c.totalDuration)}</div><div class="lbl">Длительность</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${c.missed}</div><div class="lbl">${t('missed')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.total}</div><div class="lbl">${t('totalShort')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${fmtDuration(c.totalDuration)}</div><div class="lbl">${t('durationLbl')}</div></div>
     </div>
   `;
 
   // Фильтр-чипсы
   const chips = [
-    {key:'all', label:'Все'},
-    {key:'in', label:'Входящие'},
-    {key:'out', label:'Исходящие'},
-    {key:'ok', label:'Успешные'},
-    {key:'miss', label:'Пропущенные'}
+    {key:'all', label:t('allChip')},
+    {key:'in', label:t('incoming')},
+    {key:'out', label:t('outgoing')},
+    {key:'ok', label:t('successful')},
+    {key:'miss', label:t('missed')}
   ].map(ch => `<span class="modal-filter-chip ${filterType===ch.key?'active':''}" data-calls-filter="${ch.key}">${ch.label}</span>`).join('');
 
   // Список звонков с фильтром
@@ -3929,14 +3957,14 @@ function openCallsDetail(filterType){
     const durStr = dur > 0 ? fmtDuration(dur) : '—';
     const phone = call.PHONE_NUMBER || call.CALLER_ID || '—';
     const dirBadge = isIn
-      ? '<span class="badge-in">↙ Входящий</span>'
-      : '<span class="badge-out">↗ Исходящий</span>';
+      ? `<span class="badge-in">${t('incomingBadge')}</span>`
+      : `<span class="badge-out">${t('outgoingBadge')}</span>`;
     const statusBadge = isOk
-      ? '<span class="badge-ok">Успешный</span>'
-      : '<span class="badge-miss">Пропущен</span>';
+      ? `<span class="badge-ok">${t('successBadge')}</span>`
+      : `<span class="badge-miss">${t('missedBadge')}</span>`;
     const recordFileId = call.RECORD_FILE_ID;
     const analyzeBtn = recordFileId
-      ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">🤖 Анализ</button>`
+      ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">${t('analyzeBtnLabel')}</button>`
       : '';
     return `<tr>
       <td>
@@ -3952,18 +3980,18 @@ function openCallsDetail(filterType){
 
   const table = calls.length > 0
     ? `<div class="modal-list-scroll"><table class="modal-list-table">
-        <thead><tr><th>Номер / Менеджер</th><th style="text-align:center">Тип</th><th>Дата</th><th>Длит.</th><th></th></tr></thead>
+        <thead><tr><th>${t('numberManagerCol')}</th><th style="text-align:center">${t('typeCol')}</th><th>${t('dateShortCol')}</th><th>${t('durShortCol')}</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`
-    : `<div class="modal-note">По этому фильтру звонков нет.</div>`;
+    : `<div class="modal-note">${t('noCallsFilter')}</div>`;
 
-  const note = calls.length > 100 ? `<div class="modal-note">Показаны последние 100 из ${calls.length} звонков.</div>` : '';
+  const note = calls.length > 100 ? `<div class="modal-note">${t('last100shown')} ${calls.length} ${t('callsWord')}.</div>` : '';
 
   const html = summary
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
     + table + note;
 
-  openModal(`Звонки (${c.total})`, html);
+  openModal(`${t('calls')} (${c.total})`, html);
   document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
 }
 
