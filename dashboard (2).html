@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -784,7 +784,6 @@
 <button id="langToggleBtn" class="theme-toggle" title="Язык / Til" aria-label="Язык / Til">
   <span id="langLabel" style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;">RU</span>
 </button>
-<button id="themeToggleBtn" class="theme-toggle" title="Переключить тему" aria-label="Переключить тему"></button>
 </div>
 
 <!-- Панель уведомлений -->
@@ -856,7 +855,6 @@
 
 <div id="shortcutsPanel" class="filter-panel shortcuts-panel" style="display:none;">
   <div class="shortcut-row"><kbd>R</kbd><span>Обновить данные</span></div>
-  <div class="shortcut-row"><kbd>T</kbd><span>Переключить тему</span></div>
   <div class="shortcut-row"><kbd>1</kbd><span>Период: всё время</span></div>
   <div class="shortcut-row"><kbd>2</kbd><span>Период: сегодня</span></div>
   <div class="shortcut-row"><kbd>3</kbd><span>Период: неделя</span></div>
@@ -1303,26 +1301,6 @@ langToggleBtn.addEventListener('click', () => {
   if(lastFunnels.length > 0) rerenderCached();
 });
 
-const themeToggleBtn = document.getElementById('themeToggleBtn');
-
-const MOON_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>`;
-const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
-
-function applyThemeIcon(){
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  themeToggleBtn.innerHTML = isDark ? SUN_ICON : MOON_ICON;
-  themeToggleBtn.title = isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему';
-}
-
-themeToggleBtn.addEventListener('click', () => {
-  const html = document.documentElement;
-  const isDark = html.getAttribute('data-theme') === 'dark';
-  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  applyThemeIcon();
-});
-
-applyThemeIcon();
-
 let currentPeriod = (() => { const r = computePeriod('month'); return {type: 'month', from: r.from, to: r.to}; })();
 let lastFunnels = [];
 let lastManagers = [];
@@ -1598,9 +1576,6 @@ document.addEventListener('keydown', (e) => {
 
   if(e.key === 'r' || e.key === 'R'){
     if(currentConn){ e.preventDefault(); loadDashboard(); }
-  } else if(e.key === 't' || e.key === 'T'){
-    e.preventDefault();
-    themeToggleBtn.click();
   } else if(PERIOD_SHORTCUTS[e.key] && periodBar.style.display !== 'none'){
     const btn = document.querySelector(`.pbtn[data-period="${PERIOD_SHORTCUTS[e.key]}"]`);
     if(btn){ e.preventDefault(); btn.click(); }

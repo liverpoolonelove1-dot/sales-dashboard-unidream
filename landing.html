@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -74,7 +74,6 @@
 </style>
 </head>
 <body>
-<button id="themeToggleBtn" class="theme-toggle" title="Переключить тему" aria-label="Переключить тему"></button>
 
 <div id="landingView">
   <div class="landing-hero">
@@ -143,22 +142,5 @@
 
 <footer>PulseCRM © 2026</footer>
 
-<script>
-const SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
-const MOON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-const themeToggleBtn = document.getElementById('themeToggleBtn');
-function applyThemeIcon(){
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  themeToggleBtn.innerHTML = isDark ? SUN_ICON : MOON_ICON;
-  themeToggleBtn.title = isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему';
-}
-themeToggleBtn.addEventListener('click', () => {
-  const html = document.documentElement;
-  const isDark = html.getAttribute('data-theme') === 'dark';
-  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  applyThemeIcon();
-});
-applyThemeIcon();
-</script>
 </body>
 </html>
