@@ -91,7 +91,7 @@
   .dash-wrap{max-width:none;margin:0;height:auto;min-height:100vh;box-sizing:border-box;padding:20px 32px;display:flex;flex-direction:column;gap:16px;overflow:visible;}
   .dash-wrap #content{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
   .dash-wrap footer{flex:none;margin-top:0;}
-  .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning, .dash-wrap #goalBannerContainer{flex:none;}
+  .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning{flex:none;}
 
   .kpis-row{flex:none;}
   .dash-tiles{display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));grid-auto-rows:min-content;grid-auto-flow:dense;gap:12px;align-content:start;align-items:start;}
@@ -410,8 +410,6 @@
     .dash-tiles{overflow-y:visible;grid-auto-rows:auto;}
     .fcard-compact{min-height:136px;}
     .chart-hero{height:auto;min-height:220px;}
-    .goal-ring-layout{flex-wrap:wrap;justify-content:center;text-align:center;}
-    .goal-content{width:100%;}
   }
   @media (max-width: 520px){
     .kpis{grid-template-columns:1fr;}
@@ -712,23 +710,17 @@
   .bar:hover{opacity:1 !important;transform:scaleY(1.05);}
   .bar-label{transition:opacity .5s ease;}
 
-  .goal-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:24px;}
-  .goal-hero{padding:0;border-width:1.5px;}
-  .goal-ring-layout{display:flex;align-items:center;gap:24px;padding:14px 28px;min-height:120px;}
-  .goal-ring-wrap{position:relative;width:88px;height:88px;flex:none;}
-  .goal-ring-svg{width:100%;height:100%;transform:rotate(-90deg);}
-  .goal-ring-track{fill:none;stroke:var(--overlay-2);stroke-width:8;}
-  .goal-ring-progress{fill:none;stroke:var(--accent-strong);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset 1.1s cubic-bezier(.16,1,.3,1);}
-  .goal-ring-progress.over{stroke:var(--green-good);}
-  .goal-ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;color:var(--ink);}
-  .goal-ring-pct small{font-size:13px;font-weight:500;color:var(--ink-soft);margin-left:2px;}
-  .goal-ring-info{flex:1;min-width:0;}
-  .goal-hero.goal-empty{padding:20px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-  .goal-hero .goal-title{font-size:16px;}
-  .goal-hero .goal-title b{font-family:'Space Grotesk',sans-serif;font-size:19px;}
-  .goal-caption-lg{font-size:15px;font-weight:600;color:var(--ink);margin-top:14px;}
-  .goal-caption-lg span{font-weight:500;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;font-size:12.5px;margin-left:4px;}
-  .goal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px;}
+  .chart-hero-goal{border-top:1px solid var(--line);margin-top:14px;padding-top:14px;}
+  .chart-hero-goal-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .chart-hero-goal-label{font-size:12.5px;color:var(--ink-soft);flex:1;min-width:0;}
+  .chart-hero-goal-label b{font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--ink);}
+  .chart-hero-goal-pct{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;color:var(--ink);flex:none;}
+  .chart-hero-goal-pct.done{color:var(--accent-strong);}
+  .chart-hero-goal-bar{height:6px;background:var(--overlay-2);border-radius:6px;overflow:hidden;}
+  .chart-hero-goal-fill{height:100%;border-radius:6px;background:var(--accent-strong);transition:width 1.1s cubic-bezier(.16,1,.3,1);}
+  .chart-hero-goal-fill.done{background:var(--green-good);}
+  .chart-hero-goal-caption{font-size:11px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace;margin-top:6px;}
+  .chart-hero-goal-empty{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--ink-soft);font-size:12.5px;}
   .goal-edit{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11.5px;padding:5px 10px;border-radius:20px;cursor:pointer;transition:all .15s ease;position:relative;z-index:2;}
   .goal-edit:hover{border-color:var(--ink-soft);color:var(--ink);}
   #goalInput{width:180px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--surface);color:var(--ink);}
@@ -1015,7 +1007,6 @@
     </nav>
     <div class="dash-main">
       <div id="chartHeroContainer"></div>
-      <div id="goalBannerContainer"></div>
 
       <div class="periodbar" id="periodBar" style="display:none;">
         <span id="companyBadge" class="company-badge" style="display:none;"></span>
@@ -2623,35 +2614,21 @@ function forecastLine(totalRevenue, currency){
 }
 
 function buildGoalSection(totalRevenue, currency){
-  const R = 42, C = 2 * Math.PI * R;
-
   if(goalAmount && goalAmount > 0){
     const pct = Math.min(100, Math.round((totalRevenue / goalAmount) * 100));
     const done = totalRevenue >= goalAmount;
-    const offset = C * (1 - pct / 100);
     return `
-      <div class="goal-card goal-hero goal-ring-layout">
-        <div class="goal-ring-wrap">
-          <svg class="goal-ring-svg" viewBox="0 0 100 100">
-            <circle class="goal-ring-track" cx="50" cy="50" r="${R}"></circle>
-            <circle class="goal-ring-progress ${done ? 'over' : ''}" cx="50" cy="50" r="${R}"
-              stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"
-              data-target-offset="${offset.toFixed(1)}"></circle>
-          </svg>
-          <div class="goal-ring-pct">${pct}<small>%</small></div>
-        </div>
-        <div class="goal-ring-info">
-          <div class="goal-head">
-            <span class="goal-title">${t('goalTitle')} <b>${fmtMoney(goalAmount, currency)}</b></span>
-            <button class="goal-edit" data-action="edit-goal" type="button">${t('goalEdit')}</button>
-          </div>
-          <div class="goal-caption goal-caption-lg">${done ? t('goalDone') + ' ' : t('goalProgress') + ' '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} ${t('goalOf')} ${fmtMoney(goalAmount, currency)})</span></div>
-        </div>
+      <div class="chart-hero-goal-row">
+        <span class="chart-hero-goal-label">${t('goalTitle')} <b>${fmtMoney(goalAmount, currency)}</b></span>
+        <span class="chart-hero-goal-pct ${done ? 'done' : ''}">${pct}%</span>
+        <button class="goal-edit" data-action="edit-goal" type="button">${t('goalEdit')}</button>
       </div>
+      <div class="chart-hero-goal-bar"><div class="chart-hero-goal-fill goal-bar-fill ${done ? 'done' : ''}" style="width:0%" data-target-width="${pct}%"></div></div>
+      <div class="chart-hero-goal-caption">${done ? t('goalDone') + ' ' : ''}${fmtMoney(totalRevenue, currency)} ${t('goalOf')} ${fmtMoney(goalAmount, currency)}</div>
     `;
   }
   return `
-    <div class="goal-card goal-hero goal-empty">
+    <div class="chart-hero-goal-empty">
       <span>${t('setGoalPlaceholder')}</span>
       <input type="number" id="goalInput" placeholder="${t('placeholderExample')}" min="0" max="1000000000000000">
       <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">${t('setGoalBtn')}</button>
@@ -3211,6 +3188,7 @@ function renderChartHero(entries, currency){
         ${statsHtml}
       </div>
       <div class="daily-chart chart-hero-chart" id="dailyChartBox"></div>
+      <div class="chart-hero-goal" id="chartHeroGoalBox"></div>
     </div>
   `;
   document.getElementById('chartHeroContainer').innerHTML = html;
@@ -3219,11 +3197,13 @@ function renderChartHero(entries, currency){
 }
 
 function renderGoalBanner(totalRevenue, currency){
-  document.getElementById('goalBannerContainer').innerHTML = buildGoalSection(totalRevenue, currency);
+  const box = document.getElementById('chartHeroGoalBox');
+  if(!box) return;
+  box.innerHTML = buildGoalSection(totalRevenue, currency);
   requestAnimationFrame(() => {
-    document.querySelectorAll('.goal-ring-progress').forEach(el => {
-      const target = el.dataset.targetOffset;
-      requestAnimationFrame(() => { el.style.strokeDashoffset = target; });
+    document.querySelectorAll('.goal-bar-fill').forEach(el => {
+      const target = el.dataset.targetWidth;
+      requestAnimationFrame(() => { el.style.width = target; });
     });
   });
 }
@@ -3231,8 +3211,8 @@ function renderGoalBanner(totalRevenue, currency){
 function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasManagers, lostReasons){
   if(funnels.length === 0){
     content.innerHTML = `<div class="empty-state">Сделки не найдены ни в одной воронке.</div>`;
-    renderGoalBanner(0, '');
     renderChartHero(dailyEntries || [], '');
+    renderGoalBanner(0, '');
     return;
   }
 
@@ -3245,10 +3225,12 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const winRate = (totalWon + totalLost) > 0 ? Math.round(100 * totalWon / (totalWon + totalLost)) : 0;
   const currency = funnels.find(f => f.currency)?.currency || '';
 
-  renderGoalBanner(totalRevenue, currency);
+  // renderGoalBanner теперь вызывается ниже, после renderChartHero — план продаж
+  // рендерится внутрь карточки графика, а её ещё не существует в DOM на этом шаге.
   // Применяем настройки видимости из редактора
   document.getElementById('chartHeroContainer').style.display = isBlockVisible('chart') ? '' : 'none';
-  document.getElementById('goalBannerContainer').style.display = isBlockVisible('goal') ? '' : 'none';
+  const goalBox = document.getElementById('chartHeroGoalBox');
+  if(goalBox) goalBox.style.display = isBlockVisible('goal') ? '' : 'none';
 
   const funnelCards = funnels.map((f, i) => {
     const color = PALETTE[i % PALETTE.length];
@@ -3455,6 +3437,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     : '';
 
   renderChartHero(dailyEntries, lastMonthCurrency || currency);
+  renderGoalBanner(totalRevenue, currency);
 
   const monthWinRate = (lastMonthWonCount + lastMonthLostCount) > 0
     ? Math.round(100 * lastMonthWonCount / (lastMonthWonCount + lastMonthLostCount))
@@ -4936,7 +4919,6 @@ disconnectBtn.addEventListener('click', () => {
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
   connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
   content.innerHTML = '';
-  document.getElementById('goalBannerContainer').innerHTML = '';
   document.getElementById('chartHeroContainer').innerHTML = '';
   document.getElementById('companyBadge').style.display = 'none';
   document.getElementById('assistantToggleBtn').style.display = 'none';
