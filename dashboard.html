@@ -257,9 +257,9 @@
 
   /* ===== KPI-карточки ===== */
   .kpis{display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:14px;margin-bottom:18px;}
-  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 22px;transition:box-shadow .2s ease, border-color .2s ease;position:relative;overflow:hidden;}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 22px;box-shadow:0 1px 3px var(--shadow-color);transition:box-shadow .2s ease, border-color .2s ease, transform .2s ease;position:relative;overflow:hidden;}
   .kpi::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--line);transition:background .2s ease;}
-  .kpi:hover{box-shadow:0 8px 28px var(--shadow-color);border-color:var(--accent);}
+  .kpi:hover{box-shadow:0 10px 30px var(--shadow-color);border-color:var(--accent);transform:translateY(-2px);}
   .kpi:hover::before{background:var(--accent);}
   .kpi-gauge{padding-right:56px;}
   .mini-gauge{position:absolute;top:18px;right:18px;width:36px;height:36px;transform:rotate(-90deg);}
@@ -300,9 +300,9 @@
   .analytics-section{margin-bottom:36px;}
   .analytics-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;margin:0 0 16px;}
   .analytics-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
-  .analytics-card{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--line);border-radius:16px;padding:16px;text-align:center;transition:box-shadow .2s ease, transform .2s ease;}
-  .analytics-card:hover{box-shadow:0 8px 24px var(--shadow-color);transform:translateY(-2px);}
-  .analytics-card-val{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;line-height:1;}
+  .analytics-card{container-type:inline-size;background:var(--surface);border:1px solid var(--line);border-top:2px solid var(--accent-strong);border-radius:16px;padding:16px;text-align:center;box-shadow:0 1px 3px var(--shadow-color);transition:box-shadow .2s ease, transform .2s ease;}
+  .analytics-card:hover{box-shadow:0 10px 28px var(--shadow-color);transform:translateY(-2px);}
+  .analytics-card-val{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:clamp(13px, 8cqw, 20px);line-height:1.2;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .analytics-card-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin-top:6px;}
   .analytics-table{width:100%;border-collapse:collapse;font-size:13px;}
   .analytics-table th{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);padding:0 0 10px;border-bottom:2px solid var(--line);text-align:left;}
@@ -321,7 +321,7 @@
   .source-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--overlay-1);color:var(--ink-soft);}
   .analytics-empty{text-align:center;color:var(--ink-soft);padding:48px;font-size:14px;}
 
-  .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow:hidden;transition:box-shadow .2s ease;}
+  .daily-chart{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:0;overflow:hidden;box-shadow:0 1px 3px var(--shadow-color);transition:box-shadow .2s ease;}
   .daily-chart:hover{box-shadow:0 8px 24px var(--shadow-color);}
   .cal-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(34px, 1fr));gap:6px;height:100%;align-content:center;animation:chartFadeIn .4s ease;}
   @keyframes chartFadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
@@ -332,16 +332,16 @@
   .cal-cell.cal-future:hover{transform:none;box-shadow:none;}
 
   /* ===== Базовая карточка ===== */
-  .fcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px 18px;transition:box-shadow .2s ease, border-color .15s ease;}
-  .fcard:hover{box-shadow:0 6px 20px var(--shadow-color);}
+  .fcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px 18px;box-shadow:0 1px 3px var(--shadow-color);transition:box-shadow .2s ease, border-color .15s ease, transform .2s ease;}
+  .fcard:hover{box-shadow:0 8px 24px var(--shadow-color);transform:translateY(-2px);}
 
   /* ===== Карточка воронки ===== */
   .fcard-compact{padding:14px 16px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;}
-  .fcard-compact:hover{border-color:var(--accent) !important;box-shadow:0 6px 20px var(--shadow-color);}
-  .tile:hover, .fcard-compact:hover{transform:none;}
+  .fcard-compact:hover{border-color:var(--accent) !important;box-shadow:0 8px 24px var(--shadow-color);}
+  .tile:hover, .fcard-compact:hover{transform:translateY(-2px);}
   .fcard-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
   .fcard-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;line-height:1.3;}
-  .fcard-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none;}
+  .fcard-dot{display:none;}
   .fcard-id{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-soft);background:var(--overlay-1);padding:2px 7px;border-radius:20px;white-space:nowrap;}
   .fcard-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:0 0 10px;}
   .fcard-metrics > div:first-child{grid-column:1 / -1;}
