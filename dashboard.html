@@ -99,6 +99,51 @@
   .dash-section + .dash-section{border-top:1px solid var(--line);padding-top:22px;}
   .dash-section-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
   .dash-section-head .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  [data-tooltip]{position:relative;}
+  [data-tooltip]:hover::after{
+    content:attr(data-tooltip);
+    position:absolute;
+    bottom:calc(100% + 9px);
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--ink-solid);
+    color:#fff;
+    font-size:11.5px;
+    font-family:'Inter',sans-serif;
+    font-weight:500;
+    padding:8px 12px;
+    border-radius:9px;
+    white-space:normal;
+    width:max-content;
+    max-width:230px;
+    line-height:1.45;
+    z-index:60;
+    box-shadow:0 10px 24px rgba(0,0,0,.35);
+    pointer-events:none;
+    animation:tooltipFade .15s ease;
+  }
+  [data-tooltip]:hover::before{
+    content:'';
+    position:absolute;
+    bottom:calc(100% + 4px);
+    left:50%;
+    transform:translateX(-50%);
+    border:5px solid transparent;
+    border-top-color:var(--ink-solid);
+    z-index:60;
+    pointer-events:none;
+  }
+  @keyframes tooltipFade{from{opacity:0;transform:translateX(-50%) translateY(4px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+  @media(max-width:900px){[data-tooltip]:hover::after,[data-tooltip]:hover::before{display:none;}}
+
+  #tourOverlay{position:fixed;inset:0;z-index:900;pointer-events:none;}
+  .tour-spotlight{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.72);pointer-events:none;transition:top .3s ease,left .3s ease,width .3s ease,height .3s ease;z-index:901;}
+  .tour-card{position:fixed;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;width:280px;box-shadow:0 20px 50px rgba(0,0,0,.45);z-index:902;pointer-events:auto;transition:top .3s ease,left .3s ease;}
+  .tour-card-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;margin-bottom:6px;}
+  .tour-card-text{font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin-bottom:14px;}
+  .tour-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .tour-progress{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);flex:none;}
+  .tour-card-btns{display:flex;gap:6px;}
   .dash-section-head h3{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;margin:0;letter-spacing:-0.01em;}
   .dash-2col{display:grid;grid-template-columns:1.5fr 1fr;gap:24px;align-items:start;}
   .dash-col-left, .dash-col-right{min-width:0;}
@@ -788,6 +833,9 @@
 <button id="shortcutsBtn" class="theme-toggle" title="Горячие клавиши" aria-label="Горячие клавиши">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
 </button>
+<button id="helpGuideBtn" class="theme-toggle" title="Как пользоваться дашбордом" aria-label="Как пользоваться дашбордом">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+</button>
 <button id="langToggleBtn" class="theme-toggle" title="Язык / Til" aria-label="Язык / Til">
   <span id="langLabel" style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;">RU</span>
 </button>
@@ -868,6 +916,18 @@
   <div class="shortcut-row"><kbd>4</kbd><span>Период: месяц</span></div>
   <div class="shortcut-row"><kbd>5</kbd><span>Свой диапазон дат</span></div>
   <div class="shortcut-row"><kbd>?</kbd><span>Показать эту подсказку</span></div>
+</div>
+
+<!-- Панель справки по дашборду -->
+<div id="helpGuidePanel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--surface);border-left:1px solid var(--line);z-index:300;flex-direction:column;box-shadow:-8px 0 32px var(--shadow-color);">
+  <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex:none;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;" id="helpGuideTitle">Как пользоваться дашбордом</span>
+    <button id="helpGuideCloseBtn" style="background:var(--overlay-1);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;color:var(--ink-soft);">✕</button>
+  </div>
+  <div style="padding:8px 18px 18px;flex:none;">
+    <button id="helpGuideTourBtn" class="btn btn-primary" style="width:100%;">Показать интерактивный тур</button>
+  </div>
+  <div id="helpGuideBody" style="padding:0 18px 20px;overflow-y:auto;flex:1;font-size:13px;line-height:1.6;"></div>
 </div>
 <div class="wrap">
 <!-- ===== ЭКРАН ВХОДА ===== -->
@@ -1368,6 +1428,49 @@ const TRANSLATIONS = {
     sectionMoney: 'Воронки и деньги',
     sectionPeople: 'Люди',
     sectionOps: 'Операционка',
+    tipRevenue: 'Сумма всех выигранных сделок за этот месяц — не зависит от периода, выбранного в фильтре выше',
+    tipDeals: 'Все сделки, созданные в этом месяце: выигранные, проигранные и ещё в работе',
+    tipWon: 'Сколько сделок закрыто в вашу пользу в этом месяце',
+    tipConv: 'Доля выигранных сделок от всех завершённых (выигранные + проигранные)',
+    tipNewClients: 'Новые контакты, созданные в CRM в этом месяце',
+    tipVelocity: 'Скорость генерации выручки — сколько денег в среднем приносит один день работы отдела продаж',
+    tipForecast: 'Прогноз выручки на конец месяца по текущему темпу продаж',
+    tipScoring: 'Активные лиды по свежести: горячие — 0–3 дня, тёплые — 4–14 дней, холодные — от 14 дней',
+    tipAvgDeal: 'Средняя сумма одной выигранной сделки',
+    tipBestManager: 'Менеджер с наибольшей суммой выигранных сделок за период',
+    tipBiggestDeal: 'Самая крупная выигранная сделка за период',
+    tipFunnelCard: 'Клик откроет разбивку по стадиям этой воронки',
+    guideSec1Title: 'Обзор',
+    guideSec1Text: 'KPI-карточки сверху показывают выручку, сделки и конверсию за этот месяц — независимо от периода в фильтре. Ниже — график «Динамика продаж» по дням, там же можно задать план продаж и следить за прогрессом. Наведите курсор на любую карточку — появится подсказка, что именно она показывает.',
+    guideSec2Title: 'Сайдбар слева',
+    guideSec2Text: '«Обзор» — общая сводка. «Воронки» и «Менеджеры» открывают подробную аналитику по ним. «Звонки» и «Задачи» — отдельные разделы со списками и фильтрами. «Аналитика» — 9 вкладок глубокой аналитики (источники, LTV/ROI, финансы и другие). «Настройки» — переподключение к CRM.',
+    guideSec3Title: 'Карточки воронок и плиток',
+    guideSec3Text: 'Цветная полоса слева у карточки — это визуальный код для быстрого различения воронок и метрик. Клик по карточке почти всегда открывает детали: конкретные сделки, разбивку по стадиям или сотрудникам.',
+    guideSec4Title: 'Звонки и задачи',
+    guideSec4Text: 'В разделе «Звонки» — статистика и список звонков с фильтрами. Если у звонка есть запись — рядом появится кнопка «Анализ», которая расшифрует разговор и даст ИИ-разбор: о чём был звонок, как отработал менеджер, что улучшить. В «Задачах» — списки с фильтрами по статусу и просрочке.',
+    guideSec5Title: 'Аналитика — 9 вкладок',
+    guideSec5Text: 'Источники — откуда приходят лиды. По дням — динамика. По стадиям — где застревают сделки. Менеджеры — нагрузка и конверсия. Закрытые — выигранные и проигранные сделки. Клиенты — сегментация и повторные покупки. LTV/ROI и Финансы — юнит-экономика. Прогноз — три модели прогнозирования выручки.',
+    guideSec6Title: 'Язык и тема',
+    guideSec6Text: 'Кнопка RU/UZ в шапке переключает язык всего интерфейса — дашборда, лендинга и подсказок. Тема дашборда — тёмная по умолчанию.',
+    showTourBtn: 'Показать интерактивный тур',
+    helpGuideTitle: 'Как пользоваться дашбордом',
+    tourSidebarTitle: 'Навигация',
+    tourSidebarText: 'Здесь разделы дашборда: общая сводка, воронки, менеджеры, звонки, задачи, полная аналитика и настройки подключения.',
+    tourKpiTitle: 'Главный показатель',
+    tourKpiText: 'Выручка этого месяца — всегда актуальна, независимо от периода в фильтре ниже. Наведите на любую карточку — появится подсказка.',
+    tourChartTitle: 'Динамика продаж',
+    tourChartText: 'График по дням текущего месяца. Внизу можно задать план продаж и следить за прогрессом выполнения.',
+    tourFunnelTitle: 'Карточка воронки',
+    tourFunnelText: 'Цветная полоса слева — визуальный код воронки. Клик по карточке открывает список сделок и разбивку по стадиям.',
+    tourCallsTitle: 'Звонки и задачи',
+    tourCallsText: 'Отдельные разделы со списками, фильтрами и ИИ-анализом записей звонков.',
+    tourAnalyticsTitle: 'Полная аналитика',
+    tourAnalyticsText: '9 вкладок: источники лидов, динамика по дням, стадии, менеджеры, LTV/ROI, прогноз выручки и другое.',
+    tourHelpTitle: 'Справка всегда рядом',
+    tourHelpText: 'Вернуться к этому туру или прочитать справку текстом можно в любой момент через эту кнопку.',
+    tourSkipBtn: 'Пропустить',
+    tourNextBtn: 'Далее',
+    tourDoneBtn: 'Готово',
     bottleneckTitle: 'Дольше всего без движения',
     onAvgDays: 'в среднем',
     employeeIdPrefix: 'Сотрудник ID ',
@@ -1726,6 +1829,49 @@ const TRANSLATIONS = {
     sectionMoney: 'Voronkalar va pul',
     sectionPeople: 'Odamlar',
     sectionOps: 'Operatsion',
+    tipRevenue: 'Shu oydagi barcha yutilgan bitimlar summasi — yuqoridagi filtrda tanlangan davrga bog\'liq emas',
+    tipDeals: 'Shu oyda yaratilgan barcha bitimlar: yutilgan, yutqazilgan va hali ishda',
+    tipWon: 'Shu oyda sizning foydangizga yopilgan bitimlar soni',
+    tipConv: 'Barcha yakunlangan bitimlar orasida yutilganlarning ulushi (yutilgan + yutqazilgan)',
+    tipNewClients: 'Shu oyda CRM-da yaratilgan yangi kontaktlar',
+    tipVelocity: 'Tushum generatsiya tezligi — savdo bo\'limi kuniga o\'rtacha qancha pul olib kelayotgani',
+    tipForecast: 'Joriy sur\'at bo\'yicha oy oxiriga tushum prognozi',
+    tipScoring: 'Faol lidlar yangiligi bo\'yicha: issiq — 0–3 kun, iliq — 4–14 kun, sovuq — 14 kundan ko\'p',
+    tipAvgDeal: 'Bitta yutilgan bitimning o\'rtacha summasi',
+    tipBestManager: 'Davr uchun eng ko\'p yutilgan bitim summasiga ega menejer',
+    tipBiggestDeal: 'Davrdagi eng katta yutilgan bitim',
+    tipFunnelCard: 'Bosing — shu voronkaning bosqichlar bo\'yicha taqsimoti ochiladi',
+    guideSec1Title: 'Umumiy',
+    guideSec1Text: 'Yuqoridagi KPI-kartochkalar shu oydagi tushum, bitimlar va konversiyani ko\'rsatadi — filtrdagi davrga bog\'liq emas. Pastda — kunlar bo\'yicha "Savdo dinamikasi" grafigi, o\'sha yerda savdo rejasini belgilash va progressni kuzatish mumkin. Har qanday kartochkaga sichqonchani olib boring — nima ko\'rsatayotgani haqida maslahat chiqadi.',
+    guideSec2Title: 'Chapdagi sайдбар',
+    guideSec2Text: '"Umumiy" — umumiy xulosa. "Voronkalar" va "Menejerlar" ular bo\'yicha batafsil tahlilni ochadi. "Qo\'ng\'iroqlar" va "Vazifalar" — filtrli ro\'yxatlar bilan alohida bo\'limlar. "Tahlil" — chuqur tahlilning 9 varag\'i (manbalar, LTV/ROI, moliya va boshqalar). "Sozlamalar" — CRM-ga qayta ulanish.',
+    guideSec3Title: 'Voronka va plitka kartochkalari',
+    guideSec3Text: 'Kartochka chap tomonidagi rangli chiziq — voronka va ko\'rsatkichlarni tezda farqlash uchun vizual kod. Kartochkaga bosish deyarli har doim tafsilotlarni ochadi: aniq bitimlar, bosqichlar yoki xodimlar bo\'yicha taqsimot.',
+    guideSec4Title: 'Qo\'ng\'iroqlar va vazifalar',
+    guideSec4Text: '"Qo\'ng\'iroqlar" bo\'limida — statistika va filtrli qo\'ng\'iroqlar ro\'yxati. Agar qo\'ng\'iroqda yozuv bo\'lsa — yonida "Tahlil" tugmasi paydo bo\'ladi, u suhbatni matnga aylantiradi va AI tahlilini beradi: qo\'ng\'iroq nima haqida bo\'lgan, menejer qanday ishlagan, nimani yaxshilash kerak. "Vazifalar"da — holat va muddat bo\'yicha filtrli ro\'yxatlar.',
+    guideSec5Title: 'Tahlil — 9 varaq',
+    guideSec5Text: 'Manbalar — lidlar qayerdan kelayotgani. Kunlar bo\'yicha — dinamika. Bosqichlar bo\'yicha — bitimlar qayerda to\'xtab qolayotgani. Menejerlar — yuklama va konversiya. Yopilgan — yutilgan va yutqazilgan bitimlar. Mijozlar — segmentatsiya va qayta xaridlar. LTV/ROI va Moliya — yunit-iqtisodiyot. Prognoz — tushumni prognozlashning uchta modeli.',
+    guideSec6Title: 'Til va mavzu',
+    guideSec6Text: 'Sarlavhadagi RU/UZ tugmasi butun interfeys tilini almashtiradi — dashboard, lending va maslahatlar. Dashboard mavzusi — sukut bo\'yicha qorong\'i.',
+    showTourBtn: 'Interaktiv turni ko\'rsatish',
+    helpGuideTitle: 'Dashboarddan qanday foydalanish',
+    tourSidebarTitle: 'Navigatsiya',
+    tourSidebarText: 'Bu yerda dashboard bo\'limlari: umumiy xulosa, voronkalar, menejerlar, qo\'ng\'iroqlar, vazifalar, to\'liq tahlil va ulanish sozlamalari.',
+    tourKpiTitle: 'Asosiy ko\'rsatkich',
+    tourKpiText: 'Shu oyning tushumi — filtrdagi davrga bog\'liq bo\'lmagan holda doim dolzarb. Har qanday kartochkaga sichqonchani olib boring — maslahat chiqadi.',
+    tourChartTitle: 'Savdo dinamikasi',
+    tourChartText: 'Joriy oyning kunlar bo\'yicha grafigi. Pastda savdo rejasini belgilash va bajarilish progressini kuzatish mumkin.',
+    tourFunnelTitle: 'Voronka kartochkasi',
+    tourFunnelText: 'Chap tomondagi rangli chiziq — voronkaning vizual kodi. Kartochkaga bosish bitimlar ro\'yxati va bosqichlar bo\'yicha taqsimotni ochadi.',
+    tourCallsTitle: 'Qo\'ng\'iroqlar va vazifalar',
+    tourCallsText: 'Ro\'yxatlar, filtrlar va qo\'ng\'iroq yozuvlarining AI-tahlili bilan alohida bo\'limlar.',
+    tourAnalyticsTitle: 'To\'liq tahlil',
+    tourAnalyticsText: '9 varaq: lid manbalari, kunlar bo\'yicha dinamika, bosqichlar, menejerlar, LTV/ROI, tushum prognozi va boshqalar.',
+    tourHelpTitle: 'Yordam doim yaqinda',
+    tourHelpText: 'Bu turga qaytish yoki matnli qo\'llanmani o\'qish uchun istalgan vaqtda shu tugmadan foydalaning.',
+    tourSkipBtn: 'O\'tkazib yuborish',
+    tourNextBtn: 'Keyingisi',
+    tourDoneBtn: 'Tayyor',
     bottleneckTitle: 'Eng uzoq harakatsiz',
     onAvgDays: 'o\'rtacha',
     employeeIdPrefix: 'Xodim ID ',
@@ -2168,6 +2314,106 @@ shortcutsBtn.addEventListener('click', () => {
   toggleExpandable(shortcutsBtn, shortcutsPanel);
 });
 
+// ===== Панель справки =====
+function renderHelpGuide(){
+  const sections = [1,2,3,4,5,6].map(i => `
+    <div style="margin-bottom:20px;">
+      <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13.5px;margin-bottom:6px;">${t('guideSec' + i + 'Title')}</div>
+      <div style="color:var(--ink-soft);">${t('guideSec' + i + 'Text')}</div>
+    </div>
+  `).join('');
+  document.getElementById('helpGuideBody').innerHTML = sections;
+  const titleEl = document.getElementById('helpGuideTitle');
+  if(titleEl) titleEl.textContent = t('helpGuideTitle');
+  const tourBtnEl = document.getElementById('helpGuideTourBtn');
+  if(tourBtnEl) tourBtnEl.textContent = t('showTourBtn');
+}
+function openHelpGuide(){
+  document.getElementById('helpGuidePanel').style.display = 'flex';
+  renderHelpGuide();
+}
+function closeHelpGuide(){ document.getElementById('helpGuidePanel').style.display = 'none'; }
+
+document.getElementById('helpGuideBtn').addEventListener('click', openHelpGuide);
+document.getElementById('helpGuideCloseBtn').addEventListener('click', closeHelpGuide);
+document.getElementById('helpGuideTourBtn').addEventListener('click', () => {
+  closeHelpGuide();
+  startDashboardTour();
+});
+
+// ===== Интерактивный тур по дашборду =====
+const TOUR_STEPS = [
+  {selector: '.dash-sidebar', titleKey: 'tourSidebarTitle', textKey: 'tourSidebarText'},
+  {selector: '.kpi-hero', titleKey: 'tourKpiTitle', textKey: 'tourKpiText'},
+  {selector: '.chart-hero', titleKey: 'tourChartTitle', textKey: 'tourChartText'},
+  {selector: '.tile-funnel', titleKey: 'tourFunnelTitle', textKey: 'tourFunnelText'},
+  {selector: '.sbnav-item[data-nav="calls"]', titleKey: 'tourCallsTitle', textKey: 'tourCallsText'},
+  {selector: '.sbnav-item[data-nav="analytics"]', titleKey: 'tourAnalyticsTitle', textKey: 'tourAnalyticsText'},
+  {selector: '#helpGuideBtn', titleKey: 'tourHelpTitle', textKey: 'tourHelpText'},
+];
+let tourIndex = 0;
+
+function tourCardPosition(rect){
+  const cardW = 280, cardH = 170, margin = 16;
+  let top = rect.bottom + margin;
+  if(top + cardH > window.innerHeight - 8){ top = rect.top - cardH - margin; }
+  if(top < 8) top = 8;
+  let left = rect.left;
+  if(left + cardW > window.innerWidth - 8) left = window.innerWidth - cardW - 8;
+  if(left < 8) left = 8;
+  return `top:${top}px;left:${left}px;`;
+}
+
+function showTourStep(){
+  while(tourIndex < TOUR_STEPS.length && !document.querySelector(TOUR_STEPS[tourIndex].selector)){
+    tourIndex++;
+  }
+  if(tourIndex >= TOUR_STEPS.length){ endTour(); return; }
+  const step = TOUR_STEPS[tourIndex];
+  const el = document.querySelector(step.selector);
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  setTimeout(() => {
+    const rect = el.getBoundingClientRect();
+    let overlay = document.getElementById('tourOverlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'tourOverlay';
+      document.body.appendChild(overlay);
+    }
+    const isLast = tourIndex === TOUR_STEPS.length - 1;
+    overlay.innerHTML = `
+      <div class="tour-spotlight" style="top:${rect.top-6}px;left:${rect.left-6}px;width:${rect.width+12}px;height:${rect.height+12}px;"></div>
+      <div class="tour-card" style="${tourCardPosition(rect)}">
+        <div class="tour-card-title">${t(step.titleKey)}</div>
+        <div class="tour-card-text">${t(step.textKey)}</div>
+        <div class="tour-card-footer">
+          <span class="tour-progress">${tourIndex+1} / ${TOUR_STEPS.length}</span>
+          <div class="tour-card-btns">
+            <button class="btn btn-ghost" id="tourSkipBtn" style="font-size:12px;padding:6px 12px;">${t('tourSkipBtn')}</button>
+            <button class="btn btn-primary" id="tourNextBtn" style="font-size:12px;padding:6px 14px;">${isLast ? t('tourDoneBtn') : t('tourNextBtn')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('tourSkipBtn').addEventListener('click', endTour);
+    document.getElementById('tourNextBtn').addEventListener('click', () => { tourIndex++; showTourStep(); });
+  }, 220);
+}
+
+function endTour(){
+  const overlay = document.getElementById('tourOverlay');
+  if(overlay) overlay.remove();
+  try{ localStorage.setItem('salesPulseTourDone', '1'); }catch(e){}
+}
+
+function startDashboardTour(){
+  setSidebarActive('overview');
+  document.getElementById('analyticsView').style.display = 'none';
+  if(lastFunnels.length > 0) rerenderCached();
+  tourIndex = 0;
+  showTourStep();
+}
+
 const settingsBtn = document.getElementById('settingsBtn');
 const landingView = document.getElementById('landingView');
 const dashboardView = document.getElementById('dashboardView');
@@ -2182,6 +2428,11 @@ function showDashboard(){
   landingView.style.display = 'none';
   dashboardView.style.display = 'block';
   setTimeout(applyLang, 0);
+  try{
+    if(!localStorage.getItem('salesPulseTourDone') && lastFunnels.length > 0){
+      setTimeout(startDashboardTour, 900);
+    }
+  }catch(e){}
 }
 
 settingsBtn.addEventListener('click', () => {
@@ -3275,7 +3526,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     const fLost = f.stages.filter(s => s.semantic === 'F').reduce((a,x) => a + x.sum, 0);
 
     return `
-      <div class="fcard fcard-compact tile-funnel" data-detail="funnel" data-idx="${i}" style="border-left:3px solid ${color};">
+      <div class="fcard fcard-compact tile-funnel" data-detail="funnel" data-idx="${i}" data-tooltip="${t('tipFunnelCard')}" style="border-left:3px solid ${color};">
         <div class="fcard-head">
           <div class="fcard-name">${f.name}</div>
           <span class="fcard-id">ID ${f.id}</span>
@@ -3337,28 +3588,28 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
 
   const moneyReportTiles = `
     ${avgDeal > 0 ? `
-      <div class="fcard fcard-compact report-tile" data-detail="avgdeal" style="border-left:3px solid var(--accent-strong);">
+      <div class="fcard fcard-compact report-tile" data-detail="avgdeal" data-tooltip="${t('tipAvgDeal')}" style="border-left:3px solid var(--accent-strong);">
         <div class="fcard-head"><div class="fcard-name">${t('avgDeal')}</div></div>
         <div class="report-tile-value">${fmtMoney(avgDeal, currency)}</div>
         <div class="report-tile-note">${t('allWonDealsNote')}</div>
       </div>
     ` : ''}
     ${lastBestDeal ? `
-      <div class="fcard fcard-compact report-tile" data-detail="bestdeal" style="border-left:3px solid var(--accent-strong);">
+      <div class="fcard fcard-compact report-tile" data-detail="bestdeal" data-tooltip="${t('tipBiggestDeal')}" style="border-left:3px solid var(--accent-strong);">
         <div class="fcard-head"><div class="fcard-name">${t('biggestDeal')}</div></div>
         <div class="report-tile-value">${fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency)}</div>
         <div class="report-tile-note">${t('funnelWord')} «${lastBestDeal.funnelName}»</div>
       </div>
     ` : ''}
     ${salesVelocity > 0 ? `
-      <div class="fcard fcard-compact report-tile" data-detail="kpi-velocity" style="border-left:3px solid #60A5FA;">
+      <div class="fcard fcard-compact report-tile" data-detail="kpi-velocity" data-tooltip="${t('tipVelocity')}" style="border-left:3px solid #60A5FA;">
         <div class="fcard-head"><div class="fcard-name">${t('salesVelocity')}</div></div>
         <div class="report-tile-value">${fmtMoney(salesVelocity, currency)}<span style="font-size:11px;font-weight:400;color:var(--ink-soft)">${t('perDay')}</span></div>
         <div class="report-tile-note">${t('cycleConvNote')}${Math.round(avgCycleDays)} ${t('daysCycle')} · ${t('convShort')} ${Math.round(overallConv*100)}%</div>
       </div>
     ` : ''}
     ${dailyRate > 0 ? `
-      <div class="fcard fcard-compact report-tile" data-detail="kpi-forecast" style="border-left:3px solid #A78BFA;">
+      <div class="fcard fcard-compact report-tile" data-detail="kpi-forecast" data-tooltip="${t('tipForecast')}" style="border-left:3px solid #A78BFA;">
         <div class="fcard-head"><div class="fcard-name">${t('forecastKpi')}</div></div>
         <div class="report-tile-value">${fmtMoney(forecast, currency)}</div>
         <div class="report-tile-note">${goalAmount > 0 ? `${forecastPct}% ${t('ofPlan')} · ` : ''}${t('remainingShort')} ${daysLeft} ${t('daysCycle')}.</div>
@@ -3368,14 +3619,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
 
   const peopleReportTiles = `
     ${topManager ? `
-      <div class="fcard fcard-compact report-tile" data-detail="manager" data-idx="0" style="border-left:3px solid var(--accent-strong);">
+      <div class="fcard fcard-compact report-tile" data-detail="manager" data-idx="0" data-tooltip="${t('tipBestManager')}" style="border-left:3px solid var(--accent-strong);">
         <div class="fcard-head"><div class="fcard-name">${t('bestManager')}</div></div>
         <div class="report-tile-value">${topManager.name}</div>
         <div class="report-tile-note">${fmtMoney(topManager.wonSum, currency)} · ${topManager.wonCount} ${t('dealsWord')}</div>
       </div>
     ` : ''}
     ${activeDeals.length > 0 ? `
-      <div class="fcard fcard-compact report-tile" data-detail="kpi-scoring" style="border-left:3px solid #F59E0B;">
+      <div class="fcard fcard-compact report-tile" data-detail="kpi-scoring" data-tooltip="${t('tipScoring')}" style="border-left:3px solid #F59E0B;">
         <div class="fcard-head"><div class="fcard-name">${t('leadScoring')}</div></div>
         <div class="report-tile-value" style="font-size:13px;display:flex;gap:10px;margin-top:6px;">
           <span style="color:#EF4444;font-weight:800">${hotLeads.length} <span style="font-size:9px;">●</span></span>
@@ -3484,14 +3735,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
 
   const html = `
     <div class="kpis kpis-row">
-      <div class="kpi kpi-hero" data-detail="kpi-revenue">
+      <div class="kpi kpi-hero" data-detail="kpi-revenue" data-tooltip="${t('tipRevenue')}">
         <div class="label">${t('salesKpi')} ${t('thisMonthSuffix')}</div>
         <div class="value" data-countup="${lastMonthRevenue}" data-suffix=" ${lastMonthCurrency || currency}">0 ${lastMonthCurrency || currency}</div>
         ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, true, t('prevMonth'))}
       </div>
-      <div class="kpi" data-detail="kpi-deals"><div class="label">${t('dealsKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthDealsTotal}">0</div></div>
-      <div class="kpi" data-detail="kpi-won"><div class="label">${t('wonKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthWonCount}">0</div></div>
-      <div class="kpi kpi-gauge" data-detail="kpi-conv">
+      <div class="kpi" data-detail="kpi-deals" data-tooltip="${t('tipDeals')}"><div class="label">${t('dealsKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthDealsTotal}">0</div></div>
+      <div class="kpi" data-detail="kpi-won" data-tooltip="${t('tipWon')}"><div class="label">${t('wonKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthWonCount}">0</div></div>
+      <div class="kpi kpi-gauge" data-detail="kpi-conv" data-tooltip="${t('tipConv')}">
         <div class="label">${t('convKpi')} ${t('thisMonthSuffix')}</div>
         <div class="value" data-countup="${monthWinRate}" data-suffix-html="<small>%</small>">0<small>%</small></div>
         <svg class="mini-gauge" viewBox="0 0 44 44">
@@ -3502,7 +3753,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         </svg>
       </div>
       ${lastNewClientsCount !== null ? `
-      <div class="kpi" data-detail="kpi-newclients">
+      <div class="kpi" data-detail="kpi-newclients" data-tooltip="${t('tipNewClients')}">
         <div class="label">${t('newClients')} ${t('thisMonthSuffix')}</div>
         <div class="value" data-countup="${lastNewClientsCount}">0</div>
         ${deltaBadge(lastNewClientsCount, lastPrevNewClientsCount, lastPrevNewClientsCount !== null, t('prevMonth'))}
