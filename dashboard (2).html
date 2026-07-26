@@ -9,13 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #F7F6F3;
+    --bg: #FAFAF9;
     --surface: #FFFFFF;
     --surface-glass: rgba(255,255,255,0.72);
     --ink: #0F1014;
-    --ink-soft: #64676F;
-    --line: #E4E2DB;
-    --line-soft: rgba(15,16,20,0.06);
+    --ink-soft: #6B6F76;
+    --line: rgba(15,16,20,0.09);
+    --line-soft: rgba(15,16,20,0.05);
     --accent: #C6F135;
     --accent-strong: #A8D416;
     --accent-ink: #2C3600;
@@ -26,23 +26,23 @@
     --violet: #8B5CF6;
     --green-good: #16A34A;
     --red-bad: #DC2626;
-    --shadow-color: rgba(15,16,20,0.08);
-    --shadow-lg: rgba(15,16,20,0.14);
-    --overlay-1: rgba(0,0,0,0.04);
-    --overlay-2: rgba(0,0,0,0.07);
+    --shadow-color: rgba(15,16,20,0.05);
+    --shadow-lg: rgba(15,16,20,0.10);
+    --overlay-1: rgba(0,0,0,0.035);
+    --overlay-2: rgba(0,0,0,0.06);
   }
   html[data-theme="dark"]{
-    --bg: #0D0E11;
-    --surface: #161719;
-    --surface-glass: rgba(22,23,25,0.72);
-    --ink: #EEECEA;
-    --ink-soft: #8F9199;
-    --line: #272830;
-    --line-soft: rgba(255,255,255,0.07);
-    --shadow-color: rgba(0,0,0,0.5);
-    --shadow-lg: rgba(0,0,0,0.6);
-    --overlay-1: rgba(255,255,255,0.05);
-    --overlay-2: rgba(255,255,255,0.09);
+    --bg: #08090A;
+    --surface: #131415;
+    --surface-glass: rgba(19,20,21,0.75);
+    --ink: #F7F8F8;
+    --ink-soft: #8A8F98;
+    --line: rgba(255,255,255,0.09);
+    --line-soft: rgba(255,255,255,0.05);
+    --shadow-color: rgba(0,0,0,0.35);
+    --shadow-lg: rgba(0,0,0,0.5);
+    --overlay-1: rgba(255,255,255,0.045);
+    --overlay-2: rgba(255,255,255,0.08);
   }
   html[data-theme="dark"] .connect-box input,
   html[data-theme="dark"] .custom-range input[type=date]{background:#FFFFFF14;color:var(--ink);}
@@ -50,7 +50,7 @@
   html{transition:background .2s ease;}
   body{transition:background .2s ease, color .2s ease;}
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;min-height:100%;font-variant-numeric:tabular-nums;}
 
   /* ===== Экран входа ===== */
   #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden;background:var(--bg);}
