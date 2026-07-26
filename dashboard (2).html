@@ -1422,6 +1422,39 @@ const TRANSLATIONS = {
     noTasksFilter: 'По этому фильтру задач нет.',
     first100shown: 'Показаны первые 100 из',
     tasksWord: 'задач',
+    shareAmongLosses: 'Доля среди всех отказов',
+    lossReasonNote: 'Это стадия, помеченная в CRM как «провал». Если нужна более точная причина — потребуется отдельное поле в самой CRM.',
+    salesThisDay: 'Продажи в этот день',
+    dealsClosedThisDay: 'Сделок закрыто',
+    avgDealByFunnels: 'Средний чек по воронкам',
+    avgDealFormula: 'Средний чек = сумма выигранных сделок ÷ их количество, по каждой воронке.',
+    dealAmountLbl: 'Сумма сделки',
+    biggestDealTitle: 'Крупнейшая сделка',
+    biggestDealNote: 'Самая крупная выигранная сделка за выбранный период.',
+    pipelineByFunnels: 'В работе по воронкам',
+    pipelineNote: 'Сумма сделок, которые ещё не закрыты — ни выиграны, ни провалены.',
+    lostByFunnels: 'Упущено по воронкам',
+    lostNote: 'Сумма сделок, помеченных как провальные, по воронкам.',
+    salesByFunnelsTitle: 'Продажи по воронкам',
+    dealsByFunnelsTitle: 'Сделок по воронкам',
+    wonByFunnelsTitle: 'Выиграно сделок по воронкам',
+    convByFunnelsTitle: 'Конверсия по воронкам',
+    newContactsLbl: 'Новых контактов',
+    prevMonthLbl: 'В прошлом месяце',
+    dynamicsLbl: 'Динамика',
+    newClientsNote: 'Количество новых контактов (crm.contact.list), созданных в текущем месяце.',
+    salesVelocityRevDay: 'Sales Velocity (выручка/день)',
+    velocityFormula: 'Формула: (Сделок × Средний чек × Конверсия%) / Дней цикла',
+    wonDealsCountLbl: 'Выигранных сделок',
+    velocityNote: 'Sales Velocity — это скорость генерации выручки. Показывает сколько денег отдел продаж зарабатывает в среднем за один день.',
+    forecastEndTitle: 'Прогноз выручки на конец месяца',
+    currentRevenueLbl: 'Текущая выручка',
+    forecastNote: 'Прогноз рассчитан по линейной экстраполяции текущего темпа. Если темп ускорится — итог будет выше.',
+    hotLeadsFull: 'Горячие (0–3 дня)',
+    warmLeadsFull: 'Тёплые (4–14 дней)',
+    coldLeadsFull: 'Холодные (14+ дней)',
+    hotLeadsAttention: 'Горячие лиды — требуют внимания сегодня',
+    coldLeadsRisk: 'Холодные — риск потерять',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1730,6 +1763,39 @@ const TRANSLATIONS = {
     noTasksFilter: 'Bu filtr bo\'yicha vazifalar yo\'q.',
     first100shown: 'Birinchi 100 tasi ko\'rsatilgan, jami',
     tasksWord: 'vazifa',
+    shareAmongLosses: 'Barcha yutqazishlar orasidagi ulush',
+    lossReasonNote: 'Bu CRM-da "yutqazilgan" deb belgilangan bosqich. Aniqroq sabab kerak bo\'lsa — CRM-ning o\'zida alohida maydon kerak bo\'ladi.',
+    salesThisDay: 'Shu kungi savdo',
+    dealsClosedThisDay: 'Yopilgan bitimlar',
+    avgDealByFunnels: 'Voronkalar bo\'yicha o\'rtacha chek',
+    avgDealFormula: 'O\'rtacha chek = yutilgan bitimlar summasi ÷ ularning soni, har bir voronka uchun.',
+    dealAmountLbl: 'Bitim summasi',
+    biggestDealTitle: 'Eng katta bitim',
+    biggestDealNote: 'Tanlangan davrdagi eng katta yutilgan bitim.',
+    pipelineByFunnels: 'Voronkalar bo\'yicha ishda',
+    pipelineNote: 'Hali yopilmagan — yutilmagan yoki yutqazilmagan bitimlar summasi.',
+    lostByFunnels: 'Voronkalar bo\'yicha yo\'qotilgan',
+    lostNote: 'Yutqazilgan deb belgilangan bitimlar summasi, voronkalar bo\'yicha.',
+    salesByFunnelsTitle: 'Voronkalar bo\'yicha savdo',
+    dealsByFunnelsTitle: 'Voronkalar bo\'yicha bitimlar',
+    wonByFunnelsTitle: 'Voronkalar bo\'yicha yutilgan bitimlar',
+    convByFunnelsTitle: 'Voronkalar bo\'yicha konversiya',
+    newContactsLbl: 'Yangi kontaktlar',
+    prevMonthLbl: 'O\'tgan oyda',
+    dynamicsLbl: 'Dinamika',
+    newClientsNote: 'Joriy oyda yaratilgan yangi kontaktlar soni (crm.contact.list).',
+    salesVelocityRevDay: 'Sales Velocity (tushum/kun)',
+    velocityFormula: 'Formula: (Bitimlar × O\'rtacha chek × Konversiya%) / Sikl kunlari',
+    wonDealsCountLbl: 'Yutilgan bitimlar',
+    velocityNote: 'Sales Velocity — tushum generatsiya tezligi. Savdo bo\'limi kuniga o\'rtacha qancha pul topishini ko\'rsatadi.',
+    forecastEndTitle: 'Oy oxiriga tushum prognozi',
+    currentRevenueLbl: 'Joriy tushum',
+    forecastNote: 'Prognoz joriy sur\'atning chiziqli ekstrapolyatsiyasi bo\'yicha hisoblangan. Sur\'at tezlashsa — natija yuqoriroq bo\'ladi.',
+    hotLeadsFull: 'Issiq (0–3 kun)',
+    warmLeadsFull: 'Iliq (4–14 kun)',
+    coldLeadsFull: 'Sovuq (14+ kun)',
+    hotLeadsAttention: 'Issiq lidlar — bugun e\'tibor talab qiladi',
+    coldLeadsRisk: 'Sovuq — yo\'qotish xavfi',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -3900,10 +3966,10 @@ function openLossDetail(idx){
   const totalLost = lastLostReasons.reduce((a,x) => a + x.count, 0);
   const share = totalLost > 0 ? Math.round(100 * r.count / totalLost) : 0;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  const html = statRow('Сделок', r.count)
-    + statRow('Сумма', fmtMoney(r.sum, currency))
-    + statRow('Доля среди всех отказов', share + '%')
-    + `<div class="modal-note">Это стадия, помеченная в CRM как «провал». Если нужна более точная причина — потребуется отдельное поле в самой CRM.</div>`;
+  const html = statRow(t('dealsLabel'), r.count)
+    + statRow(t('amountCol'), fmtMoney(r.sum, currency))
+    + statRow(t('shareAmongLosses'), share + '%')
+    + `<div class="modal-note">${t('lossReasonNote')}</div>`;
   openModal(r.name, html);
 }
 
@@ -3911,8 +3977,8 @@ function openDayDetail(idx){
   const e = lastDailyEntries[idx];
   if(!e) return;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  const html = statRow('Продажи в этот день', fmtMoney(e.sum, currency))
-    + statRow('Сделок закрыто', e.count);
+  const html = statRow(t('salesThisDay'), fmtMoney(e.sum, currency))
+    + statRow(t('dealsClosedThisDay'), e.count);
   openModal(e.label, html);
 }
 
@@ -3922,17 +3988,17 @@ function openAvgDealDetail(){
     .filter(f => f.wonCount > 0)
     .map(f => `<tr><td>${f.name}</td><td>${fmtMoney(f.wonSum / f.wonCount, currency)}</td></tr>`)
     .join('');
-  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">Средний чек = сумма выигранных сделок ÷ их количество, по каждой воронке.</div>`;
-  openModal('Средний чек по воронкам', html);
+  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">${t('avgDealFormula')}</div>`;
+  openModal(t('avgDealByFunnels'), html);
 }
 
 function openBestDealDetail(){
   if(!lastBestDeal) return;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  const html = statRow('Сумма сделки', fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency))
-    + statRow('Воронка', lastBestDeal.funnelName)
-    + `<div class="modal-note">Самая крупная выигранная сделка за выбранный период.</div>`;
-  openModal('Крупнейшая сделка', html);
+  const html = statRow(t('dealAmountLbl'), fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency))
+    + statRow(t('funnelLabel'), lastBestDeal.funnelName)
+    + `<div class="modal-note">${t('biggestDealNote')}</div>`;
+  openModal(t('biggestDealTitle'), html);
 }
 
 function openCallsDetail(filterType){
@@ -4028,8 +4094,8 @@ function openPipelineDetail(){
     .filter(x => x.sum > 0)
     .sort((a,b) => b.sum - a.sum)
     .map(x => `<tr><td>${x.name}</td><td>${fmtMoney(x.sum, currency)}</td></tr>`).join('');
-  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">Сумма сделок, которые ещё не закрыты — ни выиграны, ни провалены.</div>`;
-  openModal('В работе по воронкам', html);
+  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">${t('pipelineNote')}</div>`;
+  openModal(t('pipelineByFunnels'), html);
 }
 
 function openLostValueDetail(){
@@ -4039,60 +4105,60 @@ function openLostValueDetail(){
     .filter(x => x.sum > 0)
     .sort((a,b) => b.sum - a.sum)
     .map(x => `<tr><td>${x.name}</td><td>${fmtMoney(x.sum, currency)}</td></tr>`).join('');
-  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">Сумма сделок, помеченных как провальные, по воронкам.</div>`;
-  openModal('Упущено по воронкам', html);
+  const html = `<table class="modal-table"><tbody>${rows}</tbody></table><div class="modal-note">${t('lostNote')}</div>`;
+  openModal(t('lostByFunnels'), html);
 }
 
 function openKpiDetail(type){
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   let title = '', rows = '';
   if(type === 'kpi-revenue'){
-    title = 'Продажи по воронкам';
+    title = t('salesByFunnelsTitle');
     rows = [...lastFunnels].sort((a,b) => b.wonSum - a.wonSum)
       .map(f => `<tr><td>${f.name}</td><td>${fmtMoney(f.wonSum, currency)}</td></tr>`).join('');
   } else if(type === 'kpi-deals'){
-    title = 'Сделок по воронкам';
+    title = t('dealsByFunnelsTitle');
     rows = [...lastFunnels].sort((a,b) => b.deals - a.deals)
       .map(f => `<tr><td>${f.name}</td><td>${f.deals}</td></tr>`).join('');
   } else if(type === 'kpi-won'){
-    title = 'Выиграно сделок по воронкам';
+    title = t('wonByFunnelsTitle');
     rows = [...lastFunnels].sort((a,b) => b.wonCount - a.wonCount)
       .map(f => `<tr><td>${f.name}</td><td>${f.wonCount}</td></tr>`).join('');
   } else if(type === 'kpi-conv'){
-    title = 'Конверсия по воронкам';
+    title = t('convByFunnelsTitle');
     rows = lastFunnels.map(f => {
       const c = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
       return {name: f.name, c};
     }).sort((a,b) => b.c - a.c).map(x => `<tr><td>${x.name}</td><td>${x.c}%</td></tr>`).join('');
   } else if(type === 'kpi-newclients'){
-    title = 'Новые клиенты · этот месяц';
-    const html = statRow('Новых контактов', lastNewClientsCount ?? '—')
-      + (lastPrevNewClientsCount !== null ? statRow('В прошлом месяце', lastPrevNewClientsCount) : '')
+    title = `${t('newClients')} ${t('thisMonthSuffix')}`;
+    const html = statRow(t('newContactsLbl'), lastNewClientsCount ?? '—')
+      + (lastPrevNewClientsCount !== null ? statRow(t('prevMonthLbl'), lastPrevNewClientsCount) : '')
       + (lastNewClientsCount !== null && lastPrevNewClientsCount !== null && lastPrevNewClientsCount > 0
-        ? statRow('Динамика', (lastNewClientsCount >= lastPrevNewClientsCount ? '+' : '') + Math.round(100*(lastNewClientsCount - lastPrevNewClientsCount)/lastPrevNewClientsCount) + '%')
+        ? statRow(t('dynamicsLbl'), (lastNewClientsCount >= lastPrevNewClientsCount ? '+' : '') + Math.round(100*(lastNewClientsCount - lastPrevNewClientsCount)/lastPrevNewClientsCount) + '%')
         : '')
-      + `<div class="modal-note">Количество новых контактов (crm.contact.list), созданных в текущем месяце.</div>`;
+      + `<div class="modal-note">${t('newClientsNote')}</div>`;
     openModal(title, html);
     return;
   } else if(type === 'kpi-velocity'){
-    title = 'Sales Velocity';
+    title = t('salesVelocity');
     const currency = lastFunnels.find(f=>f.currency)?.currency||'';
     const closedD = lastDealsFlat.filter(d => (d.semantic==='S'||d.semantic==='F') && d.createdAt && d.updatedAt);
     const avgCycle = closedD.length > 0 ? Math.round(closedD.reduce((a,d)=>a+Math.max(1,Math.round((new Date(d.updatedAt)-new Date(d.createdAt))/86400000)),0)/closedD.length) : 30;
     const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
     const avgD = lastMonthWonCount>0 ? Math.round(lastMonthRevenue/lastMonthWonCount) : 0;
     const vel = avgCycle>0 ? Math.round((lastMonthWonCount*avgD*conv/100)/avgCycle) : 0;
-    const html = statRow('Sales Velocity (выручка/день)', fmtMoney(vel, currency))
-      + `<div class="modal-subtitle">Формула: (Сделок × Средний чек × Конверсия%) / Дней цикла</div>`
-      + statRow('Выигранных сделок', lastMonthWonCount)
-      + statRow('Средний чек', fmtMoney(avgD, currency))
-      + statRow('Конверсия', conv+'%')
-      + statRow('Средний цикл сделки', avgCycle+' дн.')
-      + `<div class="modal-note">Sales Velocity — это скорость генерации выручки. Показывает сколько денег отдел продаж зарабатывает в среднем за один день.</div>`;
+    const html = statRow(t('salesVelocityRevDay'), fmtMoney(vel, currency))
+      + `<div class="modal-subtitle">${t('velocityFormula')}</div>`
+      + statRow(t('wonDealsCountLbl'), lastMonthWonCount)
+      + statRow(t('avgDeal'), fmtMoney(avgD, currency))
+      + statRow(t('convCol'), conv+'%')
+      + statRow(t('avgDealCycle'), avgCycle+` ${t('daysCycle')}.`)
+      + `<div class="modal-note">${t('velocityNote')}</div>`;
     openModal(title, html);
     return;
   } else if(type === 'kpi-forecast'){
-    title = 'Прогноз выручки на конец месяца';
+    title = t('forecastEndTitle');
     const currency = lastFunnels.find(f=>f.currency)?.currency||'';
     const now2 = new Date();
     const daysInM = new Date(now2.getFullYear(),now2.getMonth()+1,0).getDate();
@@ -4100,16 +4166,16 @@ function openKpiDetail(type){
     const dLeft = daysInM - dayOfM;
     const rate = dayOfM>0 ? Math.round(lastMonthRevenue/dayOfM) : 0;
     const fc = Math.round(lastMonthRevenue + rate*dLeft);
-    const html = statRow('Текущая выручка', fmtMoney(lastMonthRevenue, currency))
-      + statRow('Темп в день', fmtMoney(rate, currency))
-      + statRow('Осталось дней', dLeft)
-      + statRow('Прогноз на конец месяца', fmtMoney(fc, currency))
-      + (goalAmount>0 ? statRow('% от плана', Math.round(100*fc/goalAmount)+'%') : '')
-      + `<div class="modal-note">Прогноз рассчитан по линейной экстраполяции текущего темпа. Если темп ускорится — итог будет выше.</div>`;
+    const html = statRow(t('currentRevenueLbl'), fmtMoney(lastMonthRevenue, currency))
+      + statRow(t('dailyRateLabel'), fmtMoney(rate, currency))
+      + statRow(t('daysLeftLabel'), dLeft)
+      + statRow(t('forecastEndMonth'), fmtMoney(fc, currency))
+      + (goalAmount>0 ? statRow(t('ofPlan'), Math.round(100*fc/goalAmount)+'%') : '')
+      + `<div class="modal-note">${t('forecastNote')}</div>`;
     openModal(title, html);
     return;
   } else if(type === 'kpi-scoring'){
-    title = 'Скоринг лидов';
+    title = t('leadScoring');
     const now3 = new Date();
     const active = lastDealsFlat.filter(d=>d.semantic==='P');
     const hot = active.filter(d=>d.createdAt && Math.floor((now3-new Date(d.createdAt))/86400000)<=3);
@@ -4117,12 +4183,12 @@ function openKpiDetail(type){
     const cold = active.filter(d=>d.createdAt && Math.floor((now3-new Date(d.createdAt))/86400000)>14);
     const currency = lastFunnels.find(f=>f.currency)?.currency||'';
     const html = `<div class="modal-summary-row">
-      <div class="modal-summary-cell"><div class="val" style="color:#EF4444">${hot.length}</div><div class="lbl">Горячие (0–3 дня)</div></div>
-      <div class="modal-summary-cell"><div class="val" style="color:#F59E0B">${warm.length}</div><div class="lbl">Тёплые (4–14 дней)</div></div>
-      <div class="modal-summary-cell"><div class="val" style="color:var(--ink-soft)">${cold.length}</div><div class="lbl">Холодные (14+ дней)</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:#EF4444">${hot.length}</div><div class="lbl">${t('hotLeadsFull')}</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:#F59E0B">${warm.length}</div><div class="lbl">${t('warmLeadsFull')}</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--ink-soft)">${cold.length}</div><div class="lbl">${t('coldLeadsFull')}</div></div>
     </div>`
-    + (hot.length>0 ? `<div class="modal-subtitle" style="color:#EF4444">Горячие лиды — требуют внимания сегодня</div><div class="modal-deal-list">${buildDealListRows(hot.map((d,i)=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '')
-    + (cold.length>0 ? `<div class="modal-subtitle" style="color:var(--ink-soft)">Холодные — риск потерять</div><div class="modal-deal-list">${buildDealListRows(cold.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).map(d=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '');
+    + (hot.length>0 ? `<div class="modal-subtitle" style="color:#EF4444">${t('hotLeadsAttention')}</div><div class="modal-deal-list">${buildDealListRows(hot.map((d,i)=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '')
+    + (cold.length>0 ? `<div class="modal-subtitle" style="color:var(--ink-soft)">${t('coldLeadsRisk')}</div><div class="modal-deal-list">${buildDealListRows(cold.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).map(d=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '');
     openModal(title, html);
     document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
     return;
