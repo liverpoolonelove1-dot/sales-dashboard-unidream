@@ -7054,6 +7054,15 @@ onCrmChange();
 applyLang(); // применяем язык сразу
 
 (function initFromUrl(){
+  // Демо-режим должен быть доступен всем без входа — проверяем его первым,
+  // до логина. Раньше логин перехватывал раньше, и кнопка «Посмотреть демо» не работала.
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('demo') === '1'){
+    try{ window.history.replaceState(null, '', window.location.pathname); }catch(e){}
+    startDemoMode();
+    return;
+  }
+
   // Если список клиентов пуст — логин не нужен, работаем без защиты (режим разработки)
   const authRequired = CLIENT_ACCOUNTS.length > 0;
 
@@ -7074,14 +7083,6 @@ applyLang(); // применяем язык сразу
       const wf = connFields.querySelector('[data-field="webhook"]');
       if(wf){ wf.value = session.webhook; restoreSettings(); attemptConnect(); return; }
     }
-  }
-
-  const params = new URLSearchParams(window.location.search);
-
-  if(params.get('demo') === '1'){
-    try{ window.history.replaceState(null, '', window.location.pathname); }catch(e){}
-    startDemoMode();
-    return;
   }
 
   const wh = params.get('wh');
