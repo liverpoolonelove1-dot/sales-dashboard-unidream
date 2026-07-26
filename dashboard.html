@@ -1970,7 +1970,7 @@ function onCrmChange(){
   renderConnFields(adapter);
   helpBox.innerHTML = adapter.helpHtml;
   helpBox.style.display = 'block';
-  subText.textContent = adapter.subText;
+  if(subText) subText.textContent = adapter.subText;
   statusLine.className = 'status-line';
   statusLine.textContent = adapter.status === 'ready'
     ? 'Ещё не подключено — заполните поля выше.'
