@@ -1356,6 +1356,7 @@ const TRANSLATIONS = {
     convShort: 'конв.',
     ofPlan: 'от плана',
     remainingShort: 'осталось',
+    allDealsTitle: 'Все сделки',
     bottleneckTitle: 'Дольше всего без движения',
     onAvgDays: 'в среднем',
     employeeIdPrefix: 'Сотрудник ID ',
@@ -1710,6 +1711,7 @@ const TRANSLATIONS = {
     convShort: 'konv.',
     ofPlan: 'rejadan',
     remainingShort: 'qoldi',
+    allDealsTitle: 'Barcha bitimlar',
     bottleneckTitle: 'Eng uzoq harakatsiz',
     onAvgDays: 'o\'rtacha',
     employeeIdPrefix: 'Xodim ID ',
@@ -1940,6 +1942,7 @@ let lastHasManagers = false;
 let lastLostReasons = [];
 let lastBestDeal = null;
 let lastDealsFlat = []; // все сделки всех воронок одним плоским списком — для клика "детали сделки"
+let lastMonthDealsFlat = []; // то же самое, но строго за этот месяц — не зависит от выбранного периода в фильтре
 let lastMonthRevenue = 0;
 let lastMonthCurrency = '';
 let lastPrevMonthRevenue = 0;
@@ -2999,6 +3002,20 @@ async function loadDashboard(){
             updatedAt: d.updatedAt,
             semantic: d.semantic,
             source: d.source || ''
+          })),
+          monthDealsList: monthDeals.map(d => ({
+            id: d.id,
+            title: d.title || '',
+            stageId: d.stageId,
+            stageName: (stageMap[d.stageId] && stageMap[d.stageId].name) || d.stageId,
+            amount: d.amount || 0,
+            currency: d.currency || currency,
+            assignedTo: d.assignedTo,
+            createdAt: d.createdAt,
+            closedAt: d.closedAt,
+            updatedAt: d.updatedAt,
+            semantic: d.semantic,
+            source: d.source || ''
           }))
         });
       }
@@ -3064,9 +3081,13 @@ async function loadDashboard(){
 
     lastBestDeal = bestDeal;
     lastDealsFlat = [];
+    lastMonthDealsFlat = [];
     displayFunnels.forEach(f => {
       (f.dealsList || []).forEach(d => {
         lastDealsFlat.push({...d, funnelName: f.name, funnelId: f.id, _flatIdx: lastDealsFlat.length});
+      });
+      (f.monthDealsList || []).forEach(d => {
+        lastMonthDealsFlat.push({...d, funnelName: f.name, funnelId: f.id, _monthFlatIdx: lastMonthDealsFlat.length});
       });
     });
     lastMonthRevenue = monthRevenue;
@@ -3598,8 +3619,8 @@ function renderDealHistoryHtml(history, stageMap){
     (history.length > 50 ? `<div class="modal-note">Показаны последние 50 из ${history.length} изменений.</div>` : '');
 }
 
-async function openDealDetail(flatIdx){
-  const d = lastDealsFlat[flatIdx];
+async function openDealDetail(flatIdx, src){
+  const d = (src === 'month' ? lastMonthDealsFlat : lastDealsFlat)[flatIdx];
   if(!d) return;
   const currency = d.currency || '';
   const respName = lastManagers.find(m => String(m.id) === String(d.assignedTo))?.name
@@ -3688,8 +3709,11 @@ function buildDealListRows(deals, limit){
       || (d.assignedTo ? `Сотрудник ID ${d.assignedTo}` : 'Без ответственного');
     const created = d.createdAt ? new Date(d.createdAt).toLocaleDateString('ru-RU') : '—';
     const title = d.title ? escapeHtml(d.title) : `Сделка №${d.id}`;
+    const isMonthScoped = d._flatIdx === undefined && d._monthFlatIdx !== undefined;
+    const idx = isMonthScoped ? d._monthFlatIdx : d._flatIdx;
+    const src = isMonthScoped ? 'month' : 'all';
     return `
-      <div class="modal-deal-row-rich" data-detail="dealdetail" data-idx="${d._flatIdx}">
+      <div class="modal-deal-row-rich" data-detail="dealdetail" data-idx="${idx}" data-src="${src}">
         <div class="modal-deal-row-top">
           <span class="modal-deal-title">${title}</span>
           <span class="modal-deal-sum">${fmtMoney(d.amount, d.currency)}</span>
@@ -4175,24 +4199,41 @@ function openLostValueDetail(){
 function openKpiDetail(type){
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   let title = '', rows = '';
+  let dealListHtml = '';
   if(type === 'kpi-revenue'){
     title = t('salesByFunnelsTitle');
     rows = [...lastFunnels].sort((a,b) => b.wonSum - a.wonSum)
       .map(f => `<tr><td>${f.name}</td><td>${fmtMoney(f.wonSum, currency)}</td></tr>`).join('');
+    const wonThisMonth = lastMonthDealsFlat.filter(d => d.semantic === 'S').sort((a,b) => b.amount - a.amount);
+    if(wonThisMonth.length){
+      dealListHtml = `<div class="modal-subtitle" style="margin-top:16px;">${t('wonDealsTitle')} <span style="font-weight:400;color:var(--ink-soft)">(${wonThisMonth.length})</span></div><div class="modal-deal-list">${buildDealListRows(wonThisMonth, 50)}</div>`;
+    }
   } else if(type === 'kpi-deals'){
     title = t('dealsByFunnelsTitle');
     rows = [...lastFunnels].sort((a,b) => b.deals - a.deals)
       .map(f => `<tr><td>${f.name}</td><td>${f.deals}</td></tr>`).join('');
+    const allThisMonth = [...lastMonthDealsFlat].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if(allThisMonth.length){
+      dealListHtml = `<div class="modal-subtitle" style="margin-top:16px;">${t('allDealsTitle')} <span style="font-weight:400;color:var(--ink-soft)">(${allThisMonth.length})</span></div><div class="modal-deal-list">${buildDealListRows(allThisMonth, 50)}</div>`;
+    }
   } else if(type === 'kpi-won'){
     title = t('wonByFunnelsTitle');
     rows = [...lastFunnels].sort((a,b) => b.wonCount - a.wonCount)
       .map(f => `<tr><td>${f.name}</td><td>${f.wonCount}</td></tr>`).join('');
+    const wonThisMonth = lastMonthDealsFlat.filter(d => d.semantic === 'S').sort((a,b) => b.amount - a.amount);
+    if(wonThisMonth.length){
+      dealListHtml = `<div class="modal-subtitle" style="margin-top:16px;">${t('wonDealsTitle')} <span style="font-weight:400;color:var(--ink-soft)">(${wonThisMonth.length})</span></div><div class="modal-deal-list">${buildDealListRows(wonThisMonth, 50)}</div>`;
+    }
   } else if(type === 'kpi-conv'){
     title = t('convByFunnelsTitle');
     rows = lastFunnels.map(f => {
       const c = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
       return {name: f.name, c};
     }).sort((a,b) => b.c - a.c).map(x => `<tr><td>${x.name}</td><td>${x.c}%</td></tr>`).join('');
+    const wonThisMonth = lastMonthDealsFlat.filter(d => d.semantic === 'S').sort((a,b) => b.amount - a.amount);
+    const lostThisMonth = lastMonthDealsFlat.filter(d => d.semantic === 'F').sort((a,b) => b.amount - a.amount);
+    if(wonThisMonth.length) dealListHtml += `<div class="modal-subtitle" style="margin-top:16px;">${t('wonDealsTitle')} <span style="font-weight:400;color:var(--ink-soft)">(${wonThisMonth.length})</span></div><div class="modal-deal-list">${buildDealListRows(wonThisMonth, 25)}</div>`;
+    if(lostThisMonth.length) dealListHtml += `<div class="modal-subtitle" style="margin-top:16px;">${t('lostDealsTitle')} <span style="font-weight:400;color:var(--ink-soft)">(${lostThisMonth.length})</span></div><div class="modal-deal-list">${buildDealListRows(lostThisMonth, 25)}</div>`;
   } else if(type === 'kpi-newclients'){
     title = `${t('newClients')} ${t('thisMonthSuffix')}`;
     const html = statRow(t('newContactsLbl'), lastNewClientsCount ?? '—')
@@ -4256,7 +4297,8 @@ function openKpiDetail(type){
     document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
     return;
   }
-  openModal(title, `<table class="modal-table"><tbody>${rows}</tbody></table>`);
+  openModal(title, `<table class="modal-table"><tbody>${rows}</tbody></table>${dealListHtml}`);
+  if(dealListHtml) document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
 }
 
 document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
@@ -4296,7 +4338,7 @@ document.addEventListener('click', (e) => {
   else if(type === 'tasks-overdue') openTasksDetail('overdue');
   else if(type === 'pipeline') openPipelineDetail();
   else if(type === 'lostvalue') openLostValueDetail();
-  else if(type === 'dealdetail') openDealDetail(idx);
+  else if(type === 'dealdetail') openDealDetail(idx, el.dataset.src);
   else if(type.startsWith('kpi-')) openKpiDetail(type);
 });
 
@@ -6381,6 +6423,7 @@ function startDemoMode(){
   lastFunnels = funnels;
   lastManagers = managers;
   lastDealsFlat = deals;
+  lastMonthDealsFlat = deals;
   lastDailyEntries = [];
   lastWonPoints = deals.filter(d=>d.semantic==='S').map(d=>({date:d.createdAt,amount:d.amount}));
   lastMonthRevenue = 9900000;
@@ -6695,7 +6738,7 @@ document.getElementById('searchResults').addEventListener('click', e => {
   const type = row.dataset.detail;
   const idx = parseInt(row.dataset.idx, 10);
   setTimeout(() => {
-    if(type === 'dealdetail') openDealDetail(idx);
+    if(type === 'dealdetail') openDealDetail(idx, row.dataset.src);
     else if(type === 'manager') openManagerDetail(idx);
     else if(type === 'funnel') openFunnelDetail(idx);
   }, 100);
