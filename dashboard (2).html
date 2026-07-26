@@ -1171,6 +1171,38 @@ const TRANSLATIONS = {
     inProgress: 'В работе',
     completed: 'Завершено',
     overdue: 'Просрочено',
+    // Доп. ключи для KPI/карточек/сайдбара
+    newClients: 'Новые клиенты',
+    salesLabel: 'Продажи',
+    dealsLabel: 'Сделок',
+    convLabel: 'Конв.',
+    salesVelocity: 'Sales Velocity',
+    perDay: '/день',
+    forecastKpi: 'Прогноз месяца',
+    leadScoring: 'Скоринг лидов',
+    hotLeads: 'горячих',
+    warmLeads: 'тёплых',
+    coldLeads: 'холодных',
+    chartHeroTitle: 'Динамика продаж',
+    navOverview: 'Обзор',
+    navFunnels: 'Воронки',
+    navManagers: 'Менеджеры',
+    navCalls: 'Звонки',
+    navTasks: 'Задачи',
+    navAnalytics: 'Аналитика',
+    navSettings: 'Настройки',
+    prevMonth: 'прошлому месяцу',
+    deltaNoData: 'нет данных за',
+    deltaNewSales: 'новые продажи за период (пусто ранее)',
+    deltaFlat: 'без изменений к',
+    deltaTo: 'к',
+    dealsConvSep: 'сделок · конверсия',
+    goalTitle: 'Цель на период:',
+    goalEdit: 'Изменить',
+    goalDone: 'План выполнен —',
+    goalProgress: 'Выполнено',
+    goalOf: 'из',
+    placeholderExample: 'например, 50000000',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1229,6 +1261,37 @@ const TRANSLATIONS = {
     inProgress: 'Jarayonda',
     completed: 'Bajarilgan',
     overdue: 'Muddati o\'tgan',
+    newClients: 'Yangi mijozlar',
+    salesLabel: 'Savdo',
+    dealsLabel: 'Bitimlar',
+    convLabel: 'Konv.',
+    salesVelocity: 'Sales Velocity',
+    perDay: '/kun',
+    forecastKpi: 'Oy prognozi',
+    leadScoring: 'Lidlarni baholash',
+    hotLeads: 'issiq',
+    warmLeads: 'iliq',
+    coldLeads: 'sovuq',
+    chartHeroTitle: 'Savdo dinamikasi',
+    navOverview: 'Umumiy',
+    navFunnels: 'Voronkalar',
+    navManagers: 'Menejerlar',
+    navCalls: 'Qo\'ng\'iroqlar',
+    navTasks: 'Vazifalar',
+    navAnalytics: 'Tahlil',
+    navSettings: 'Sozlamalar',
+    prevMonth: 'oldingi oyga',
+    deltaNoData: 'ma\'lumot yo\'q',
+    deltaNewSales: 'yangi savdolar (avval bo\'sh edi)',
+    deltaFlat: 'o\'zgarishsiz',
+    deltaTo: '',
+    dealsConvSep: 'bitim · konversiya',
+    goalTitle: 'Davr uchun reja:',
+    goalEdit: 'O\'zgartirish',
+    goalDone: 'Reja bajarildi —',
+    goalProgress: 'Bajarildi',
+    goalOf: 'dan',
+    placeholderExample: 'masalan, 50000000',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -1279,6 +1342,13 @@ function applyLang(){
   // метка языка
   const lbl = document.getElementById('langLabel');
   if(lbl) lbl.textContent = currentLang.toUpperCase();
+  // сайдбар
+  const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', calls:'navCalls', tasks:'navTasks', analytics:'navAnalytics', settings:'navSettings'};
+  document.querySelectorAll('.sbnav-item').forEach(btn => {
+    const key = navMap[btn.dataset.nav];
+    const span = btn.querySelector('span');
+    if(key && span) span.textContent = t(key);
+  });
   // экран входа
   const loginSub = document.querySelector('#loginView .login-sub');
   if(loginSub) loginSub.textContent = 'PulseCRM · ' + t('loginTitle');
@@ -1298,7 +1368,11 @@ langToggleBtn.addEventListener('click', () => {
   try{ localStorage.setItem('salesPulseLang', currentLang); }catch(e){}
   applyLang();
   // Перерисовываем дашборд если подключён — обновит кнопки внутри сетки
-  if(lastFunnels.length > 0) rerenderCached();
+  if(lastFunnels.length > 0){
+    rerenderCached();
+    renderChartHero(lastDailyEntries, lastMonthCurrency || 'UZS');
+    renderGoalBanner(lastMonthRevenue, lastMonthCurrency || 'UZS');
+  }
 });
 
 let currentPeriod = (() => { const r = computePeriod('month'); return {type: 'month', from: r.from, to: r.to}; })();
@@ -1959,15 +2033,15 @@ function fmtMoney(n, currency){
 }
 
 function deltaBadge(current, prev, hasPrev, label){
-  label = label || 'прошлому периоду';
+  label = label || t('prevMonth');
   if(!hasPrev) return '';
-  if(prev === 0 && current === 0) return `<div class="delta flat">— нет данных за ${label}</div>`;
-  if(prev === 0) return `<div class="delta up">▲ новые продажи (${label} пуст)</div>`;
+  if(prev === 0 && current === 0) return `<div class="delta flat">— ${t('deltaNoData')} ${label}</div>`;
+  if(prev === 0) return `<div class="delta up">▲ ${t('deltaNewSales')}</div>`;
   const pct = Math.round(((current - prev) / prev) * 100);
   const shown = Math.abs(pct) > 999 ? (pct > 0 ? '999+' : '-999') : pct;
-  if(pct > 0) return `<div class="delta up">▲ +${shown}% к ${label}</div>`;
-  if(pct < 0) return `<div class="delta down">▼ ${shown}% к ${label}</div>`;
-  return `<div class="delta flat">— без изменений к ${label}</div>`;
+  if(pct > 0) return `<div class="delta up">▲ +${shown}% ${t('deltaTo')} ${label}</div>`;
+  if(pct < 0) return `<div class="delta down">▼ ${shown}% ${t('deltaTo')} ${label}</div>`;
+  return `<div class="delta flat">— ${t('deltaFlat')} ${label}</div>`;
 }
 
 function computeForecast(period, revenue){
@@ -2009,19 +2083,19 @@ function buildGoalSection(totalRevenue, currency){
         </div>
         <div class="goal-ring-info">
           <div class="goal-head">
-            <span class="goal-title">Цель на период: <b>${fmtMoney(goalAmount, currency)}</b></span>
-            <button class="goal-edit" data-action="edit-goal" type="button">Изменить</button>
+            <span class="goal-title">${t('goalTitle')} <b>${fmtMoney(goalAmount, currency)}</b></span>
+            <button class="goal-edit" data-action="edit-goal" type="button">${t('goalEdit')}</button>
           </div>
-          <div class="goal-caption goal-caption-lg">${done ? 'План выполнен — ' : 'Выполнено '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} из ${fmtMoney(goalAmount, currency)})</span></div>
+          <div class="goal-caption goal-caption-lg">${done ? t('goalDone') + ' ' : t('goalProgress') + ' '}${pct}% <span>(${fmtMoney(totalRevenue, currency)} ${t('goalOf')} ${fmtMoney(goalAmount, currency)})</span></div>
         </div>
       </div>
     `;
   }
   return `
     <div class="goal-card goal-hero goal-empty">
-      <span>Задайте план продаж на этот период, чтобы видеть прогресс</span>
-      <input type="number" id="goalInput" placeholder="например, 50000000" min="0" max="1000000000000000">
-      <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">Утвердить план</button>
+      <span>${t('setGoalPlaceholder')}</span>
+      <input type="number" id="goalInput" placeholder="${t('placeholderExample')}" min="0" max="1000000000000000">
+      <button class="btn btn-primary btn-sm" data-action="set-goal" type="button">${t('setGoalBtn')}</button>
     </div>
   `;
 }
@@ -2038,7 +2112,7 @@ function buildLossReasonsSection(lostReasons){
     </div>
   `).join('');
   return `
-    <p class="section-title">Причины отказов</p>
+    <p class="section-title">${t('refusalReasons')}</p>
     <div class="managers-wrap">
       ${rows}
       
@@ -2544,6 +2618,7 @@ async function loadDashboard(){
 }
 
 function pluralDays(n){
+  if(currentLang === 'uz') return 'kun';
   const n10 = n % 10, n100 = n % 100;
   if(n10 === 1 && n100 !== 11) return 'день';
   if([2,3,4].includes(n10) && ![12,13,14].includes(n100)) return 'дня';
@@ -2560,8 +2635,8 @@ function renderChartHero(entries, currency){
     const avgPerDay = withSales.reduce((a, e) => a + e.sum, 0) / withSales.length;
     statsHtml = `
       <div class="chart-hero-stats">
-        <div><span class="chart-hero-stat-label">Лучший день</span><span class="chart-hero-stat-value">${fmtMoney(best.sum, currency)}</span><span class="chart-hero-stat-note">${best.label}</span></div>
-        <div><span class="chart-hero-stat-label">В среднем в день с продажами</span><span class="chart-hero-stat-value">${fmtMoney(avgPerDay, currency)}</span></div>
+        <div><span class="chart-hero-stat-label">${t('bestDay')}</span><span class="chart-hero-stat-value">${fmtMoney(best.sum, currency)}</span><span class="chart-hero-stat-note">${best.label}</span></div>
+        <div><span class="chart-hero-stat-label">${t('avgDay')}</span><span class="chart-hero-stat-value">${fmtMoney(avgPerDay, currency)}</span></div>
       </div>
     `;
   }
@@ -2570,9 +2645,9 @@ function renderChartHero(entries, currency){
     <div class="fcard chart-hero">
       <div class="chart-hero-top">
         <div class="chart-hero-summary">
-          <p class="section-title">Динамика продаж</p>
+          <p class="section-title">${t('chartHeroTitle')}</p>
           <div class="chart-hero-total">${fmtMoney(totalMonthSum, currency)}</div>
-          <div class="chart-hero-total-note">итого в этом месяце · ${withSales.length} ${pluralDays(withSales.length)} с продажами</div>
+          <div class="chart-hero-total-note">${t('monthTotal')} · ${withSales.length} ${pluralDays(withSales.length)} ${currentLang === 'uz' ? 'savdo bilan' : 'с продажами'}</div>
         </div>
         ${statsHtml}
       </div>
@@ -2629,9 +2704,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <span class="fcard-id">ID ${f.id}</span>
         </div>
         <div class="fcard-metrics">
-          <div><div class="m-label">Продажи</div><div class="m-value">${fmtMoney(f.wonSum, f.currency)}</div></div>
-          <div><div class="m-label">Сделок</div><div class="m-value">${f.deals}</div></div>
-          <div><div class="m-label">Конв.</div><div class="m-value">${fWinRate}%</div></div>
+          <div><div class="m-label">${t('salesLabel')}</div><div class="m-value">${fmtMoney(f.wonSum, f.currency)}</div></div>
+          <div><div class="m-label">${t('dealsLabel')}</div><div class="m-value">${f.deals}</div></div>
+          <div><div class="m-label">${t('convLabel')}</div><div class="m-value">${fWinRate}%</div></div>
         </div>
         <div class="mini-funnel-bar"><div class="mini-funnel-fill" style="width:${fWinRate}%;background:${color};"></div></div>
         ${f.bottleneck ? `<div class="bottleneck-compact" title="Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.">«${f.bottleneck.name}» — ~${f.bottleneck.avgAgeDays} дн</div>` : ''}
@@ -2686,42 +2761,42 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const reportTiles = `
     ${avgDeal > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="avgdeal" style="border-left:3px solid var(--accent-strong);">
-        <div class="fcard-head"><div class="fcard-name">Средний чек</div></div>
+        <div class="fcard-head"><div class="fcard-name">${t('avgDeal')}</div></div>
         <div class="report-tile-value">${fmtMoney(avgDeal, currency)}</div>
         <div class="report-tile-note">по всем выигранным сделкам</div>
       </div>
     ` : ''}
     ${topManager ? `
       <div class="fcard fcard-compact report-tile" data-detail="manager" data-idx="0" style="border-left:3px solid var(--accent-strong);">
-        <div class="fcard-head"><div class="fcard-name">Лучший менеджер</div></div>
+        <div class="fcard-head"><div class="fcard-name">${t('bestManager')}</div></div>
         <div class="report-tile-value">${topManager.name}</div>
         <div class="report-tile-note">${fmtMoney(topManager.wonSum, currency)} · ${topManager.wonCount} сделок</div>
       </div>
     ` : ''}
     ${lastBestDeal ? `
       <div class="fcard fcard-compact report-tile" data-detail="bestdeal" style="border-left:3px solid var(--accent-strong);">
-        <div class="fcard-head"><div class="fcard-name">Крупнейшая сделка</div></div>
+        <div class="fcard-head"><div class="fcard-name">${t('biggestDeal')}</div></div>
         <div class="report-tile-value">${fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency)}</div>
         <div class="report-tile-note">воронка «${lastBestDeal.funnelName}»</div>
       </div>
     ` : ''}
     ${salesVelocity > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="kpi-velocity" style="border-left:3px solid #60A5FA;">
-        <div class="fcard-head"><div class="fcard-name">Sales Velocity</div></div>
+        <div class="fcard-head"><div class="fcard-name">${t('salesVelocity')}</div></div>
         <div class="report-tile-value">${fmtMoney(salesVelocity, currency)}<span style="font-size:11px;font-weight:400;color:var(--ink-soft)">/день</span></div>
         <div class="report-tile-note">цикл сделки ~${Math.round(avgCycleDays)} дн · конв. ${Math.round(overallConv*100)}%</div>
       </div>
     ` : ''}
     ${dailyRate > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="kpi-forecast" style="border-left:3px solid #A78BFA;">
-        <div class="fcard-head"><div class="fcard-name">Прогноз месяца</div></div>
+        <div class="fcard-head"><div class="fcard-name">${t('forecastKpi')}</div></div>
         <div class="report-tile-value">${fmtMoney(forecast, currency)}</div>
         <div class="report-tile-note">${goalAmount > 0 ? `${forecastPct}% от плана · ` : ''}осталось ${daysLeft} дн.</div>
       </div>
     ` : ''}
     ${activeDeals.length > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="kpi-scoring" style="border-left:3px solid #F59E0B;">
-        <div class="fcard-head"><div class="fcard-name">Скоринг лидов</div></div>
+        <div class="fcard-head"><div class="fcard-name">${t('leadScoring')}</div></div>
         <div class="report-tile-value" style="font-size:13px;display:flex;gap:10px;margin-top:6px;">
           <span style="color:#EF4444;font-weight:800">${hotLeads.length} 🔥</span>
           <span style="color:#F59E0B;font-weight:800">${warmLeads.length} ○</span>
@@ -2736,20 +2811,20 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   if(lastCallStats){
     callsTile = `
       <div class="fcard tile tile-calls" data-detail="calls">
-        <p class="section-title">Звонки</p>
+        <p class="section-title">${t('calls')}</p>
         <div class="calls-grid">
-          <div><span class="calls-label">Входящие</span><span class="calls-value">${lastCallStats.incoming}</span></div>
-          <div><span class="calls-label">Исходящие</span><span class="calls-value">${lastCallStats.outgoing}</span></div>
-          <div><span class="calls-label">Успешные</span><span class="calls-value calls-good">${lastCallStats.successful}</span></div>
-          <div><span class="calls-label">Пропущенные</span><span class="calls-value calls-bad">${lastCallStats.missed}</span></div>
+          <div><span class="calls-label">${t('incoming')}</span><span class="calls-value">${lastCallStats.incoming}</span></div>
+          <div><span class="calls-label">${t('outgoing')}</span><span class="calls-value">${lastCallStats.outgoing}</span></div>
+          <div><span class="calls-label">${t('successful')}</span><span class="calls-value calls-good">${lastCallStats.successful}</span></div>
+          <div><span class="calls-label">${t('missed')}</span><span class="calls-value calls-bad">${lastCallStats.missed}</span></div>
         </div>
-        <div class="calls-duration">${fmtDuration(lastCallStats.totalDuration)} разговоров за период</div>
+        <div class="calls-duration">${fmtDuration(lastCallStats.totalDuration)} ${currentLang === 'uz' ? 'davr uchun suhbat' : 'разговоров за период'}</div>
       </div>
     `;
   } else if(lastCallStatsError){
     callsTile = `
       <div class="fcard tile tile-calls">
-        <p class="section-title">Звонки</p>
+        <p class="section-title">${t('calls')}</p>
         <div class="managers-note">Не удалось получить статистику звонков: ${lastCallStatsError} — добавьте вебхуку право доступа <b>telephony</b> (Телефония).</div>
       </div>
     `;
@@ -2767,25 +2842,25 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     tasksTile = `
       <div class="fcard tile tile-calls">
         <div class="tasks-tile-head">
-          <p class="section-title" style="cursor:pointer" data-detail="tasks">Задачи</p>
+          <p class="section-title" style="cursor:pointer" data-detail="tasks">${t('tasks')}</p>
           <select id="taskManagerFilter" class="tasks-manager-select">
-            <option value="all" ${taskFilterManagerId === 'all' ? 'selected' : ''}>Все менеджеры</option>
+            <option value="all" ${taskFilterManagerId === 'all' ? 'selected' : ''}>${t('allManagers')}</option>
             ${managerOptions}
           </select>
         </div>
         <div class="calls-grid">
-          <div data-detail="tasks" style="cursor:pointer"><span class="calls-label">Всего задач</span><span class="calls-value">${taskStats.total}</span></div>
-          <div data-detail="tasks-new" style="cursor:pointer"><span class="calls-label">Новые</span><span class="calls-value">${taskStats.neW}</span></div>
-          <div data-detail="tasks-work" style="cursor:pointer"><span class="calls-label">В работе</span><span class="calls-value">${taskStats.inProgress}</span></div>
-          <div data-detail="tasks-done" style="cursor:pointer"><span class="calls-label">Завершено</span><span class="calls-value calls-good">${taskStats.completed}</span></div>
+          <div data-detail="tasks" style="cursor:pointer"><span class="calls-label">${t('totalTasks')}</span><span class="calls-value">${taskStats.total}</span></div>
+          <div data-detail="tasks-new" style="cursor:pointer"><span class="calls-label">${t('newTasks')}</span><span class="calls-value">${taskStats.neW}</span></div>
+          <div data-detail="tasks-work" style="cursor:pointer"><span class="calls-label">${t('inProgress')}</span><span class="calls-value">${taskStats.inProgress}</span></div>
+          <div data-detail="tasks-done" style="cursor:pointer"><span class="calls-label">${t('completed')}</span><span class="calls-value calls-good">${taskStats.completed}</span></div>
         </div>
-        <div class="calls-duration ${taskStats.overdue > 0 ? 'calls-bad' : ''}" data-detail="tasks-overdue" style="cursor:pointer">${taskStats.overdue > 0 ? '' : ''}Просрочено: ${taskStats.overdue}</div>
+        <div class="calls-duration ${taskStats.overdue > 0 ? 'calls-bad' : ''}" data-detail="tasks-overdue" style="cursor:pointer">${t('overdue')}: ${taskStats.overdue}</div>
       </div>
     `;
   } else if(lastTaskStatsError){
     tasksTile = `
       <div class="fcard tile tile-calls">
-        <p class="section-title">Задачи</p>
+        <p class="section-title">${t('tasks')}</p>
         <div class="managers-note">Не удалось получить задачи: ${lastTaskStatsError} — добавьте вебхуку право доступа <b>task</b> (Задачи).</div>
       </div>
     `;
@@ -2801,13 +2876,13 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
             <span class="manager-name">${m.name}</span>
             <span class="manager-sum">${fmtMoney(m.wonSum, currency)}</span>
           </div>
-          <div class="manager-row-bottom">${m.dealsCount} сделок · конверсия ${conv}%</div>
+          <div class="manager-row-bottom">${m.dealsCount} ${t('dealsConvSep')} ${conv}%</div>
         </div>
       `;
     }).join('');
     managersHtml = `
       <div class="fcard tile tile-managers">
-        <p class="section-title">По менеджерам</p>
+        <p class="section-title">${t('byManagers')}</p>
         <div class="managers-wrap tile-body-scroll">
           ${rows}
           ${namesResolved ? '' : `<div class="managers-note">Не удалось получить имена сотрудников${lastNamesErrorMsg ? ': ' + lastNamesErrorMsg : ''} — показаны ID.</div>`}
@@ -2829,14 +2904,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const html = `
     <div class="kpis kpis-row">
       <div class="kpi kpi-hero" data-detail="kpi-revenue">
-        <div class="label">Продажи (выиграно) · этот месяц</div>
+        <div class="label">${t('salesKpi')} ${t('thisMonthSuffix')}</div>
         <div class="value" data-countup="${lastMonthRevenue}" data-suffix=" ${lastMonthCurrency || currency}">0 ${lastMonthCurrency || currency}</div>
-        ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, true, 'прошлому месяцу')}
+        ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, true, t('prevMonth'))}
       </div>
-      <div class="kpi" data-detail="kpi-deals"><div class="label">Сделок всего · этот месяц</div><div class="value" data-countup="${lastMonthDealsTotal}">0</div></div>
-      <div class="kpi" data-detail="kpi-won"><div class="label">Выиграно сделок · этот месяц</div><div class="value" data-countup="${lastMonthWonCount}">0</div></div>
+      <div class="kpi" data-detail="kpi-deals"><div class="label">${t('dealsKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthDealsTotal}">0</div></div>
+      <div class="kpi" data-detail="kpi-won"><div class="label">${t('wonKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthWonCount}">0</div></div>
       <div class="kpi kpi-gauge" data-detail="kpi-conv">
-        <div class="label">Конверсия · этот месяц</div>
+        <div class="label">${t('convKpi')} ${t('thisMonthSuffix')}</div>
         <div class="value" data-countup="${monthWinRate}" data-suffix-html="<small>%</small>">0<small>%</small></div>
         <svg class="mini-gauge" viewBox="0 0 44 44">
           <circle class="mini-gauge-track" cx="22" cy="22" r="18"></circle>
@@ -2847,13 +2922,13 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       </div>
       ${lastNewClientsCount !== null ? `
       <div class="kpi" data-detail="kpi-newclients">
-        <div class="label">Новые клиенты · этот месяц</div>
+        <div class="label">${t('newClients')} ${t('thisMonthSuffix')}</div>
         <div class="value" data-countup="${lastNewClientsCount}">0</div>
-        ${deltaBadge(lastNewClientsCount, lastPrevNewClientsCount, lastPrevNewClientsCount !== null, 'прошлому месяцу')}
+        ${deltaBadge(lastNewClientsCount, lastPrevNewClientsCount, lastPrevNewClientsCount !== null, t('prevMonth'))}
       </div>` : ''}
     </div>
 
-    <p class="section-title">Воронки продаж <span class="n">${funnels.length}</span></p>
+    <p class="section-title">${t('funnels')} <span class="n">${funnels.length}</span></p>
     <p class="period-sub-note">Воронки, менеджеры и причины отказов ниже показывают период, выбранный в фильтре выше; KPI сверху и график динамики — всегда за текущий месяц.</p>
     <div class="dash-tiles">
       ${(isBlockVisible('funnels') && planHas('funnels')) ? funnelCards : ''}
