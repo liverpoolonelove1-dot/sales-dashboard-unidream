@@ -5338,7 +5338,7 @@ async function assistantAsk(query){
 
   if(aiEnabled && lastFunnels.length > 0){
     // Используем Gemini AI
-    aDiv.textContent = '⏳ AI анализирует данные…';
+    aDiv.textContent = 'AI анализирует данные…';
     log.appendChild(aDiv);
     const body = document.querySelector('.assistant-body');
     if(body) body.scrollTop = body.scrollHeight;
