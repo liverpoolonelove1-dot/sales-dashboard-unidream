@@ -82,12 +82,13 @@
   .pricing-cta{width:100%;justify-content:center;text-align:center;}
   @media(max-width:860px){.landing-pricing{padding:40px 24px 48px;}.landing-pricing-grid{grid-template-columns:1fr;}}
 
-  .landing-about{padding:56px 64px 0;max-width:760px;margin:0 auto;text-align:center;}
-  .landing-about-inner{display:flex;flex-direction:column;align-items:center;}
+  .landing-about{padding:56px 64px 0;max-width:800px;margin:0 auto;text-align:center;}
+  .landing-about-inner{display:flex;flex-direction:column;align-items:center;width:100%;}
   .landing-about .landing-badge{margin-bottom:18px;}
-  .landing-about-text{font-size:15.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 16px;}
+  .landing-about-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:32px 36px;width:100%;box-shadow:0 1px 3px var(--shadow-lg);}
+  .landing-about-text{font-size:15.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 16px;text-align:left;}
   .landing-about-text:last-child{margin-bottom:0;}
-  @media(max-width:860px){.landing-about{padding:40px 24px 0;}}
+  @media(max-width:860px){.landing-about{padding:40px 24px 0;}.landing-about-card{padding:24px 22px;}}
 
   .landing-setup{padding:40px 64px 0;max-width:1200px;margin:0 auto;}
   .landing-setup-card{display:flex;align-items:flex-start;gap:18px;background:var(--surface);border:1px solid var(--accent-strong);border-radius:18px;padding:26px 28px;}
@@ -173,8 +174,10 @@
   <div class="landing-about" id="about">
     <div class="landing-about-inner">
       <div class="landing-badge">О нас</div>
-      <p class="landing-about-text">PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.</p>
-      <p class="landing-about-text">Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.</p>
+      <div class="landing-about-card">
+        <p class="landing-about-text">PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.</p>
+        <p class="landing-about-text">Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.</p>
+      </div>
     </div>
   </div>
 
