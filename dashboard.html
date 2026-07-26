@@ -873,20 +873,20 @@
         <div class="login-brand-name">Pulse<span>CRM</span></div>
       </div>
       <div class="login-hero">
-        <div class="login-hero-title">Все воронки продаж<br>в <em>одном окне</em></div>
-        <div class="login-hero-desc">Аналитика в реальном времени из Битрикс24 — без программистов и сложных настроек</div>
-        <div class="login-features">
+        <div class="login-hero-title" id="loginHeroTitle">Все воронки продаж<br>в <em>одном окне</em></div>
+        <div class="login-hero-desc" id="loginHeroDesc">Аналитика в реальном времени из Битрикс24 — без программистов и сложных настроек</div>
+        <div class="login-features" id="loginFeatures">
           <div class="login-feature"><span class="login-feature-dot"></span>Воронки, менеджеры, конверсия</div>
           <div class="login-feature"><span class="login-feature-dot"></span>Звонки и задачи в одном месте</div>
           <div class="login-feature"><span class="login-feature-dot"></span>Аналитик выявляет проблемы сам</div>
           <div class="login-feature"><span class="login-feature-dot"></span>Русский и узбекский язык</div>
         </div>
       </div>
-      <div class="login-left-footer">PulseCRM © 2026 · Защищённый доступ</div>
+      <div class="login-left-footer" id="loginLeftFooter">PulseCRM © 2026 · Защищённый доступ</div>
     </div>
     <!-- Правая колонка — форма входа -->
     <div class="login-right">
-      <div class="login-right-title">Вход в кабинет</div>
+      <div class="login-right-title" id="loginRightTitle">Вход в кабинет</div>
       <div class="login-right-sub" id="loginSubText">Введите логин и пароль</div>
       <div id="loginError" class="login-error">Неверный логин или пароль</div>
       <div class="login-field">
@@ -898,7 +898,7 @@
         <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="login-btn" id="loginBtn" type="button">Войти →</button>
-      <div class="login-footer">PulseCRM · защищённый доступ</div>
+      <div class="login-footer" id="loginFooter">PulseCRM · защищённый доступ</div>
     </div>
   </div>
 </div>
@@ -1455,11 +1455,24 @@ const TRANSLATIONS = {
     coldLeadsFull: 'Холодные (14+ дней)',
     hotLeadsAttention: 'Горячие лиды — требуют внимания сегодня',
     coldLeadsRisk: 'Холодные — риск потерять',
+    loginRightTitle: 'Вход в кабинет',
+    loginSubtitle: 'Введите логин и пароль',
+    loginHeroTitle: 'Все воронки продаж<br>в <em>одном окне</em>',
+    loginHeroDesc: 'Аналитика в реальном времени из Битрикс24 — без программистов и сложных настроек',
+    loginFeature1: 'Воронки, менеджеры, конверсия',
+    loginFeature2: 'Звонки и задачи в одном месте',
+    loginFeature3: 'Аналитик выявляет проблемы сам',
+    loginFeature4: 'Русский и узбекский язык',
+    loginLeftFooter: 'PulseCRM © 2026 · Защищённый доступ',
+    loginFooter: 'PulseCRM · защищённый доступ',
+    loginChecking: 'Проверяю…',
+    subscriptionExpiredMsg: 'Подписка истекла',
+    contactManagerMsg: 'Обратитесь к менеджеру PulseCRM.',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
     loginPassLabel: 'Пароль',
-    loginBtn: 'Войти',
+    loginBtn: 'Войти →',
     loginError: 'Неверный логин или пароль',
   },
   uz: {
@@ -1796,10 +1809,23 @@ const TRANSLATIONS = {
     coldLeadsFull: 'Sovuq (14+ kun)',
     hotLeadsAttention: 'Issiq lidlar — bugun e\'tibor talab qiladi',
     coldLeadsRisk: 'Sovuq — yo\'qotish xavfi',
+    loginRightTitle: 'Kabinetga kirish',
+    loginSubtitle: 'Login va parolni kiriting',
+    loginHeroTitle: 'Barcha savdo voronkalari<br><em>bitta oynada</em>',
+    loginHeroDesc: 'Bitrix24 dan real vaqtda tahlil — dasturchilarsiz va murakkab sozlamalarsiz',
+    loginFeature1: 'Voronkalar, menejerlar, konversiya',
+    loginFeature2: 'Qo\'ng\'iroqlar va vazifalar bir joyda',
+    loginFeature3: 'Tahlilchi muammolarni o\'zi aniqlaydi',
+    loginFeature4: 'Rus va o\'zbek tili',
+    loginLeftFooter: 'PulseCRM © 2026 · Himoyalangan kirish',
+    loginFooter: 'PulseCRM · himoyalangan kirish',
+    loginChecking: 'Tekshirilmoqda…',
+    subscriptionExpiredMsg: 'Obuna muddati tugagan',
+    contactManagerMsg: 'PulseCRM menejeriga murojaat qiling.',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
-    loginBtn: 'Kirish',
+    loginBtn: 'Kirish →',
     loginError: 'Noto\'g\'ri login yoki parol',
   }
 };
@@ -1859,8 +1885,27 @@ function applyLang(){
     if(key && span) span.textContent = t(key);
   });
   // экран входа
-  const loginSub = document.querySelector('#loginView .login-sub');
-  if(loginSub) loginSub.textContent = 'PulseCRM · ' + t('loginTitle');
+  const loginFooterEl = document.getElementById('loginFooter');
+  if(loginFooterEl) loginFooterEl.textContent = t('loginFooter');
+  const loginRightTitleEl = document.getElementById('loginRightTitle');
+  if(loginRightTitleEl) loginRightTitleEl.textContent = t('loginRightTitle');
+  const loginSubTextEl = document.getElementById('loginSubText');
+  if(loginSubTextEl) loginSubTextEl.textContent = t('loginSubtitle');
+  const loginHeroTitleEl = document.getElementById('loginHeroTitle');
+  if(loginHeroTitleEl) loginHeroTitleEl.innerHTML = t('loginHeroTitle');
+  const loginHeroDescEl = document.getElementById('loginHeroDesc');
+  if(loginHeroDescEl) loginHeroDescEl.textContent = t('loginHeroDesc');
+  const loginFeaturesEl = document.getElementById('loginFeatures');
+  if(loginFeaturesEl){
+    const featKeys = ['loginFeature1','loginFeature2','loginFeature3','loginFeature4'];
+    loginFeaturesEl.querySelectorAll('.login-feature').forEach((el, i) => {
+      const dot = el.querySelector('.login-feature-dot');
+      el.textContent = t(featKeys[i]);
+      if(dot) el.prepend(dot);
+    });
+  }
+  const loginLeftFooterEl = document.getElementById('loginLeftFooter');
+  if(loginLeftFooterEl) loginLeftFooterEl.textContent = t('loginLeftFooter');
   const loginErrEl = document.getElementById('loginError');
   if(loginErrEl) loginErrEl.textContent = t('loginError');
   const loginUsernameLabel = document.querySelector('#loginView .login-field:first-of-type label');
@@ -1868,7 +1913,7 @@ function applyLang(){
   const loginPassLabelEl = document.querySelector('#loginView .login-field:last-of-type label');
   if(loginPassLabelEl) loginPassLabelEl.textContent = t('loginPassLabel');
   const loginBtnEl = document.getElementById('loginBtn');
-  if(loginBtnEl) loginBtnEl.textContent = t('loginBtn');
+  if(loginBtnEl && !loginBtnEl.disabled) loginBtnEl.textContent = t('loginBtn');
 }
 
 const langToggleBtn = document.getElementById('langToggleBtn');
@@ -4696,11 +4741,11 @@ async function attemptLogin(){
   const password = loginPassword.value;
   if(!username || !password){ loginError.style.display='block'; return; }
   loginBtn.disabled = true;
-  loginBtn.textContent = 'Проверяю…';
+  loginBtn.textContent = t('loginChecking');
   const hash = await sha256(password);
   const account = CLIENT_ACCOUNTS.find(a => a.login.toLowerCase() === username && a.hash === hash);
   loginBtn.disabled = false;
-  loginBtn.textContent = 'Войти';
+  loginBtn.textContent = t('loginBtn');
   if(account){
     loginError.style.display = 'none';
     setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro'});
@@ -4715,9 +4760,9 @@ async function attemptLogin(){
       if(daysLeft < 0){
         // Подписка истекла — блокируем доступ
         loginError.style.display = 'block';
-        loginError.textContent = `Подписка истекла ${expDate.toLocaleDateString('ru-RU')}. Обратитесь к менеджеру PulseCRM.`;
+        loginError.textContent = `${t('subscriptionExpiredMsg')} ${expDate.toLocaleDateString('ru-RU')}. ${t('contactManagerMsg')}`;
         loginBtn.disabled = false;
-        loginBtn.textContent = 'Войти →';
+        loginBtn.textContent = t('loginBtn');
         return;
       } else if(daysLeft <= 7){
         // Скоро истекает — показываем предупреждение после входа
