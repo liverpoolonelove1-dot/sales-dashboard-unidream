@@ -65,6 +65,22 @@
   .landing-feat-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin-bottom:6px;}
   .landing-feat-desc{font-size:13px;color:var(--ink-soft);line-height:1.5;}
   footer{text-align:center;color:var(--ink-soft);font-size:11.5px;padding:24px 24px 40px;font-family:'JetBrains Mono',monospace;}
+
+  .landing-pricing{padding:56px 64px 64px;max-width:1200px;margin:0 auto;}
+  .landing-pricing-head{text-align:center;margin-bottom:36px;}
+  .landing-pricing-head .landing-badge{margin-bottom:16px;}
+  .landing-pricing-title{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:clamp(22px,3vw,30px);letter-spacing:-0.02em;margin:0;}
+  .landing-pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch;}
+  .pricing-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:28px 26px;display:flex;flex-direction:column;position:relative;}
+  .pricing-card.featured{border-color:var(--accent-strong);border-width:1.5px;box-shadow:0 12px 32px rgba(198,241,53,.12);}
+  .pricing-badge{position:absolute;top:-12px;left:26px;background:var(--accent);color:var(--accent-ink);font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:20px;}
+  .pricing-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;margin-bottom:6px;}
+  .pricing-price{font-size:13px;color:var(--ink-soft);margin-bottom:20px;font-family:'JetBrains Mono',monospace;}
+  .pricing-list{list-style:none;padding:0;margin:0 0 24px;flex:1;display:flex;flex-direction:column;gap:11px;}
+  .pricing-list li{font-size:13px;line-height:1.5;padding-left:20px;position:relative;color:var(--ink);}
+  .pricing-list li::before{content:'';position:absolute;left:0;top:6px;width:8px;height:8px;border-radius:50%;background:var(--accent-strong);}
+  .pricing-cta{width:100%;justify-content:center;text-align:center;}
+  @media(max-width:860px){.landing-pricing{padding:40px 24px 48px;}.landing-pricing-grid{grid-template-columns:1fr;}}
   @media(max-width:860px){
     .landing-hero{padding:36px 24px 32px;gap:28px;}
     .landing-hero-visual{display:none;}
@@ -79,14 +95,14 @@
   <div class="landing-hero">
     <div class="glow"></div>
     <div class="landing-hero-inner">
-      <div class="landing-badge">CRM-аналитика для Битрикс24</div>
+      <div class="landing-badge">CRM-аналитика для отделов продаж</div>
       <h1 class="landing-h1">Все продажи —<br><span class="landing-h1-accent">в одном дашборде</span></h1>
-      <p class="landing-sub">Живые данные из Битрикс24, аналитика по менеджерам, воронкам и источникам рекламы. Без программистов и сложных настроек.</p>
+      <p class="landing-sub">Живые данные из вашей CRM, аналитика по менеджерам, воронкам и источникам рекламы. Без программистов и сложных настроек.</p>
       <div class="landing-cta-row">
-        <a class="landing-btn-primary" href="dashboard.html">Подключить Битрикс24 →</a>
+        <a class="landing-btn-primary" href="dashboard.html">Подключить Bitrix24 →</a>
         <a class="landing-btn-ghost" href="dashboard.html?demo=1">Посмотреть демо</a>
       </div>
-      <div class="landing-trust">Данные не покидают ваш браузер</div>
+      <div class="landing-trust">Данные не покидают ваш браузер · Bitrix24 уже доступен, amoCRM и другие CRM — скоро</div>
     </div>
     <div class="landing-hero-visual">
       <div class="landing-mockup">
@@ -136,6 +152,50 @@
       <div class="landing-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.65 12 19.79 19.79 0 0 1 1.57 3.42 2 2 0 0 1 3.54 1H6.5a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.52 8.63a16 16 0 0 0 5.85 5.85l1-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg></div>
       <div class="landing-feat-title">Звонки и задачи</div>
       <div class="landing-feat-desc">Статистика звонков, просроченные задачи — всё в одном месте</div>
+    </div>
+  </div>
+
+  <div class="landing-pricing" id="pricing">
+    <div class="landing-pricing-head">
+      <div class="landing-badge">Тарифы</div>
+      <h2 class="landing-pricing-title">Выберите план под ваш отдел продаж</h2>
+    </div>
+    <div class="landing-pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-name">Старт</div>
+        <div class="pricing-price">Цена по запросу</div>
+        <ul class="pricing-list">
+          <li>KPI и сводка по продажам</li>
+          <li>График продаж + план на период</li>
+          <li>Воронки сделок</li>
+          <li>Аналитика по менеджерам</li>
+        </ul>
+        <a class="landing-btn-ghost pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Старт">Оставить заявку</a>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Популярный</div>
+        <div class="pricing-name">Бизнес</div>
+        <div class="pricing-price">Цена по запросу</div>
+        <ul class="pricing-list">
+          <li>Всё из тарифа «Старт»</li>
+          <li>Причины отказов</li>
+          <li>Статистика звонков</li>
+          <li>Контроль задач и дедлайнов</li>
+          <li>Средний чек, лучший менеджер, крупнейшая сделка, Sales Velocity, прогноз, скоринг лидов</li>
+        </ul>
+        <a class="landing-btn-primary pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Бизнес">Оставить заявку</a>
+      </div>
+      <div class="pricing-card">
+        <div class="pricing-name">Про</div>
+        <div class="pricing-price">Цена по запросу</div>
+        <ul class="pricing-list">
+          <li>Всё из тарифа «Бизнес»</li>
+          <li>Полная аналитика — источники, LTV/ROI, финансы и ещё 6 разделов</li>
+          <li>Редактор интерфейса дашборда</li>
+          <li>ИИ-анализ звонков</li>
+        </ul>
+        <a class="landing-btn-ghost pricing-cta" href="mailto:info@pulsecrm.uz?subject=Тариф Про">Оставить заявку</a>
+      </div>
     </div>
   </div>
 </div>
