@@ -1326,6 +1326,32 @@ const TRANSLATIONS = {
     roiFormula: 'ROI = Выручка / Упущенная сумма × 100%',
     ltvByManagers: 'LTV по менеджерам',
     sourceNotSet: 'Не указан',
+    financeMetricsTitle: 'Финансовые метрики — Unit-экономика',
+    totalRevPeriod: 'Общая выручка (период)',
+    overallConvLbl: 'Общая конверсия',
+    ltvLifetimeTitle: 'LTV — Lifetime Value клиента',
+    maxLtvTop: 'Макс. LTV (топ-клиент)',
+    repeatClientsCount: 'Повторных клиентов',
+    ltvNote: 'LTV рассчитан по клиентам с 2+ выигранными сделками. Для точного LTV нужна привязка сделок к клиентам через контакт Битрикс24.',
+    pipelineLosses: 'Pipeline & потери',
+    inWorkPipeline: 'В работе (pipeline)',
+    lostRevenue: 'Упущено (lost revenue)',
+    lossConv: 'Конверсия потерь',
+    dealsLostPct: 'сделок теряется',
+    potentialImprove: 'Потенциал если улучшить конверсию на 5%',
+    planFactForecast: 'План / Факт / Прогноз',
+    planForMonth: 'План на месяц',
+    factCurrentMonth: 'Факт (текущий месяц)',
+    forecastUntilEnd: 'Прогноз до конца месяца',
+    remainingToComplete: 'Осталось выполнить',
+    forWord: 'за',
+    daysWord: 'дней',
+    neededPerDay: 'Нужно в день',
+    setGoalNote: 'Установите план продаж в баннере сверху для отображения Plan/Fact анализа.',
+    roiBySourceSub: '(Revenue per Lead — выручка на 1 лид)',
+    incomePerLead: 'Доход/лид',
+    noSourceData: 'Нет данных об источниках',
+    roiFullNote: 'Для расчёта полного ROI (Return on Investment) введите данные о затратах на рекламу по каждому каналу. Сейчас показывается Revenue per Lead — выручка с каждого привлечённого лида.',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1538,6 +1564,32 @@ const TRANSLATIONS = {
     roiFormula: 'ROI = Tushum / Yo\'qotilgan summa × 100%',
     ltvByManagers: 'Menejerlar bo\'yicha LTV',
     sourceNotSet: 'Ko\'rsatilmagan',
+    financeMetricsTitle: 'Moliyaviy ko\'rsatkichlar — Unit-iqtisodiyot',
+    totalRevPeriod: 'Jami tushum (davr)',
+    overallConvLbl: 'Umumiy konversiya',
+    ltvLifetimeTitle: 'LTV — mijozning Lifetime Value',
+    maxLtvTop: 'Maks. LTV (top-mijoz)',
+    repeatClientsCount: 'Qaytar mijozlar soni',
+    ltvNote: 'LTV 2+ yutilgan bitimga ega mijozlar bo\'yicha hisoblangan. Aniq LTV uchun bitimlarni Bitrix24 kontaktiga bog\'lash kerak.',
+    pipelineLosses: 'Pipeline va yo\'qotishlar',
+    inWorkPipeline: 'Ishda (pipeline)',
+    lostRevenue: 'Yo\'qotilgan (lost revenue)',
+    lossConv: 'Yo\'qotish konversiyasi',
+    dealsLostPct: 'bitim yo\'qotilmoqda',
+    potentialImprove: 'Konversiyani 5% ga oshirish potensiali',
+    planFactForecast: 'Reja / Fakt / Prognoz',
+    planForMonth: 'Oylik reja',
+    factCurrentMonth: 'Fakt (joriy oy)',
+    forecastUntilEnd: 'Oy oxirigacha prognoz',
+    remainingToComplete: 'Bajarish qoldi',
+    forWord: '',
+    daysWord: 'kun',
+    neededPerDay: 'Kuniga kerak',
+    setGoalNote: 'Plan/Fakt tahlilini ko\'rish uchun yuqoridagi bannerda savdo rejasini belgilang.',
+    roiBySourceSub: '(Revenue per Lead — 1 lidga tushum)',
+    incomePerLead: 'Daromad/lid',
+    noSourceData: 'Manbalar haqida ma\'lumot yo\'q',
+    roiFullNote: 'To\'liq ROI (Return on Investment) hisoblash uchun har bir kanal bo\'yicha reklama xarajatlari ma\'lumotini kiriting. Hozir Revenue per Lead — har bir jalb qilingan liddan tushum ko\'rsatilmoqda.',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -1623,6 +1675,9 @@ langToggleBtn.addEventListener('click', () => {
     rerenderCached();
     renderChartHero(lastDailyEntries, lastMonthCurrency || 'UZS');
     renderGoalBanner(lastMonthRevenue, lastMonthCurrency || 'UZS');
+    if(document.getElementById('analyticsView').style.display !== 'none'){
+      openAnalytics(currentAnalyticsTab);
+    }
   }
 });
 
@@ -5796,7 +5851,7 @@ function buildFinanceTab(){
   // Без данных о затратах на рекламу — показываем выручку на лид (Revenue per Lead)
   const srcMap = {};
   lastDealsFlat.forEach(d=>{
-    const s = d.source||'Не указан';
+    const s = d.source||t('sourceNotSet');
     if(!srcMap[s]) srcMap[s]={total:0,won:0,sum:0};
     srcMap[s].total++;
     if(d.semantic==='S'){srcMap[s].won++;srcMap[s].sum+=d.amount;}
@@ -5832,79 +5887,79 @@ function buildFinanceTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">Финансовые метрики — Unit-экономика</div>
+      <div class="analytics-title">${t('financeMetricsTitle')}</div>
       <div class="analytics-cards">
         <div class="analytics-card">
           <div class="analytics-card-val">${fmt(totalRev)}</div>
-          <div class="analytics-card-lbl">Общая выручка (период)</div>
+          <div class="analytics-card-lbl">${t('totalRevPeriod')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${fmt(avgDeal)}</div>
-          <div class="analytics-card-lbl">Средний чек (AOV)</div>
+          <div class="analytics-card-lbl">${t('avgDealAov')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${overallConv}%</div>
-          <div class="analytics-card-lbl">Общая конверсия</div>
+          <div class="analytics-card-lbl">${t('overallConvLbl')}</div>
         </div>
         <div class="analytics-card">
-          <div class="analytics-card-val">${avgCycleDays} дн.</div>
-          <div class="analytics-card-lbl">Средний цикл сделки</div>
+          <div class="analytics-card-val">${avgCycleDays} ${t('daysCycle')}.</div>
+          <div class="analytics-card-lbl">${t('avgDealCycle')}</div>
         </div>
       </div>
     </div>
 
     <div class="analytics-section">
-      <div class="analytics-title">LTV — Lifetime Value клиента</div>
+      <div class="analytics-title">${t('ltvLifetimeTitle')}</div>
       <div class="analytics-cards">
         <div class="analytics-card" style="border-color:var(--accent-strong);">
           <div class="analytics-card-val" style="color:var(--accent-strong)">${fmt(avgLTV)}</div>
-          <div class="analytics-card-lbl">Средний LTV</div>
+          <div class="analytics-card-lbl">${t('avgLtvLbl')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${fmt(maxLTV)}</div>
-          <div class="analytics-card-lbl">Макс. LTV (топ-клиент)</div>
+          <div class="analytics-card-lbl">${t('maxLtvTop')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${repeatClients.length}</div>
-          <div class="analytics-card-lbl">Повторных клиентов</div>
+          <div class="analytics-card-lbl">${t('repeatClientsCount')}</div>
         </div>
         <div class="analytics-card">
-          <div class="analytics-card-val">${vel>0?fmt(vel)+'/д':'—'}</div>
-          <div class="analytics-card-lbl">Sales Velocity</div>
+          <div class="analytics-card-val">${vel>0?fmt(vel)+t('perDay'):'—'}</div>
+          <div class="analytics-card-lbl">${t('salesVelocity')}</div>
         </div>
       </div>
-      <div class="modal-note" style="margin-top:8px;">LTV рассчитан по клиентам с 2+ выигранными сделками. Для точного LTV нужна привязка сделок к клиентам через контакт Битрикс24.</div>
+      <div class="modal-note" style="margin-top:8px;">${t('ltvNote')}</div>
     </div>
 
     <div class="analytics-section">
-      <div class="analytics-title">Pipeline & потери</div>
+      <div class="analytics-title">${t('pipelineLosses')}</div>
       <table class="analytics-table">
-        <tr><td>В работе (pipeline)</td><td><b>${fmt(pipelineSum)}</b> — ${activeDeals.length} сделок</td></tr>
-        <tr><td>Упущено (lost revenue)</td><td style="color:var(--red-bad)"><b>${fmt(lostSum)}</b> — ${lostDeals.length} сделок</td></tr>
-        <tr><td>Конверсия потерь</td><td>${totalDeals>0?Math.round(100*lostDeals.length/totalDeals):0}% сделок теряется</td></tr>
-        <tr><td>Потенциал если улучшить конверсию на 5%</td><td style="color:var(--accent-strong)"><b>+${fmt(Math.round(totalDeals*0.05*avgDeal))}</b></td></tr>
+        <tr><td>${t('inWorkPipeline')}</td><td><b>${fmt(pipelineSum)}</b> — ${activeDeals.length} ${t('dealsWord')}</td></tr>
+        <tr><td>${t('lostRevenue')}</td><td style="color:var(--red-bad)"><b>${fmt(lostSum)}</b> — ${lostDeals.length} ${t('dealsWord')}</td></tr>
+        <tr><td>${t('lossConv')}</td><td>${totalDeals>0?Math.round(100*lostDeals.length/totalDeals):0}% ${t('dealsLostPct')}</td></tr>
+        <tr><td>${t('potentialImprove')}</td><td style="color:var(--accent-strong)"><b>+${fmt(Math.round(totalDeals*0.05*avgDeal))}</b></td></tr>
       </table>
     </div>
 
     ${goalAmount>0 ? `
     <div class="analytics-section">
-      <div class="analytics-title">План / Факт / Прогноз</div>
+      <div class="analytics-title">${t('planFactForecast')}</div>
       <table class="analytics-table">
-        <tr><td>План на месяц</td><td><b>${fmt(goalAmount)}</b></td></tr>
-        <tr><td>Факт (текущий месяц)</td><td><b>${fmt(lastMonthRevenue)}</b> — ${planPct}%</td></tr>
-        <tr><td>Прогноз до конца месяца</td><td style="color:${forecastPct>=100?'var(--accent-strong)':'var(--amber)'}"><b>${fmt(forecast)}</b> — ${forecastPct}%</td></tr>
-        <tr><td>Осталось выполнить</td><td><b>${fmt(Math.max(0,goalAmount-lastMonthRevenue))}</b> за ${daysInM-dayOfM} дней</td></tr>
-        <tr><td>Нужно в день</td><td><b>${fmt(Math.round(Math.max(0,goalAmount-lastMonthRevenue)/Math.max(1,daysInM-dayOfM)))}</b>/день</td></tr>
+        <tr><td>${t('planForMonth')}</td><td><b>${fmt(goalAmount)}</b></td></tr>
+        <tr><td>${t('factCurrentMonth')}</td><td><b>${fmt(lastMonthRevenue)}</b> — ${planPct}%</td></tr>
+        <tr><td>${t('forecastUntilEnd')}</td><td style="color:${forecastPct>=100?'var(--accent-strong)':'var(--amber)'}"><b>${fmt(forecast)}</b> — ${forecastPct}%</td></tr>
+        <tr><td>${t('remainingToComplete')}</td><td><b>${fmt(Math.max(0,goalAmount-lastMonthRevenue))}</b> ${t('forWord')} ${daysInM-dayOfM} ${t('daysWord')}</td></tr>
+        <tr><td>${t('neededPerDay')}</td><td><b>${fmt(Math.round(Math.max(0,goalAmount-lastMonthRevenue)/Math.max(1,daysInM-dayOfM)))}</b>${t('perDay')}</td></tr>
       </table>
-    </div>` : '<div class="modal-note">Установите план продаж в баннере сверху для отображения Plan/Fact анализа.</div>'}
+    </div>` : `<div class="modal-note">${t('setGoalNote')}</div>`}
 
     <div class="analytics-section">
-      <div class="analytics-title">ROI по источникам <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(Revenue per Lead — выручка на 1 лид)</span></div>
+      <div class="analytics-title">${t('roiBySource')} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${t('roiBySourceSub')}</span></div>
       <table class="analytics-table">
-        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Конв.</th><th>Доход/лид</th><th>Выручка</th></tr></thead>
-        <tbody>${srcRows||'<tr><td colspan="6" style="color:var(--ink-soft)">Нет данных об источниках</td></tr>'}</tbody>
+        <thead><tr><th>${t('sourceCol')}</th><th>${t('leadsCol')}</th><th>${t('wonCol')}</th><th>${t('convCol')}</th><th>${t('incomePerLead')}</th><th>${t('revenueCol')}</th></tr></thead>
+        <tbody>${srcRows||`<tr><td colspan="6" style="color:var(--ink-soft)">${t('noSourceData')}</td></tr>`}</tbody>
       </table>
-      <div class="modal-note" style="margin-top:8px;">Для расчёта полного ROI (Return on Investment) введите данные о затратах на рекламу по каждому каналу. Сейчас показывается Revenue per Lead — выручка с каждого привлечённого лида.</div>
+      <div class="modal-note" style="margin-top:8px;">${t('roiFullNote')}</div>
     </div>
   `;
 }
