@@ -95,6 +95,11 @@
 
   .kpis-row{flex:none;}
   .dash-tiles{display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));grid-auto-rows:min-content;grid-auto-flow:dense;gap:12px;align-content:start;align-items:start;}
+  .dash-section{margin-bottom:24px;}
+  .dash-section + .dash-section{border-top:1px solid var(--line);padding-top:22px;}
+  .dash-section-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .dash-section-head .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .dash-section-head h3{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;margin:0;letter-spacing:-0.01em;}
   .report-tile{align-self:start;}
 
   /* ===== Сайдбар ===== */
@@ -1357,6 +1362,9 @@ const TRANSLATIONS = {
     ofPlan: 'от плана',
     remainingShort: 'осталось',
     allDealsTitle: 'Все сделки',
+    sectionMoney: 'Воронки и деньги',
+    sectionPeople: 'Люди',
+    sectionOps: 'Операционка',
     bottleneckTitle: 'Дольше всего без движения',
     onAvgDays: 'в среднем',
     employeeIdPrefix: 'Сотрудник ID ',
@@ -1712,6 +1720,9 @@ const TRANSLATIONS = {
     ofPlan: 'rejadan',
     remainingShort: 'qoldi',
     allDealsTitle: 'Barcha bitimlar',
+    sectionMoney: 'Voronkalar va pul',
+    sectionPeople: 'Odamlar',
+    sectionOps: 'Operatsion',
     bottleneckTitle: 'Eng uzoq harakatsiz',
     onAvgDays: 'o\'rtacha',
     employeeIdPrefix: 'Xodim ID ',
@@ -3321,19 +3332,12 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     return age > 14;
   });
 
-  const reportTiles = `
+  const moneyReportTiles = `
     ${avgDeal > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="avgdeal" style="border-left:3px solid var(--accent-strong);">
         <div class="fcard-head"><div class="fcard-name">${t('avgDeal')}</div></div>
         <div class="report-tile-value">${fmtMoney(avgDeal, currency)}</div>
         <div class="report-tile-note">${t('allWonDealsNote')}</div>
-      </div>
-    ` : ''}
-    ${topManager ? `
-      <div class="fcard fcard-compact report-tile" data-detail="manager" data-idx="0" style="border-left:3px solid var(--accent-strong);">
-        <div class="fcard-head"><div class="fcard-name">${t('bestManager')}</div></div>
-        <div class="report-tile-value">${topManager.name}</div>
-        <div class="report-tile-note">${fmtMoney(topManager.wonSum, currency)} · ${topManager.wonCount} ${t('dealsWord')}</div>
       </div>
     ` : ''}
     ${lastBestDeal ? `
@@ -3355,6 +3359,16 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="fcard-head"><div class="fcard-name">${t('forecastKpi')}</div></div>
         <div class="report-tile-value">${fmtMoney(forecast, currency)}</div>
         <div class="report-tile-note">${goalAmount > 0 ? `${forecastPct}% ${t('ofPlan')} · ` : ''}${t('remainingShort')} ${daysLeft} ${t('daysCycle')}.</div>
+      </div>
+    ` : ''}
+  `;
+
+  const peopleReportTiles = `
+    ${topManager ? `
+      <div class="fcard fcard-compact report-tile" data-detail="manager" data-idx="0" style="border-left:3px solid var(--accent-strong);">
+        <div class="fcard-head"><div class="fcard-name">${t('bestManager')}</div></div>
+        <div class="report-tile-value">${topManager.name}</div>
+        <div class="report-tile-note">${fmtMoney(topManager.wonSum, currency)} · ${topManager.wonCount} ${t('dealsWord')}</div>
       </div>
     ` : ''}
     ${activeDeals.length > 0 ? `
@@ -3492,16 +3506,46 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       </div>` : ''}
     </div>
 
-    <p class="section-title">${t('funnels')} <span class="n">${funnels.length}</span></p>
     <p class="period-sub-note">Воронки, менеджеры и причины отказов ниже показывают период, выбранный в фильтре выше; KPI сверху и график динамики — всегда за текущий месяц.</p>
-    <div class="dash-tiles">
-      ${(isBlockVisible('funnels') && planHas('funnels')) ? funnelCards : ''}
-      ${(isBlockVisible('managers') && planHas('managers')) ? managersHtml : ''}
-      ${(isBlockVisible('loss') && planHas('loss')) ? lossHtml : ''}
-      ${(isBlockVisible('calls') && planHas('calls')) ? callsTile : ''}
-      ${(isBlockVisible('tasks') && planHas('tasks')) ? tasksTile : ''}
-      ${(isBlockVisible('reports') && planHas('reports')) ? reportTiles : ''}
-    </div>
+
+    ${(() => {
+      const showFunnels = isBlockVisible('funnels') && planHas('funnels');
+      const showReports = isBlockVisible('reports') && planHas('reports');
+      const showManagers = isBlockVisible('managers') && planHas('managers');
+      const showLoss = isBlockVisible('loss') && planHas('loss');
+      const showCalls = isBlockVisible('calls') && planHas('calls');
+      const showTasks = isBlockVisible('tasks') && planHas('tasks');
+
+      const moneySection = (showFunnels || showReports) ? `
+        <div class="dash-section">
+          <div class="dash-section-head"><span class="dot" style="background:var(--accent-strong)"></span><h3>${t('sectionMoney')} <span class="n" style="font-weight:400;color:var(--ink-soft);font-size:12px;">${funnels.length}</span></h3></div>
+          <div class="dash-tiles">
+            ${showFunnels ? funnelCards : ''}
+            ${showReports ? moneyReportTiles : ''}
+          </div>
+        </div>` : '';
+
+      const peopleSection = (showManagers || showLoss || showReports) ? `
+        <div class="dash-section">
+          <div class="dash-section-head"><span class="dot" style="background:#60A5FA"></span><h3>${t('sectionPeople')}</h3></div>
+          <div class="dash-tiles">
+            ${showManagers ? managersHtml : ''}
+            ${showReports ? peopleReportTiles : ''}
+            ${showLoss ? lossHtml : ''}
+          </div>
+        </div>` : '';
+
+      const opsSection = (showCalls || showTasks) ? `
+        <div class="dash-section">
+          <div class="dash-section-head"><span class="dot" style="background:var(--ink-soft)"></span><h3>${t('sectionOps')}</h3></div>
+          <div class="dash-tiles">
+            ${showCalls ? callsTile : ''}
+            ${showTasks ? tasksTile : ''}
+          </div>
+        </div>` : '';
+
+      return moneySection + peopleSection + opsSection;
+    })()}
     ${!planHas('calls') || !planHas('tasks') ? buildPlanUpgradeHint() : ''}
   `;
 
