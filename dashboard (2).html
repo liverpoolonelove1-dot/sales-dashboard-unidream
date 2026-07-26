@@ -1310,6 +1310,22 @@ const TRANSLATIONS = {
     convForCalc: 'Конверсия для расчёта',
     monthsOfData: 'Месяцев данных',
     weightedFormulaNote: '<b>Взвешенный прогноз</b> = Линейный тренд × 40% + Скользящее среднее × 40% + Pipeline × конверсия × 20%.<br>Чем больше исторических данных — тем точнее прогноз.',
+    noWonForLtv: 'Нет выигранных сделок для расчёта LTV/ROI',
+    perLead: '/лид',
+    ltvRoiSummary: 'LTV / ROI — сводка',
+    avgLtvLbl: 'Средний LTV',
+    maxLtvLbl: 'Макс. LTV',
+    avgDealAov: 'Средний чек (AOV)',
+    pipelineLbl: 'Pipeline',
+    unitEconomics: 'Юнит-экономика',
+    wonShort: 'Выигранных',
+    convLeadToSale: 'Конверсия лид→продажа',
+    avgDealCycle: 'Средний цикл сделки',
+    roiBySource: 'ROI по источникам лидов',
+    revenuePerLead: 'Выручка/лид',
+    roiFormula: 'ROI = Выручка / Упущенная сумма × 100%',
+    ltvByManagers: 'LTV по менеджерам',
+    sourceNotSet: 'Не указан',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1506,6 +1522,22 @@ const TRANSLATIONS = {
     convForCalc: 'Hisoblash uchun konversiya',
     monthsOfData: 'Ma\'lumot oylari',
     weightedFormulaNote: '<b>Vaznli prognoz</b> = Chiziqli trend × 40% + Harakatlanuvchi o\'rtacha × 40% + Pipeline × konversiya × 20%.<br>Tarixiy ma\'lumot qancha ko\'p bo\'lsa — prognoz shuncha aniq.',
+    noWonForLtv: 'LTV/ROI hisoblash uchun yutilgan bitimlar yo\'q',
+    perLead: '/lid',
+    ltvRoiSummary: 'LTV / ROI — xulosa',
+    avgLtvLbl: 'O\'rtacha LTV',
+    maxLtvLbl: 'Maks. LTV',
+    avgDealAov: 'O\'rtacha chek (AOV)',
+    pipelineLbl: 'Pipeline',
+    unitEconomics: 'Yunit-iqtisodiyot',
+    wonShort: 'Yutilgan',
+    convLeadToSale: 'Lid→savdo konversiyasi',
+    avgDealCycle: 'O\'rtacha bitim sikli',
+    roiBySource: 'Lid manbalari bo\'yicha ROI',
+    revenuePerLead: 'Tushum/lid',
+    roiFormula: 'ROI = Tushum / Yo\'qotilgan summa × 100%',
+    ltvByManagers: 'Menejerlar bo\'yicha LTV',
+    sourceNotSet: 'Ko\'rsatilmagan',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -5630,7 +5662,7 @@ function buildRoiTab(){
   const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
   const lostDeals = lastDealsFlat.filter(d=>d.semantic==='F');
   const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
-  if(!wonDeals.length) return '<div class="analytics-empty">Нет выигранных сделок для расчёта LTV/ROI</div>';
+  if(!wonDeals.length) return `<div class="analytics-empty">${t('noWonForLtv')}</div>`;
   const fmt = n => fmtMoney(n, currency);
   const totalRev = wonDeals.reduce((a,d)=>a+d.amount,0);
   const avgDeal = wonDeals.length>0 ? Math.round(totalRev/wonDeals.length) : 0;
@@ -5656,12 +5688,12 @@ function buildRoiTab(){
 
   // ROI по источникам
   const srcMap={};
-  lastDealsFlat.forEach(d=>{const src=d.source||'Не указан';if(!srcMap[src])srcMap[src]={total:0,won:0,wonSum:0,lostSum:0};srcMap[src].total++;if(d.semantic==='S'){srcMap[src].won++;srcMap[src].wonSum+=d.amount;}if(d.semantic==='F')srcMap[src].lostSum+=d.amount;});
+  lastDealsFlat.forEach(d=>{const src=d.source||t('sourceNotSet');if(!srcMap[src])srcMap[src]={total:0,won:0,wonSum:0,lostSum:0};srcMap[src].total++;if(d.semantic==='S'){srcMap[src].won++;srcMap[src].wonSum+=d.amount;}if(d.semantic==='F')srcMap[src].lostSum+=d.amount;});
   const roiRows=Object.entries(srcMap).filter(([,s])=>s.wonSum>0).sort((a,b)=>b[1].wonSum-a[1].wonSum).map(([src,s])=>{
     const cpa=s.total>0?Math.round(s.wonSum/s.total):0;
     const wr=s.total>0?Math.round(100*s.won/s.total):0;
     const roi=s.lostSum>0?Math.round(100*s.wonSum/s.lostSum):null;
-    return `<tr><td>${escapeHtml(src)}</td><td>${s.total}</td><td>${s.won} (${wr}%)</td><td>${fmt(s.wonSum)}</td><td>${fmt(cpa)}/лид</td><td>${roi!==null?`<b style="color:${roi>100?'var(--accent-strong)':'var(--red-bad)'}">${roi}%</b>`:'—'}</td></tr>`;
+    return `<tr><td>${escapeHtml(src)}</td><td>${s.total}</td><td>${s.won} (${wr}%)</td><td>${fmt(s.wonSum)}</td><td>${fmt(cpa)}${t('perLead')}</td><td>${roi!==null?`<b style="color:${roi>100?'var(--accent-strong)':'var(--red-bad)'}">${roi}%</b>`:'—'}</td></tr>`;
   }).join('');
 
   // LTV по менеджерам
@@ -5674,42 +5706,42 @@ function buildRoiTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">LTV / ROI — сводка</div>
+      <div class="analytics-title">${t('ltvRoiSummary')}</div>
       <div class="analytics-cards">
-        <div class="analytics-card"><div class="analytics-card-val">${fmt(totalRev)}</div><div class="analytics-card-lbl">Общая выручка</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgLtv)}</div><div class="analytics-card-lbl">Средний LTV</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${fmt(maxLtv)}</div><div class="analytics-card-lbl">Макс. LTV</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgDeal)}</div><div class="analytics-card-lbl">Средний чек (AOV)</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${velocity>0?fmt(velocity)+'/д':'—'}</div><div class="analytics-card-lbl">Sales Velocity</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${fmt(pipelineVal)}</div><div class="analytics-card-lbl">Pipeline</div></div>
-        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${fmt(lostVal)}</div><div class="analytics-card-lbl">Упущено</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${repeatRate}%</div><div class="analytics-card-lbl">Повторные клиенты</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(totalRev)}</div><div class="analytics-card-lbl">${t('totalRevenueLbl')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgLtv)}</div><div class="analytics-card-lbl">${t('avgLtvLbl')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(maxLtv)}</div><div class="analytics-card-lbl">${t('maxLtvLbl')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(avgDeal)}</div><div class="analytics-card-lbl">${t('avgDealAov')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${velocity>0?fmt(velocity)+t('perDay'):'—'}</div><div class="analytics-card-lbl">${t('salesVelocity')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(pipelineVal)}</div><div class="analytics-card-lbl">${t('pipelineLbl')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${fmt(lostVal)}</div><div class="analytics-card-lbl">${t('lost')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${repeatRate}%</div><div class="analytics-card-lbl">${t('repeatClientsLbl')}</div></div>
       </div>
     </div>
     <div class="analytics-section">
-      <div class="analytics-title">Юнит-экономика</div>
+      <div class="analytics-title">${t('unitEconomics')}</div>
       <table class="analytics-table"><tbody>
-        <tr><td>Всего лидов</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length}</td></tr>
-        <tr><td>Выигранных</td><td style="text-align:right;font-weight:700">${wonDeals.length}</td></tr>
-        <tr><td>Конверсия лид→продажа</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length>0?Math.round(100*wonDeals.length/lastDealsFlat.length):0}%</td></tr>
-        <tr><td>Средний цикл сделки</td><td style="text-align:right;font-weight:700">${avgCycle} дней</td></tr>
-        <tr><td>Средний LTV</td><td style="text-align:right;font-weight:700">${fmt(avgLtv)}</td></tr>
-        <tr><td>Повторные клиенты</td><td style="text-align:right;font-weight:700">${repeatClients} (${repeatRate}%)</td></tr>
-        ${goalAmount>0?`<tr><td>Выполнение плана</td><td style="text-align:right;font-weight:700">${Math.round(100*lastMonthRevenue/goalAmount)}%</td></tr>`:''}
+        <tr><td>${t('totalLeads')}</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length}</td></tr>
+        <tr><td>${t('wonShort')}</td><td style="text-align:right;font-weight:700">${wonDeals.length}</td></tr>
+        <tr><td>${t('convLeadToSale')}</td><td style="text-align:right;font-weight:700">${lastDealsFlat.length>0?Math.round(100*wonDeals.length/lastDealsFlat.length):0}%</td></tr>
+        <tr><td>${t('avgDealCycle')}</td><td style="text-align:right;font-weight:700">${avgCycle} ${t('daysCycle')}</td></tr>
+        <tr><td>${t('avgLtvLbl')}</td><td style="text-align:right;font-weight:700">${fmt(avgLtv)}</td></tr>
+        <tr><td>${t('repeatClientsLbl')}</td><td style="text-align:right;font-weight:700">${repeatClients} (${repeatRate}%)</td></tr>
+        ${goalAmount>0?`<tr><td>${t('planExecution')}</td><td style="text-align:right;font-weight:700">${Math.round(100*lastMonthRevenue/goalAmount)}%</td></tr>`:''}
       </tbody></table>
     </div>
     ${roiRows?`<div class="analytics-section">
-      <div class="analytics-title">ROI по источникам лидов</div>
+      <div class="analytics-title">${t('roiBySource')}</div>
       <table class="analytics-table">
-        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Выручка</th><th>Выручка/лид</th><th>ROI</th></tr></thead>
+        <thead><tr><th>${t('sourceCol')}</th><th>${t('leadsCol')}</th><th>${t('wonCol')}</th><th>${t('revenueCol')}</th><th>${t('revenuePerLead')}</th><th>ROI</th></tr></thead>
         <tbody>${roiRows}</tbody>
       </table>
-      <div class="modal-note">ROI = Выручка / Упущенная сумма × 100%</div>
+      <div class="modal-note">${t('roiFormula')}</div>
     </div>`:''}
     ${mgrRows?`<div class="analytics-section">
-      <div class="analytics-title">LTV по менеджерам</div>
+      <div class="analytics-title">${t('ltvByManagers')}</div>
       <table class="analytics-table">
-        <thead><tr><th>Менеджер</th><th>Выручка</th><th>Конверсия</th><th>Средний чек</th><th>LTV</th></tr></thead>
+        <thead><tr><th>${t('managerCol')}</th><th>${t('revenueCol')}</th><th>${t('convCol')}</th><th>${t('avgDeal')}</th><th>LTV</th></tr></thead>
         <tbody>${mgrRows}</tbody>
       </table>
     </div>`:''}
