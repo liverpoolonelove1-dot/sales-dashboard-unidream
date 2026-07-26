@@ -1380,6 +1380,21 @@ const TRANSLATIONS = {
     openInBitrix: 'Открыть сделку в Bitrix24 →',
     noExtraData: 'Дополнительных данных нет.',
     failedToLoad: 'Не удалось загрузить: ',
+    noDealsInStage: 'На этой стадии сейчас нет сделок.',
+    stagesClickNote: 'Стадии — клик открывает сделки на этой стадии',
+    allFunnelDeals: 'Все сделки воронки',
+    dayPeriod: 'День',
+    weekPeriodFull: 'Неделя (пн)',
+    weekPeriod: 'Неделя',
+    monthPeriod: 'Месяц',
+    leadsRateLabel: 'Коэф. лидов (won/total)',
+    convWonFinished: 'Конверсия (won/finished)',
+    byStagesLabel: 'По стадиям',
+    dynamicsByPeriod: 'Динамика по',
+    totalShort: 'Всего',
+    wonShortCol: 'Выигр.',
+    lostShortCol: 'Провал.',
+    noDataForPeriod: 'Нет данных за период.',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1646,6 +1661,21 @@ const TRANSLATIONS = {
     openInBitrix: 'Bitim Bitrix24\'da ochish →',
     noExtraData: 'Qo\'shimcha ma\'lumot yo\'q.',
     failedToLoad: 'Yuklab bo\'lmadi: ',
+    noDealsInStage: 'Bu bosqichda hozircha bitimlar yo\'q.',
+    stagesClickNote: 'Bosqichlar — bosing va shu bosqichdagi bitimlar ochiladi',
+    allFunnelDeals: 'Voronkaning barcha bitimlari',
+    dayPeriod: 'Kun',
+    weekPeriodFull: 'Hafta (dush)',
+    weekPeriod: 'Hafta',
+    monthPeriod: 'Oy',
+    leadsRateLabel: 'Lid koeffitsiyenti (won/total)',
+    convWonFinished: 'Konversiya (won/finished)',
+    byStagesLabel: 'Bosqichlar bo\'yicha',
+    dynamicsByPeriod: 'Dinamika:',
+    totalShort: 'Jami',
+    wonShortCol: 'Yutildi',
+    lostShortCol: 'Yutqazildi',
+    noDataForPeriod: 'Davr uchun ma\'lumot yo\'q.',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -3533,7 +3563,7 @@ function openStageDetail(fidx, stageId){
   const back = `<button type="button" class="modal-back-link" data-back-funnel="${fidx}">← ${f.name}</button>`;
   const list = deals.length > 0
     ? `<div class="modal-deal-list">${buildDealListRows(deals)}</div>`
-    : `<div class="modal-note">На этой стадии сейчас нет сделок.</div>`;
+    : `<div class="modal-note">${t('noDealsInStage')}</div>`;
   openModal(`${stageName}`, back + list);
 }
 
@@ -3543,21 +3573,21 @@ function openFunnelDetail(idx){
   const fWinRate = (f.wonCount + f.lostCount) > 0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0;
   const stageRows = f.stages.map(s => `
     <tr class="modal-stage-row" data-detail="stage" data-fidx="${idx}" data-stageid="${escapeHtml(s.id)}">
-      <td>${escapeHtml(s.name)}${s.avgAgeDays !== null ? ` <span class="age-tag">~${s.avgAgeDays} дн</span>` : ''}</td>
+      <td>${escapeHtml(s.name)}${s.avgAgeDays !== null ? ` <span class="age-tag">~${s.avgAgeDays} ${t('daysCycle')}</span>` : ''}</td>
       <td>${s.count}</td>
       <td>${fmtMoney(s.sum, '')}</td>
     </tr>
   `).join('');
-  let html = statRow('Продажи (выиграно)', fmtMoney(f.wonSum, f.currency))
-    + statRow('Сделок всего', f.deals)
-    + statRow('Конверсия', fWinRate + '%')
-    + `<div class="modal-subtitle">Стадии — клик открывает сделки на этой стадии</div>`
+  let html = statRow(t('salesKpi'), fmtMoney(f.wonSum, f.currency))
+    + statRow(t('dealsKpi'), f.deals)
+    + statRow(t('convKpi'), fWinRate + '%')
+    + `<div class="modal-subtitle">${t('stagesClickNote')}</div>`
     + `<table class="modal-table modal-table-clickable" style="margin-top:4px;"><tbody>${stageRows}</tbody></table>`;
-  if(f.bottleneck) html += `<div class="modal-note">Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.</div>`;
+  if(f.bottleneck) html += `<div class="modal-note">${t('bottleneckTitle')} — «${f.bottleneck.name}», ${t('onAvgDays')} ${f.bottleneck.avgAgeDays} ${t('daysCycle')}.</div>`;
 
   const funnelDeals = lastDealsFlat.filter(d => d.funnelId === f.id).sort((a,b) => b.amount - a.amount);
   if(funnelDeals.length > 0){
-    html += `<div class="modal-subtitle">Все сделки воронки</div><div class="modal-deal-list">${buildDealListRows(funnelDeals, 30)}</div>`;
+    html += `<div class="modal-subtitle">${t('allFunnelDeals')}</div><div class="modal-deal-list">${buildDealListRows(funnelDeals, 30)}</div>`;
   }
 
   openModal(f.name, html);
@@ -3629,40 +3659,40 @@ function buildManagerAnalytics(managerId, granularity){
     else if(d.semantic === 'F') timeMap[key].lost += 1;
     else timeMap[key].active += 1;
   });
-  const periodLabel = granularity === 'day' ? 'День' : granularity === 'week' ? 'Неделя (пн)' : 'Месяц';
-  const timeRows = Object.entries(timeMap).slice(-20).map(([key, t]) => `
+  const periodLabel = granularity === 'day' ? t('dayPeriod') : granularity === 'week' ? t('weekPeriodFull') : t('monthPeriod');
+  const timeRows = Object.entries(timeMap).slice(-20).map(([key, tm]) => `
     <tr>
       <td>${key}</td>
-      <td>${t.total}</td>
-      <td class="won">${t.won}</td>
-      <td class="lost">${t.lost}</td>
-      <td>${t.active}</td>
-      <td class="won">${fmtMoney(t.sum, currency)}</td>
+      <td>${tm.total}</td>
+      <td class="won">${tm.won}</td>
+      <td class="lost">${tm.lost}</td>
+      <td>${tm.active}</td>
+      <td class="won">${fmtMoney(tm.sum, currency)}</td>
     </tr>
   `).join('');
 
   return `
     <div class="mgr-period-bar">
-      <button class="mgr-period-btn ${granularity==='day'?'active':''}" data-mgr-period="day" data-mgr-idx="${managerId}">День</button>
-      <button class="mgr-period-btn ${granularity==='week'?'active':''}" data-mgr-period="week" data-mgr-idx="${managerId}">Неделя</button>
-      <button class="mgr-period-btn ${granularity==='month'?'active':''}" data-mgr-period="month" data-mgr-idx="${managerId}">Месяц</button>
+      <button class="mgr-period-btn ${granularity==='day'?'active':''}" data-mgr-period="day" data-mgr-idx="${managerId}">${t('dayPeriod')}</button>
+      <button class="mgr-period-btn ${granularity==='week'?'active':''}" data-mgr-period="week" data-mgr-idx="${managerId}">${t('weekPeriod')}</button>
+      <button class="mgr-period-btn ${granularity==='month'?'active':''}" data-mgr-period="month" data-mgr-idx="${managerId}">${t('monthPeriod')}</button>
     </div>
 
     <div class="mgr-leads-summary">
       <div class="mgr-lead-kpi">
-        <div class="mgr-lead-kpi-label">Всего лидов</div>
+        <div class="mgr-lead-kpi-label">${t('totalLeads')}</div>
         <div class="mgr-lead-kpi-value">${total}</div>
       </div>
       <div class="mgr-lead-kpi">
-        <div class="mgr-lead-kpi-label">Коэф. лидов (won/total)</div>
+        <div class="mgr-lead-kpi-label">${t('leadsRateLabel')}</div>
         <div class="mgr-lead-kpi-value ${leadRate >= 30 ? 'good' : leadRate < 15 ? 'bad' : ''}">${leadRate}%</div>
       </div>
       <div class="mgr-lead-kpi">
-        <div class="mgr-lead-kpi-label">Конверсия (won/finished)</div>
+        <div class="mgr-lead-kpi-label">${t('convWonFinished')}</div>
         <div class="mgr-lead-kpi-value ${conv >= 50 ? 'good' : conv < 25 ? 'bad' : ''}">${conv}%</div>
       </div>
       <div class="mgr-lead-kpi">
-        <div class="mgr-lead-kpi-label">Сумма продаж</div>
+        <div class="mgr-lead-kpi-label">${t('salesSum')}</div>
         <div class="mgr-lead-kpi-value good">${fmtMoney(wonSum, currency)}</div>
       </div>
     </div>
@@ -3673,22 +3703,22 @@ function buildManagerAnalytics(managerId, granularity){
       <div class="mgr-progress-seg" style="width:${pLost}%;background:var(--red-bad);opacity:.5;"></div>
     </div>
     <div class="mgr-progress-legend">
-      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--accent-strong)"></span>Выиграно ${won.length} (${pWon}%)</span>
-      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--accent);opacity:.6"></span>В работе ${active.length} (${pActive}%)</span>
-      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--red-bad);opacity:.6"></span>Провалено ${lost.length} (${pLost}%)</span>
+      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--accent-strong)"></span>${t('wonKpi')} ${won.length} (${pWon}%)</span>
+      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--accent);opacity:.6"></span>${t('inWork')} ${active.length} (${pActive}%)</span>
+      <span class="mgr-legend-item"><span class="mgr-legend-dot" style="background:var(--red-bad);opacity:.6"></span>${t('lostCol')} ${lost.length} (${pLost}%)</span>
     </div>
 
-    <div class="modal-subtitle" style="margin-top:16px;">По стадиям</div>
+    <div class="modal-subtitle" style="margin-top:16px;">${t('byStagesLabel')}</div>
     <table class="mgr-stages-table">
-      <thead><tr><th>Стадия</th><th style="text-align:right">Лидов</th><th style="text-align:right">%</th><th style="text-align:right">Сумма</th></tr></thead>
-      <tbody>${stageRows || '<tr><td colspan="4" style="color:var(--ink-soft)">Нет данных</td></tr>'}</tbody>
+      <thead><tr><th>${t('stageCol')}</th><th style="text-align:right">${t('leadsCol')}</th><th style="text-align:right">%</th><th style="text-align:right">${t('amountCol')}</th></tr></thead>
+      <tbody>${stageRows || `<tr><td colspan="4" style="color:var(--ink-soft)">${t('noData')}</td></tr>`}</tbody>
     </table>
 
-    <div class="modal-subtitle">Динамика по ${periodLabel.toLowerCase()}</div>
+    <div class="modal-subtitle">${t('dynamicsByPeriod')} ${periodLabel.toLowerCase()}</div>
     ${timeRows ? `<table class="mgr-day-table">
-      <thead><tr><th>${periodLabel}</th><th>Всего</th><th>Выигр.</th><th>Провал.</th><th>В работе</th><th>Продажи</th></tr></thead>
+      <thead><tr><th>${periodLabel}</th><th>${t('totalShort')}</th><th>${t('wonShortCol')}</th><th>${t('lostShortCol')}</th><th>${t('inWork')}</th><th>${t('salesLabel')}</th></tr></thead>
       <tbody>${timeRows}</tbody>
-    </table>` : '<div class="modal-note">Нет данных за период.</div>'}
+    </table>` : `<div class="modal-note">${t('noDataForPeriod')}</div>`}
   `;
 }
 
