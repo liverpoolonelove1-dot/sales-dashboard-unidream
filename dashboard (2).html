@@ -2479,17 +2479,7 @@ const CRM_ADAPTERS = {
     fields: [
       {key: 'webhook', label: 'Вебхук', placeholder: 'https://ваш-портал.bitrix24.ru/rest/1/xxxxxxxxxxxxxxxx/', type: 'text'}
     ],
-    helpHtml: `
-      <b>Как получить вебхук (5 минут):</b>
-      <ol>
-        <li>В Битрикс24 откройте <b>Разработчикам → Другое → Входящий вебхук</b> (или через поиск: «вебхук»).</li>
-        <li>Отметьте право доступа <code>crm</code> (CRM) и сохраните. Для разбивки по менеджерам добавьте ещё право <code>user</code> (Пользователи), для статистики звонков — <code>telephony</code> (Телефония), для мониторинга задач — <code>task</code> (Задачи).</li>
-        <li>Скопируйте ссылку вида <code>https://ваш-портал.bitrix24.ru/rest/1/xxxxxxxxxxxxxxxx/</code> и вставьте её в поле выше.</li>
-        <li>Нажмите «Подключить» — дашборд сам найдёт все воронки сделок и построит отчёт.</li>
-      </ol>
-      <b style="display:block;margin-top:10px;">Важно про постоянную ссылку:</b>
-      Эта страница — обычный файл. Чтобы у неё был постоянный адрес, разместите его на хостинге (GitHub Pages, Cloudflare Pages, Netlify). Если открывать файл прямо с компьютера, часть браузеров блокирует запросы к Битрикс24.
-    `,
+    helpHtml: '',
     validate(raw){
       const url = (raw.webhook || '').trim();
       if(!url || (!url.includes('bitrix24') && !url.includes('/rest/'))){
@@ -2587,7 +2577,7 @@ function onCrmChange(){
   const adapter = CRM_ADAPTERS[crmSelect.value];
   renderConnFields(adapter);
   helpBox.innerHTML = adapter.helpHtml;
-  helpBox.style.display = 'block';
+  helpBox.style.display = adapter.helpHtml ? 'block' : 'none';
   if(subText) subText.textContent = adapter.subText;
   statusLine.className = 'status-line';
   statusLine.textContent = adapter.status === 'ready'
@@ -4963,7 +4953,7 @@ disconnectBtn.addEventListener('click', () => {
   toolbar2.style.display = 'none';
   refreshBtn.style.display = 'none';
   disconnectBtn.style.display = 'none';
-  helpBox.style.display = 'block';
+  helpBox.style.display = CRM_ADAPTERS[crmSelect.value]?.helpHtml ? 'block' : 'none';
   statusLine.className = 'status-line';
   statusLine.textContent = 'Подключение забыто — введите данные заново.';
   showLanding();
