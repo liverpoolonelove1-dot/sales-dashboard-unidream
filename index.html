@@ -41,6 +41,8 @@
   .landing-btn-ghost{padding:14px 24px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;cursor:pointer;transition:border-color .15s,background .15s;white-space:nowrap;flex:none;display:inline-flex;align-items:center;text-decoration:none;}
   .landing-btn-ghost:hover{border-color:var(--accent-strong);background:var(--overlay-2);}
   .landing-trust{font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;}
+  .landing-pdf-link{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink-soft);text-decoration:none;margin-top:14px;border-bottom:1px dashed var(--line);padding-bottom:2px;transition:color .15s ease,border-color .15s ease;}
+  .landing-pdf-link:hover{color:var(--accent-strong);border-color:var(--accent-strong);}
   .landing-hero-visual{flex:none;width:420px;}
   .landing-mockup{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 24px 60px var(--shadow-lg);}
   .lm-bar{display:flex;gap:5px;margin-bottom:12px;}
@@ -120,6 +122,7 @@
         <a class="landing-btn-ghost" href="dashboard.html?demo=1" data-i18n="ctaDemo">Посмотреть демо</a>
       </div>
       <div class="landing-trust" data-i18n="heroTrust">Данные не покидают ваш браузер · Bitrix24 уже доступен, amoCRM и другие CRM — скоро</div>
+      <a href="pulsecrm-overview.pdf" target="_blank" class="landing-pdf-link" data-i18n="downloadOverview">📄 Скачать обзор проекта (PDF)</a>
     </div>
     <div class="landing-hero-visual">
       <div class="landing-mockup">
@@ -249,6 +252,7 @@ const LANDING_TRANSLATIONS = {
     ctaPrimary: 'Подключить Bitrix24 →',
     ctaDemo: 'Посмотреть демо',
     heroTrust: 'Данные не покидают ваш браузер · Bitrix24 уже доступен, amoCRM и другие CRM — скоро',
+    downloadOverview: '📄 Скачать обзор проекта (PDF)',
     mockSales: 'Продажи', mockDeals: 'Сделок', mockConv: 'Конверсия',
     feat1Title: 'Источники рекламы',
     feat1Desc: 'Видите с какого канала пришёл каждый лид и сколько принёс денег',
@@ -294,6 +298,7 @@ const LANDING_TRANSLATIONS = {
     ctaPrimary: 'Bitrix24 ni ulash →',
     ctaDemo: 'Demoni ko\'rish',
     heroTrust: 'Ma\'lumotlar brauzeringizdan chiqmaydi · Bitrix24 allaqachon mavjud, amoCRM va boshqa CRM\'lar — tez orada',
+    downloadOverview: '📄 Loyiha haqida (PDF)',
     mockSales: 'Savdo', mockDeals: 'Bitimlar', mockConv: 'Konversiya',
     feat1Title: 'Reklama manbalari',
     feat1Desc: 'Har bir lid qaysi kanaldan kelganini va qancha pul keltirganini ko\'rasiz',
