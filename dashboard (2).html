@@ -221,7 +221,7 @@
   .subscription-banner-text{font-size:13px;color:#FCA5A5;font-weight:600;}
   .subscription-banner-text b{color:#fff;}
   .demo-banner-text{font-size:13px;color:var(--accent);font-weight:600;}
-  .demo-banner-text span{color:rgba(198,241,53,.6);font-weight:400;}
+  .demo-banner-text .demo-banner-sub{color:rgba(198,241,53,.6);font-weight:400;}
   .wrap > *{position:relative;z-index:1;}
 
   .topbar{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:32px;}
@@ -932,19 +932,19 @@
 <div id="analyticsView" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;">
   <div class="analytics-topbar">
     <div style="display:flex;align-items:center;gap:12px;">
-      <button id="analyticsBackBtn" class="btn btn-ghost" type="button">← Назад</button>
-      <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;">Аналитика</span>
+      <button id="analyticsBackBtn" class="btn btn-ghost" type="button" data-i18n="backBtn">← Назад</button>
+      <span id="analyticsTitleLabel" style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;" data-i18n="analyticsTitle">Аналитика</span>
     </div>
     <div class="analytics-tabs" id="analyticsTabs">
-      <button class="atab active" data-tab="sources">Источники</button>
-      <button class="atab" data-tab="daily">По дням</button>
-      <button class="atab" data-tab="stages">По стадиям</button>
-      <button class="atab" data-tab="managers">Менеджеры</button>
-      <button class="atab" data-tab="closed">Закрытые</button>
-      <button class="atab" data-tab="clients">Клиенты</button>
-      <button class="atab" data-tab="roi">LTV / ROI</button>
-      <button class="atab" data-tab="forecast">Прогноз</button>
-      <button class="atab" data-tab="finance">Финансы / ROI</button>
+      <button class="atab active" data-tab="sources" data-i18n="tabSources">Источники</button>
+      <button class="atab" data-tab="daily" data-i18n="tabDaily">По дням</button>
+      <button class="atab" data-tab="stages" data-i18n="tabStages">По стадиям</button>
+      <button class="atab" data-tab="managers" data-i18n="tabManagers">Менеджеры</button>
+      <button class="atab" data-tab="closed" data-i18n="tabClosed">Закрытые</button>
+      <button class="atab" data-tab="clients" data-i18n="tabClients">Клиенты</button>
+      <button class="atab" data-tab="roi" data-i18n="tabRoi">LTV / ROI</button>
+      <button class="atab" data-tab="forecast" data-i18n="tabForecast">Прогноз</button>
+      <button class="atab" data-tab="finance" data-i18n="tabFinance">Финансы / ROI</button>
     </div>
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
@@ -954,7 +954,7 @@
   <div id="searchResults" class="search-results">
     <div class="search-results-inner">
       <div class="search-results-header">
-        <div class="search-results-title" id="searchResultsTitle">Результаты поиска</div>
+        <div class="search-results-title" id="searchResultsTitle" data-i18n="searchResultsTitle">Результаты поиска</div>
         <button class="search-results-close" id="searchResultsClose" type="button">✕</button>
       </div>
       <div id="searchResultsBody"></div>
@@ -967,8 +967,8 @@
   </div>
   <!-- Демо-баннер -->
   <div id="demoBanner" class="demo-banner" style="display:none;">
-    <div class="demo-banner-text">Демо-режим <span>· Данные ненастоящие, для демонстрации возможностей</span></div>
-    <button class="btn btn-primary btn-sm" id="demoConnectBtn">Подключить реальный Битрикс24 →</button>
+    <div class="demo-banner-text"><span data-i18n="demoModeTitle">Демо-режим</span> <span class="demo-banner-sub" data-i18n="demoModeSub">· Данные ненастоящие, для демонстрации возможностей</span></div>
+    <button class="btn btn-primary btn-sm" id="demoConnectBtn" data-i18n="demoConnectBtn">Подключить реальный Битрикс24 →</button>
   </div>
   <!-- Баннер истечения подписки -->
   <div id="subscriptionBanner" class="subscription-banner" style="display:none;">
@@ -1203,6 +1203,86 @@ const TRANSLATIONS = {
     goalProgress: 'Выполнено',
     goalOf: 'из',
     placeholderExample: 'например, 50000000',
+    backBtn: '← Назад',
+    analyticsTitle: 'Аналитика',
+    tabSources: 'Источники',
+    tabDaily: 'По дням',
+    tabStages: 'По стадиям',
+    tabManagers: 'Менеджеры',
+    tabClosed: 'Закрытые',
+    tabClients: 'Клиенты',
+    tabRoi: 'LTV / ROI',
+    tabForecast: 'Прогноз',
+    tabFinance: 'Финансы / ROI',
+    searchResultsTitle: 'Результаты поиска',
+    demoModeTitle: 'Демо-режим',
+    demoModeSub: '· Данные ненастоящие, для демонстрации возможностей',
+    demoConnectBtn: 'Подключить реальный Битрикс24 →',
+    totalLeads: 'Всего лидов',
+    salesSum: 'Сумма продаж',
+    avgConvLbl: 'Средняя конверсия',
+    bestSource: 'Лучший источник',
+    sourceCol: 'Источник',
+    leadsCol: 'Лидов',
+    wonCol: 'Выиграно',
+    lostCol: 'Провалено',
+    convCol: 'Конверсия',
+    dateCol: 'Дата',
+    leadsForPeriod: 'Лидов за период',
+    avgPerDayShort: 'В среднем в день',
+    stageCol: 'Стадия',
+    quantityCol: 'Количество',
+    shareCol: 'Доля',
+    amountCol: 'Сумма',
+    funnelsCol: 'Воронок',
+    winRateSummary: 'Win rate',
+    lostDealsSummary: 'Проиграно сделок',
+    managersCol: 'Менеджеров',
+    avgPerManager: 'В среднем на менеджера',
+    leaderByVolume: 'Лидер по объёму',
+    dealCol: 'Сделка',
+    managerCol: 'Менеджер',
+    closingStage: 'Стадия закрытия',
+    reasonStage: 'Причина (стадия)',
+    wonDealsTitle: 'Выигранные сделки',
+    lostDealsTitle: 'Проигранные сделки',
+    noWonDeals: 'Нет выигранных сделок',
+    noLostDeals: 'Нет проигранных сделок',
+    noData: 'Нет данных',
+    dealsWord: 'сделок',
+    daysCycle: 'дн',
+    summaryByFunnels: 'Сводка по воронкам',
+    summaryByManagers: 'Сводка по менеджерам',
+    noManagerData: 'Нет данных по менеджерам',
+    noDealData: 'Нет данных о сделках',
+    noFinanceData: 'Нет данных для финансового анализа',
+    sourcesLeadsTitle: 'Источники лидов',
+    dailyLeadsTitle: 'Поступление лидов по дням',
+    last60Days: '(последние 60 дней)',
+    wonSumLabel: 'Сумма выиграно',
+    leadsSuffix: 'лидов',
+    leadsPerDayCol: 'Лидов за день',
+    avgSlashDay: 'в среднем',
+    dealNumberPrefix: 'Сделка №',
+    clientsAnalyticsTitle: 'Клиентская аналитика — сводка',
+    wonDealsLbl: 'Выигранных сделок',
+    repeatClientsLbl: 'Повторные клиенты',
+    totalRevenueLbl: 'Общая выручка',
+    segmentBySize: 'Сегментация по размеру сделки',
+    segmentCol: 'Сегмент',
+    revenueCol: 'Выручка',
+    bigSegment: 'Крупные (top 20%)',
+    midSegment: 'Средние (60%)',
+    smallSegment: 'Малые (bottom 20%)',
+    repeatVsOnce: 'Повторные vs единовременные клиенты',
+    byManagerNote: '(по менеджеру сделки)',
+    repeatClientsFull: 'Повторные (2+ сделки)',
+    onceClients: 'Разовые (1 сделка)',
+    ltvSum: 'LTV (сумма)',
+    managerIdPrefix: 'Менеджер ID ',
+    top10shown: 'Показаны топ-10 из',
+    salesByMonth: 'Динамика продаж по месяцам',
+    monthCol: 'Месяц',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1292,6 +1372,86 @@ const TRANSLATIONS = {
     goalProgress: 'Bajarildi',
     goalOf: 'dan',
     placeholderExample: 'masalan, 50000000',
+    backBtn: '← Orqaga',
+    analyticsTitle: 'Tahlil',
+    tabSources: 'Manbalar',
+    tabDaily: 'Kunlar bo\'yicha',
+    tabStages: 'Bosqichlar bo\'yicha',
+    tabManagers: 'Menejerlar',
+    tabClosed: 'Yopilgan',
+    tabClients: 'Mijozlar',
+    tabRoi: 'LTV / ROI',
+    tabForecast: 'Prognoz',
+    tabFinance: 'Moliya / ROI',
+    searchResultsTitle: 'Qidiruv natijalari',
+    demoModeTitle: 'Demo rejim',
+    demoModeSub: '· Ma\'lumotlar haqiqiy emas, imkoniyatlarni ko\'rsatish uchun',
+    demoConnectBtn: 'Haqiqiy Bitrix24-ni ulash →',
+    totalLeads: 'Jami lidlar',
+    salesSum: 'Savdo summasi',
+    avgConvLbl: 'O\'rtacha konversiya',
+    bestSource: 'Eng yaxshi manba',
+    sourceCol: 'Manba',
+    leadsCol: 'Lidlar',
+    wonCol: 'G\'alaba',
+    lostCol: 'Yutqazilgan',
+    convCol: 'Konversiya',
+    dateCol: 'Sana',
+    leadsForPeriod: 'Davr uchun lidlar',
+    avgPerDayShort: 'Kuniga o\'rtacha',
+    stageCol: 'Bosqich',
+    quantityCol: 'Miqdor',
+    shareCol: 'Ulush',
+    amountCol: 'Summa',
+    funnelsCol: 'Voronkalar',
+    winRateSummary: 'Win rate',
+    lostDealsSummary: 'Yutqazilgan bitimlar',
+    managersCol: 'Menejerlar',
+    avgPerManager: 'Menejerga o\'rtacha',
+    leaderByVolume: 'Hajm bo\'yicha yetakchi',
+    dealCol: 'Bitim',
+    managerCol: 'Menejer',
+    closingStage: 'Yopilish bosqichi',
+    reasonStage: 'Sabab (bosqich)',
+    wonDealsTitle: 'Yutilgan bitimlar',
+    lostDealsTitle: 'Yutqazilgan bitimlar',
+    noWonDeals: 'Yutilgan bitimlar yo\'q',
+    noLostDeals: 'Yutqazilgan bitimlar yo\'q',
+    noData: 'Ma\'lumot yo\'q',
+    dealsWord: 'bitim',
+    daysCycle: 'kun',
+    summaryByFunnels: 'Voronkalar bo\'yicha xulosa',
+    summaryByManagers: 'Menejerlar bo\'yicha xulosa',
+    noManagerData: 'Menejerlar bo\'yicha ma\'lumot yo\'q',
+    noDealData: 'Bitimlar haqida ma\'lumot yo\'q',
+    noFinanceData: 'Moliyaviy tahlil uchun ma\'lumot yo\'q',
+    sourcesLeadsTitle: 'Lidlar manbalari',
+    dailyLeadsTitle: 'Kunlar bo\'yicha lidlar',
+    last60Days: '(oxirgi 60 kun)',
+    wonSumLabel: 'Yutilgan summa',
+    leadsSuffix: 'lid',
+    leadsPerDayCol: 'Kunlik lidlar',
+    avgSlashDay: 'o\'rtacha',
+    dealNumberPrefix: 'Bitim №',
+    clientsAnalyticsTitle: 'Mijozlar tahlili — xulosa',
+    wonDealsLbl: 'Yutilgan bitimlar',
+    repeatClientsLbl: 'Qaytar mijozlar',
+    totalRevenueLbl: 'Jami tushum',
+    segmentBySize: 'Bitim hajmi bo\'yicha segmentatsiya',
+    segmentCol: 'Segment',
+    revenueCol: 'Tushum',
+    bigSegment: 'Katta (top 20%)',
+    midSegment: 'O\'rta (60%)',
+    smallSegment: 'Kichik (bottom 20%)',
+    repeatVsOnce: 'Qaytar va bir martalik mijozlar',
+    byManagerNote: '(bitim menejeri bo\'yicha)',
+    repeatClientsFull: 'Qaytar (2+ bitim)',
+    onceClients: 'Bir martalik (1 bitim)',
+    ltvSum: 'LTV (summa)',
+    managerIdPrefix: 'Menejer ID ',
+    top10shown: 'Top-10 ko\'rsatilgan, jami',
+    salesByMonth: 'Oylar bo\'yicha savdo dinamikasi',
+    monthCol: 'Oy',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -1342,6 +1502,11 @@ function applyLang(){
   // метка языка
   const lbl = document.getElementById('langLabel');
   if(lbl) lbl.textContent = currentLang.toUpperCase();
+  // общий обработчик data-i18n
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if(key) el.textContent = t(key);
+  });
   // сайдбар
   const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', calls:'navCalls', tasks:'navTasks', analytics:'navAnalytics', settings:'navSettings'};
   document.querySelectorAll('.sbnav-item').forEach(btn => {
@@ -4808,7 +4973,7 @@ function sourceName(src){ return SOURCE_NAMES[src] || src || 'Не указан'
 function buildSourcesTab(){
   const deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+  if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   const map = {};
   deals.forEach(d => {
@@ -4849,15 +5014,15 @@ function buildSourcesTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">Источники лидов</div>
+      <div class="analytics-title">${t('sourcesLeadsTitle')}</div>
       <div class="analytics-cards">
-        <div class="analytics-card"><div class="analytics-card-val">${totalLeads}</div><div class="analytics-card-lbl">Всего лидов</div></div>
-        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${fmtMoney(totalWonSum,currency)}</div><div class="analytics-card-lbl">Сумма продаж</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${avgConv}%</div><div class="analytics-card-lbl">Средняя конверсия</div></div>
-        <div class="analytics-card"><div class="analytics-card-val" style="font-size:16px;">${topSource ? escapeHtml(sourceName(topSource[0])) : '—'}</div><div class="analytics-card-lbl">Лучший источник</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${totalLeads}</div><div class="analytics-card-lbl">${t('totalLeads')}</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${fmtMoney(totalWonSum,currency)}</div><div class="analytics-card-lbl">${t('salesSum')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${avgConv}%</div><div class="analytics-card-lbl">${t('avgConvLbl')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="font-size:16px;">${topSource ? escapeHtml(sourceName(topSource[0])) : '—'}</div><div class="analytics-card-lbl">${t('bestSource')}</div></div>
       </div>
       <table class="analytics-table">
-        <thead><tr><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Конверсия</th><th>Сумма продаж</th></tr></thead>
+        <thead><tr><th>${t('sourceCol')}</th><th>${t('leadsCol')}</th><th>${t('wonCol')}</th><th>${t('lostCol')}</th><th>${t('inWork')}</th><th>${t('convCol')}</th><th>${t('salesSum')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -4866,7 +5031,7 @@ function buildSourcesTab(){
 function buildDailyTab(){
   const deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+  if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   const map = {};
   deals.forEach(d => {
@@ -4907,15 +5072,15 @@ function buildDailyTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">Поступление лидов по дням <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(последние 60 дней)</span></div>
+      <div class="analytics-title">${t('dailyLeadsTitle')} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${t('last60Days')}</span></div>
       <div class="analytics-cards">
-        <div class="analytics-card"><div class="analytics-card-val">${totalLeads}</div><div class="analytics-card-lbl">Лидов за период</div></div>
-        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${fmtMoney(totalWonSum,currency)}</div><div class="analytics-card-lbl">Сумма продаж</div></div>
-        <div class="analytics-card"><div class="analytics-card-val" style="font-size:16px;">${bestDayLabel}</div><div class="analytics-card-lbl">Лучший день</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${avgPerDay}</div><div class="analytics-card-lbl">В среднем в день</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${totalLeads}</div><div class="analytics-card-lbl">${t('leadsForPeriod')}</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${fmtMoney(totalWonSum,currency)}</div><div class="analytics-card-lbl">${t('salesSum')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="font-size:16px;">${bestDayLabel}</div><div class="analytics-card-lbl">${t('bestDay')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${avgPerDay}</div><div class="analytics-card-lbl">${t('avgPerDayShort')}</div></div>
       </div>
       <table class="analytics-table">
-        <thead><tr><th>Дата</th><th>Лидов</th><th>Выиграно</th><th>Провалено</th><th>В работе</th><th>Сумма продаж</th></tr></thead>
+        <thead><tr><th>${t('dateCol')}</th><th>${t('leadsCol')}</th><th>${t('wonCol')}</th><th>${t('lostCol')}</th><th>${t('inWork')}</th><th>${t('salesSum')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -4924,17 +5089,17 @@ function buildDailyTab(){
 function buildStagesTab(){
   const deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+  if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   const totalWon = deals.filter(d=>d.semantic==='S');
   const overviewCards = `
     <div class="analytics-section">
-      <div class="analytics-title">Сводка по воронкам</div>
+      <div class="analytics-title">${t('summaryByFunnels')}</div>
       <div class="analytics-cards">
-        <div class="analytics-card"><div class="analytics-card-val">${lastFunnels.length}</div><div class="analytics-card-lbl">Воронок</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${deals.length}</div><div class="analytics-card-lbl">Всего лидов</div></div>
-        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${totalWon.length}</div><div class="analytics-card-lbl">Выиграно</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${fmtMoney(totalWon.reduce((a,d)=>a+d.amount,0),currency)}</div><div class="analytics-card-lbl">Сумма выиграно</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${lastFunnels.length}</div><div class="analytics-card-lbl">${t('funnelsCol')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${deals.length}</div><div class="analytics-card-lbl">${t('totalLeads')}</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${totalWon.length}</div><div class="analytics-card-lbl">${t('wonCol')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmtMoney(totalWon.reduce((a,d)=>a+d.amount,0),currency)}</div><div class="analytics-card-lbl">${t('wonSumLabel')}</div></div>
       </div>
     </div>`;
 
@@ -4964,21 +5129,21 @@ function buildStagesTab(){
       </tr>`;
     }).join('');
     return `<div class="analytics-section">
-      <div class="analytics-title">${escapeHtml(f.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${fDeals.length} лидов</span></div>
+      <div class="analytics-title">${escapeHtml(f.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${fDeals.length} ${t('leadsSuffix')}</span></div>
       <table class="analytics-table">
-        <thead><tr><th>Стадия</th><th>Количество</th><th>Доля</th><th>Сумма</th></tr></thead>
+        <thead><tr><th>${t('stageCol')}</th><th>${t('quantityCol')}</th><th>${t('shareCol')}</th><th>${t('amountCol')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
   }).join('');
 
-  return sections ? overviewCards + sections : '<div class="analytics-empty">Нет данных</div>';
+  return sections ? overviewCards + sections : `<div class="analytics-empty">${t("noData")}</div>`;
 }
 
 function buildManagersLoadTab(){
   const deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  if(!deals.length) return '<div class="analytics-empty">Нет данных</div>';
+  if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   // По каждому менеджеру — нагрузка по дням
   const sections = lastManagers.filter(m => m.id !== 'unknown').map(m => {
@@ -5008,9 +5173,9 @@ function buildManagersLoadTab(){
     }).join('');
     const avg = Object.values(dayMap).length ? (mDeals.length / Object.values(dayMap).length).toFixed(1) : 0;
     return `<div class="analytics-section">
-      <div class="analytics-title">${escapeHtml(m.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${mDeals.length} лидов · в среднем ${avg}/день</span></div>
+      <div class="analytics-title">${escapeHtml(m.name)} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${mDeals.length} ${t('leadsSuffix')} · ${t('avgSlashDay')} ${avg}${t('perDay')}</span></div>
       <table class="analytics-table">
-        <thead><tr><th>Дата</th><th>Лидов за день</th><th>Выиграно</th><th>Провалено</th><th>В работе</th></tr></thead>
+        <thead><tr><th>${t('dateCol')}</th><th>${t('leadsPerDayCol')}</th><th>${t('wonCol')}</th><th>${t('lostCol')}</th><th>${t('inWork')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -5020,16 +5185,16 @@ function buildManagersLoadTab(){
   const topManager = activeManagers.map(m=>({m, cnt:deals.filter(d=>String(d.assignedTo)===String(m.id)).length})).sort((a,b)=>b.cnt-a.cnt)[0];
   const overviewCards = `
     <div class="analytics-section">
-      <div class="analytics-title">Сводка по менеджерам</div>
+      <div class="analytics-title">${t('summaryByManagers')}</div>
       <div class="analytics-cards">
-        <div class="analytics-card"><div class="analytics-card-val">${activeManagers.length}</div><div class="analytics-card-lbl">Менеджеров</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${deals.length}</div><div class="analytics-card-lbl">Всего лидов</div></div>
-        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="font-size:16px;color:var(--accent-strong)">${topManager ? escapeHtml(topManager.m.name) : '—'}</div><div class="analytics-card-lbl">Лидер по объёму</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${activeManagers.length ? Math.round(deals.length/activeManagers.length) : 0}</div><div class="analytics-card-lbl">В среднем на менеджера</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${activeManagers.length}</div><div class="analytics-card-lbl">${t('managersCol')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${deals.length}</div><div class="analytics-card-lbl">${t('totalLeads')}</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="font-size:16px;color:var(--accent-strong)">${topManager ? escapeHtml(topManager.m.name) : '—'}</div><div class="analytics-card-lbl">${t('leaderByVolume')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${activeManagers.length ? Math.round(deals.length/activeManagers.length) : 0}</div><div class="analytics-card-lbl">${t('avgPerManager')}</div></div>
       </div>
     </div>`;
 
-  return sections ? overviewCards + sections : '<div class="analytics-empty">Нет данных по менеджерам</div>';
+  return sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`;
 }
 
 function buildClosedTab(){
@@ -5044,7 +5209,7 @@ function buildClosedTab(){
     const date = d.closedAt || d.updatedAt || d.createdAt;
     return `<tr>
       <td>
-        <div style="font-weight:600;font-size:12.5px">${escapeHtml(d.title || 'Сделка №'+d.id)}</div>
+        <div style="font-weight:600;font-size:12.5px">${escapeHtml(d.title || t('dealNumberPrefix')+d.id)}</div>
         <div style="font-size:10.5px;color:var(--ink-soft)">${escapeHtml(d.funnelName)}</div>
       </td>
       <td><span class="source-badge">${escapeHtml(d.stageName)}</span></td>
@@ -5061,32 +5226,32 @@ function buildClosedTab(){
   return `
     <div class="analytics-section">
       <div class="analytics-cards">
-        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${wonDeals.length}</div><div class="analytics-card-lbl">Выиграно сделок</div></div>
-        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${lostDeals.length}</div><div class="analytics-card-lbl">Проиграно сделок</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${winRate}%</div><div class="analytics-card-lbl">Win rate</div></div>
-        <div class="analytics-card"><div class="analytics-card-val">${fmtMoney(wonSum,currency)}</div><div class="analytics-card-lbl">Сумма выиграно</div></div>
+        <div class="analytics-card" style="border-color:var(--accent-strong);"><div class="analytics-card-val" style="color:var(--accent-strong)">${wonDeals.length}</div><div class="analytics-card-lbl">${t('wonKpi')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${lostDeals.length}</div><div class="analytics-card-lbl">${t('lostDealsSummary')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${winRate}%</div><div class="analytics-card-lbl">${t('winRateSummary')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${fmtMoney(wonSum,currency)}</div><div class="analytics-card-lbl">${t('wonSumLabel')}</div></div>
       </div>
     </div>
     <div class="analytics-section">
-      <div class="analytics-title">Выигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${wonDeals.length} сделок</span></div>
+      <div class="analytics-title">${t('wonDealsTitle')} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${wonDeals.length} ${t('dealsWord')}</span></div>
       ${wonDeals.length ? `<table class="analytics-table">
-        <thead><tr><th>Сделка</th><th>Стадия закрытия</th><th>Менеджер</th><th>Дата</th><th>Сумма</th></tr></thead>
+        <thead><tr><th>${t('dealCol')}</th><th>${t('closingStage')}</th><th>${t('managerCol')}</th><th>${t('dateCol')}</th><th>${t('amountCol')}</th></tr></thead>
         <tbody>${buildRows(wonDeals,'won')}</tbody>
-      </table>` : '<div class="analytics-empty">Нет выигранных сделок</div>'}
+      </table>` : `<div class="analytics-empty">${t('noWonDeals')}</div>`}
     </div>
     <div class="analytics-section">
-      <div class="analytics-title">Проигранные сделки <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${lostDeals.length} сделок</span></div>
+      <div class="analytics-title">${t('lostDealsTitle')} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${lostDeals.length} ${t('dealsWord')}</span></div>
       ${lostDeals.length ? `<table class="analytics-table">
-        <thead><tr><th>Сделка</th><th>Причина (стадия)</th><th>Менеджер</th><th>Дата</th><th>Сумма</th></tr></thead>
+        <thead><tr><th>${t('dealCol')}</th><th>${t('reasonStage')}</th><th>${t('managerCol')}</th><th>${t('dateCol')}</th><th>${t('amountCol')}</th></tr></thead>
         <tbody>${buildRows(lostDeals,'lost')}</tbody>
-      </table>` : '<div class="analytics-empty">Нет проигранных сделок</div>'}
+      </table>` : `<div class="analytics-empty">${t('noLostDeals')}</div>`}
     </div>`;
 }
 
 function buildClientsTab(){
   const deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
-  if(!deals.length) return '<div class="analytics-empty">Нет данных о сделках</div>';
+  if(!deals.length) return `<div class="analytics-empty">${t("noDealData")}</div>`;
 
   // Группируем сделки по assignedTo (как прокси клиента, т.к. прямого clientId нет в vебхуке)
   // Используем title сделки — ищем повторяющиеся паттерны
@@ -5099,9 +5264,9 @@ function buildClientsTab(){
 
   // --- Сегментация по сумме сделки ---
   const segments = [
-    {label: 'Крупные (top 20%)', deals: [], threshold: 0},
-    {label: 'Средние (60%)',      deals: [], threshold: 0},
-    {label: 'Малые (bottom 20%)', deals: [], threshold: 0},
+    {label: t('bigSegment'), deals: [], threshold: 0},
+    {label: t('midSegment'), deals: [], threshold: 0},
+    {label: t('smallSegment'), deals: [], threshold: 0},
   ];
   if(wonDeals.length >= 5){
     const sorted = [...wonDeals].sort((a,b) => b.amount - a.amount);
@@ -5168,58 +5333,58 @@ function buildClientsTab(){
 
   return `
     <div class="analytics-section">
-      <div class="analytics-title">Клиентская аналитика — сводка</div>
+      <div class="analytics-title">${t('clientsAnalyticsTitle')}</div>
       <div class="analytics-cards">
         <div class="analytics-card">
           <div class="analytics-card-val">${totalWon}</div>
-          <div class="analytics-card-lbl">Выигранных сделок</div>
+          <div class="analytics-card-lbl">${t('wonDealsLbl')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${fmtMoney(avgDeal, currency)}</div>
-          <div class="analytics-card-lbl">Средний чек</div>
+          <div class="analytics-card-lbl">${t('avgDeal')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${repeatRate}%</div>
-          <div class="analytics-card-lbl">Повторные клиенты</div>
+          <div class="analytics-card-lbl">${t('repeatClientsLbl')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${fmtMoney(totalRev, currency)}</div>
-          <div class="analytics-card-lbl">Общая выручка</div>
+          <div class="analytics-card-lbl">${t('totalRevenueLbl')}</div>
         </div>
       </div>
     </div>
 
     ${segments[0].deals.length > 0 ? `
     <div class="analytics-section">
-      <div class="analytics-title">Сегментация по размеру сделки</div>
+      <div class="analytics-title">${t('segmentBySize')}</div>
       <table class="analytics-table">
-        <thead><tr><th>Сегмент</th><th>Сделок</th><th>Средний чек</th><th>Выручка</th></tr></thead>
+        <thead><tr><th>${t('segmentCol')}</th><th>${t('dealsLabel')}</th><th>${t('avgDeal')}</th><th>${t('revenueCol')}</th></tr></thead>
         <tbody>${segHtml}</tbody>
       </table>
     </div>` : ''}
 
     <div class="analytics-section">
-      <div class="analytics-title">Повторные vs единовременные клиенты
-        <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">(по менеджеру сделки)</span>
+      <div class="analytics-title">${t('repeatVsOnce')}
+        <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${t('byManagerNote')}</span>
       </div>
       <div class="analytics-cards" style="grid-template-columns:repeat(2,1fr);">
         <div class="analytics-card" style="border-color:var(--accent-strong);">
           <div class="analytics-card-val" style="color:var(--accent-strong)">${repeatClients.length}</div>
-          <div class="analytics-card-lbl">Повторные (2+ сделки)</div>
+          <div class="analytics-card-lbl">${t('repeatClientsFull')}</div>
         </div>
         <div class="analytics-card">
           <div class="analytics-card-val">${singleClients.length}</div>
-          <div class="analytics-card-lbl">Разовые (1 сделка)</div>
+          <div class="analytics-card-lbl">${t('onceClients')}</div>
         </div>
       </div>
       ${repeatClients.length > 0 ? `
       <div style="margin-top:12px;">
         <table class="analytics-table">
-          <thead><tr><th>Менеджер</th><th>Сделок</th><th>LTV (сумма)</th><th>Средний чек</th></tr></thead>
+          <thead><tr><th>${t('managerCol')}</th><th>${t('dealsLabel')}</th><th>${t('ltvSum')}</th><th>${t('avgDeal')}</th></tr></thead>
           <tbody>
             ${repeatClients.slice(0, 10).map(([id, v]) => {
               const mgr = lastManagers.find(m => String(m.id) === id);
-              const name = mgr ? mgr.name : `Менеджер ID ${id}`;
+              const name = mgr ? mgr.name : `${t('managerIdPrefix')}${id}`;
               const avg = Math.round(v.sum / v.deals.length);
               return `<tr>
                 <td>${escapeHtml(name)}</td>
@@ -5230,15 +5395,15 @@ function buildClientsTab(){
             }).join('')}
           </tbody>
         </table>
-        ${repeatClients.length > 10 ? `<div class="modal-note">Показаны топ-10 из ${repeatClients.length}</div>` : ''}
+        ${repeatClients.length > 10 ? `<div class="modal-note">${t('top10shown')} ${repeatClients.length}</div>` : ''}
       </div>` : ''}
     </div>
 
     ${monthRows ? `
     <div class="analytics-section">
-      <div class="analytics-title">Динамика продаж по месяцам</div>
+      <div class="analytics-title">${t('salesByMonth')}</div>
       <table class="analytics-table">
-        <thead><tr><th>Месяц</th><th>Выигранных</th><th>Средний чек</th><th>Выручка</th></tr></thead>
+        <thead><tr><th>${t('monthCol')}</th><th>${t('wonCol')}</th><th>${t('avgDeal')}</th><th>${t('revenueCol')}</th></tr></thead>
         <tbody>${monthRows}</tbody>
       </table>
     </div>` : ''}
@@ -5505,7 +5670,7 @@ function buildFinanceTab(){
   const lostDeals = lastDealsFlat.filter(d=>d.semantic==='F');
   const activeDeals = lastDealsFlat.filter(d=>d.semantic==='P');
 
-  if(!wonDeals.length && !activeDeals.length) return '<div class="analytics-empty">Нет данных для финансового анализа</div>';
+  if(!wonDeals.length && !activeDeals.length) return `<div class="analytics-empty">${t("noFinanceData")}</div>`;
 
   // === Базовые метрики ===
   const totalRev = wonDeals.reduce((a,d)=>a+d.amount,0);
