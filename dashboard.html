@@ -1409,6 +1409,19 @@ const TRANSLATIONS = {
     successBadge: 'Успешный',
     missedBadge: 'Пропущен',
     analyzeBtnLabel: '🤖 Анализ',
+    doneChip: 'Завершённые',
+    overdueChip: 'Просроченные',
+    overdueBadge: 'Просрочена',
+    doneBadge: 'Завершена',
+    newBadge: 'Новая',
+    taskWord: 'Задача',
+    createdShort: 'создана',
+    taskRespCol: 'Задача / Ответственный',
+    statusCol: 'Статус',
+    deadlineCol: 'Дедлайн',
+    noTasksFilter: 'По этому фильтру задач нет.',
+    first100shown: 'Показаны первые 100 из',
+    tasksWord: 'задач',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1704,6 +1717,19 @@ const TRANSLATIONS = {
     successBadge: 'Muvaffaqiyatli',
     missedBadge: 'O\'tkazib yuborilgan',
     analyzeBtnLabel: '🤖 Tahlil',
+    doneChip: 'Bajarilgan',
+    overdueChip: 'Muddati o\'tgan',
+    overdueBadge: 'Muddati o\'tgan',
+    doneBadge: 'Bajarildi',
+    newBadge: 'Yangi',
+    taskWord: 'Vazifa',
+    createdShort: 'yaratildi',
+    taskRespCol: 'Vazifa / Mas\'ul',
+    statusCol: 'Holat',
+    deadlineCol: 'Muddat',
+    noTasksFilter: 'Bu filtr bo\'yicha vazifalar yo\'q.',
+    first100shown: 'Birinchi 100 tasi ko\'rsatilgan, jami',
+    tasksWord: 'vazifa',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -3794,23 +3820,23 @@ function openTasksDetail(filterStatus){
 
   const summary = `
     <div class="modal-summary-row">
-      <div class="modal-summary-cell"><div class="val">${stats.total}</div><div class="lbl">Всего</div></div>
-      <div class="modal-summary-cell"><div class="val">${stats.neW}</div><div class="lbl">Новые</div></div>
-      <div class="modal-summary-cell"><div class="val">${stats.inProgress}</div><div class="lbl">В работе</div></div>
+      <div class="modal-summary-cell"><div class="val">${stats.total}</div><div class="lbl">${t('totalShort')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${stats.neW}</div><div class="lbl">${t('newTasks')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${stats.inProgress}</div><div class="lbl">${t('inWork')}</div></div>
     </div>
     <div class="modal-summary-row">
-      <div class="modal-summary-cell"><div class="val" style="color:var(--accent-strong)">${stats.completed}</div><div class="lbl">Завершено</div></div>
-      <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${stats.overdue}</div><div class="lbl">Просрочено</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--accent-strong)">${stats.completed}</div><div class="lbl">${t('completed')}</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${stats.overdue}</div><div class="lbl">${t('overdue')}</div></div>
       <div class="modal-summary-cell"></div>
     </div>
   `;
 
   const chips = [
-    {key:'all', label:'Все'},
-    {key:'new', label:'Новые'},
-    {key:'work', label:'В работе'},
-    {key:'done', label:'Завершённые'},
-    {key:'overdue', label:'Просроченные'}
+    {key:'all', label:t('allChip')},
+    {key:'new', label:t('newTasks')},
+    {key:'work', label:t('inWork')},
+    {key:'done', label:t('doneChip')},
+    {key:'overdue', label:t('overdueChip')}
   ].map(ch => `<span class="modal-filter-chip ${filterStatus===ch.key?'active':''}" data-tasks-filter="${ch.key}">${ch.label}</span>`).join('');
 
   let tasks = taskFilterManagerId !== 'all'
@@ -3827,44 +3853,44 @@ function openTasksDetail(filterStatus){
     return a.deadline ? -1 : 1;
   });
 
-  const statusBadge = (t) => {
-    const s = String(t.status);
-    const isOverdue = s !== '5' && t.deadline && new Date(t.deadline).getTime() < now;
-    if(isOverdue) return '<span class="badge-overdue">Просрочена</span>';
-    if(s === '5') return '<span class="badge-done">Завершена</span>';
-    if(s === '3' || s === '4') return '<span class="badge-work">В работе</span>';
-    return '<span class="badge-new">Новая</span>';
+  const statusBadge = (tsk) => {
+    const s = String(tsk.status);
+    const isOverdue = s !== '5' && tsk.deadline && new Date(tsk.deadline).getTime() < now;
+    if(isOverdue) return `<span class="badge-overdue">${t('overdueBadge')}</span>`;
+    if(s === '5') return `<span class="badge-done">${t('doneBadge')}</span>`;
+    if(s === '3' || s === '4') return `<span class="badge-work">${t('inWork')}</span>`;
+    return `<span class="badge-new">${t('newBadge')}</span>`;
   };
 
-  const rows = tasks.slice(0, 100).map(t => {
-    const mgr = lastManagers.find(m => String(m.id) === String(t.responsibleId));
-    const mgrName = mgr ? mgr.name : (t.responsibleId ? `ID ${t.responsibleId}` : '—');
-    const deadline = t.deadline ? new Date(t.deadline).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
-    const created = t.createdDate ? new Date(t.createdDate).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+  const rows = tasks.slice(0, 100).map(tsk => {
+    const mgr = lastManagers.find(m => String(m.id) === String(tsk.responsibleId));
+    const mgrName = mgr ? mgr.name : (tsk.responsibleId ? `ID ${tsk.responsibleId}` : '—');
+    const deadline = tsk.deadline ? new Date(tsk.deadline).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    const created = tsk.createdDate ? new Date(tsk.createdDate).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
     return `<tr>
       <td>
-        <div class="task-title">${escapeHtml(t.title || `Задача ${t.id}`)}</div>
-        <div class="task-meta">${escapeHtml(mgrName)} · создана ${created}</div>
+        <div class="task-title">${escapeHtml(tsk.title || `${t('taskWord')} ${tsk.id}`)}</div>
+        <div class="task-meta">${escapeHtml(mgrName)} · ${t('createdShort')} ${created}</div>
       </td>
-      <td style="text-align:center">${statusBadge(t)}</td>
+      <td style="text-align:center">${statusBadge(tsk)}</td>
       <td>${deadline}</td>
     </tr>`;
   }).join('');
 
   const table = tasks.length > 0
     ? `<div class="modal-list-scroll"><table class="modal-list-table">
-        <thead><tr><th>Задача / Ответственный</th><th style="text-align:center">Статус</th><th>Дедлайн</th></tr></thead>
+        <thead><tr><th>${t('taskRespCol')}</th><th style="text-align:center">${t('statusCol')}</th><th>${t('deadlineCol')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`
-    : `<div class="modal-note">По этому фильтру задач нет.</div>`;
+    : `<div class="modal-note">${t('noTasksFilter')}</div>`;
 
-  const note = tasks.length > 100 ? `<div class="modal-note">Показаны первые 100 из ${tasks.length} задач.</div>` : '';
+  const note = tasks.length > 100 ? `<div class="modal-note">${t('first100shown')} ${tasks.length} ${t('tasksWord')}.</div>` : '';
 
   const html = summary
     + `<div class="modal-filter-row" id="tasksFilterRow">${chips}</div>`
     + table + note;
 
-  openModal(`Задачи (${stats.total})`, html);
+  openModal(`${t('tasks')} (${stats.total})`, html);
   document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
 }
 
