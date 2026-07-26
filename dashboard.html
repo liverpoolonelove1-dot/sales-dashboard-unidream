@@ -100,6 +100,9 @@
   .dash-section-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
   .dash-section-head .dot{width:7px;height:7px;border-radius:50%;flex:none;}
   .dash-section-head h3{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;margin:0;letter-spacing:-0.01em;}
+  .dash-2col{display:grid;grid-template-columns:1.5fr 1fr;gap:24px;align-items:start;}
+  .dash-col-left, .dash-col-right{min-width:0;}
+  @media(max-width:1100px){.dash-2col{grid-template-columns:1fr;}}
   .report-tile{align-self:start;}
 
   /* ===== Сайдбар ===== */
@@ -3544,7 +3547,10 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           </div>
         </div>` : '';
 
-      return moneySection + peopleSection + opsSection;
+      return `<div class="dash-2col">
+        <div class="dash-col-left">${moneySection}${opsSection}</div>
+        <div class="dash-col-right">${peopleSection}</div>
+      </div>`;
     })()}
     ${!planHas('calls') || !planHas('tasks') ? buildPlanUpgradeHint() : ''}
   `;
