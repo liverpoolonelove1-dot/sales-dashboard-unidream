@@ -81,13 +81,14 @@
   .pricing-cta{width:100%;justify-content:center;text-align:center;}
   @media(max-width:860px){.landing-pricing{padding:40px 24px 48px;}.landing-pricing-grid{grid-template-columns:1fr;}}
 
-  .landing-about{padding:56px 64px 0;max-width:800px;margin:0 auto;text-align:center;}
+  .landing-about{padding:72px 64px 0;max-width:900px;margin:0 auto;text-align:center;}
   .landing-about-inner{display:flex;flex-direction:column;align-items:center;width:100%;}
-  .landing-about .landing-badge{margin-bottom:18px;}
-  .landing-about-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:32px 36px;width:100%;box-shadow:0 1px 3px var(--shadow-lg);}
-  .landing-about-text{font-size:15.5px;line-height:1.7;color:var(--ink-soft);margin:0 0 16px;text-align:left;}
+  .landing-about .landing-badge{margin-bottom:16px;}
+  .landing-about-title{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:clamp(24px,3.2vw,32px);letter-spacing:-0.02em;margin:0 0 32px;}
+  .landing-about-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:40px 44px;width:100%;box-shadow:0 4px 16px var(--shadow-lg);}
+  .landing-about-text{font-size:17px;line-height:1.75;color:var(--ink-soft);margin:0 0 20px;text-align:left;}
   .landing-about-text:last-child{margin-bottom:0;}
-  @media(max-width:860px){.landing-about{padding:40px 24px 0;}.landing-about-card{padding:24px 22px;}}
+  @media(max-width:860px){.landing-about{padding:48px 24px 0;}.landing-about-card{padding:28px 24px;}.landing-about-text{font-size:15.5px;}}
 
   .landing-setup{padding:40px 64px 0;max-width:1200px;margin:0 auto;}
   .landing-setup-card{display:flex;align-items:flex-start;gap:18px;background:var(--surface);border:1px solid var(--accent-strong);border-radius:18px;padding:26px 28px;}
@@ -174,6 +175,7 @@
   <div class="landing-about" id="about">
     <div class="landing-about-inner">
       <div class="landing-badge" data-i18n="aboutBadge">О нас</div>
+      <h2 class="landing-about-title" data-i18n="aboutTitle">Почему появился PulseCRM</h2>
       <div class="landing-about-card">
         <p class="landing-about-text" data-i18n="aboutText1">PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.</p>
         <p class="landing-about-text" data-i18n="aboutText2">Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.</p>
@@ -257,6 +259,7 @@ const LANDING_TRANSLATIONS = {
     feat4Title: 'Звонки и задачи',
     feat4Desc: 'Статистика звонков, просроченные задачи — всё в одном месте',
     aboutBadge: 'О нас',
+    aboutTitle: 'Почему появился PulseCRM',
     aboutText1: 'PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.',
     aboutText2: 'Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.',
     setupTitle: 'Настроим лично, а не отдадим инструкцию',
@@ -301,6 +304,7 @@ const LANDING_TRANSLATIONS = {
     feat4Title: 'Qo\'ng\'iroqlar va vazifalar',
     feat4Desc: 'Qo\'ng\'iroqlar statistikasi, muddati o\'tgan vazifalar — barchasi bir joyda',
     aboutBadge: 'Biz haqimizda',
+    aboutTitle: 'PulseCRM nima uchun paydo bo\'ldi',
     aboutText1: 'PulseCRM oddiy bir kuzatuvdan paydo bo\'ldi: O\'zbekistondagi ko\'pchilik savdo bo\'limlarida ma\'lumotlar allaqachon bor — Bitrix24\'da, qo\'ng\'iroqlarda, yozishmalarda. Shunchaki hech kim ularni jonli ko\'rmaydi. Rahbarlar muammolar haqida keyin bilib olishadi — bitim allaqachon yo\'qotilganda, menejer esa ikkinchi haftadir mijozlarga javob bermayotganda.',
     aboutText2: 'Biz bitta dashboard yaratamiz — bularning barchasini darhol ko\'rsatadi, hisobot kutmasdan, Excel\'siz. Qarorlar taxminlarga emas, faktlarga asoslanib qabul qilinishi uchun.',
     setupTitle: 'Shaxsan sozlab beramiz, ko\'rsatma bilan qoldirmaymiz',
