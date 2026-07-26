@@ -1352,6 +1352,34 @@ const TRANSLATIONS = {
     incomePerLead: 'Доход/лид',
     noSourceData: 'Нет данных об источниках',
     roiFullNote: 'Для расчёта полного ROI (Return on Investment) введите данные о затратах на рекламу по каждому каналу. Сейчас показывается Revenue per Lead — выручка с каждого привлечённого лида.',
+    allWonDealsNote: 'по всем выигранным сделкам',
+    funnelWord: 'воронка',
+    cycleConvNote: 'цикл сделки ~',
+    convShort: 'конв.',
+    ofPlan: 'от плана',
+    remainingShort: 'осталось',
+    bottleneckTitle: 'Дольше всего без движения',
+    onAvgDays: 'в среднем',
+    employeeIdPrefix: 'Сотрудник ID ',
+    detailsTab: 'Детали',
+    historyTab: 'История изменений',
+    nameLabel: 'Название',
+    dealIdLabel: 'ID сделки',
+    funnelLabel: 'Воронка',
+    responsibleLabel: 'Ответственный',
+    createdDateLabel: 'Дата создания',
+    changedLabel: 'Изменена',
+    loadingContactInfo: 'Загружаю контакт, компанию и комментарии из CRM…',
+    loadingHistory: 'Загружаю историю изменений…',
+    failedToLoadExtra: 'Не удалось загрузить дополнительные данные.',
+    contactLabel: 'Контакт',
+    phoneLabel: 'Телефон',
+    companyLabel: 'Компания',
+    commentLabel: 'Комментарий:',
+    customFieldsLabel: 'Пользовательские поля',
+    openInBitrix: 'Открыть сделку в Bitrix24 →',
+    noExtraData: 'Дополнительных данных нет.',
+    failedToLoad: 'Не удалось загрузить: ',
     // Вход
     loginTitle: 'Войдите для продолжения',
     loginLabel: 'Логин',
@@ -1590,6 +1618,34 @@ const TRANSLATIONS = {
     incomePerLead: 'Daromad/lid',
     noSourceData: 'Manbalar haqida ma\'lumot yo\'q',
     roiFullNote: 'To\'liq ROI (Return on Investment) hisoblash uchun har bir kanal bo\'yicha reklama xarajatlari ma\'lumotini kiriting. Hozir Revenue per Lead — har bir jalb qilingan liddan tushum ko\'rsatilmoqda.',
+    allWonDealsNote: 'barcha yutilgan bitimlar bo\'yicha',
+    funnelWord: 'voronka',
+    cycleConvNote: 'bitim sikli ~',
+    convShort: 'konv.',
+    ofPlan: 'rejadan',
+    remainingShort: 'qoldi',
+    bottleneckTitle: 'Eng uzoq harakatsiz',
+    onAvgDays: 'o\'rtacha',
+    employeeIdPrefix: 'Xodim ID ',
+    detailsTab: 'Tafsilotlar',
+    historyTab: 'O\'zgarishlar tarixi',
+    nameLabel: 'Nomi',
+    dealIdLabel: 'Bitim ID',
+    funnelLabel: 'Voronka',
+    responsibleLabel: 'Mas\'ul',
+    createdDateLabel: 'Yaratilgan sana',
+    changedLabel: 'O\'zgartirilgan',
+    loadingContactInfo: 'CRM dan kontakt, kompaniya va izohlar yuklanmoqda…',
+    loadingHistory: 'O\'zgarishlar tarixi yuklanmoqda…',
+    failedToLoadExtra: 'Qo\'shimcha ma\'lumotlarni yuklab bo\'lmadi.',
+    contactLabel: 'Kontakt',
+    phoneLabel: 'Telefon',
+    companyLabel: 'Kompaniya',
+    commentLabel: 'Izoh:',
+    customFieldsLabel: 'Maxsus maydonlar',
+    openInBitrix: 'Bitim Bitrix24\'da ochish →',
+    noExtraData: 'Qo\'shimcha ma\'lumot yo\'q.',
+    failedToLoad: 'Yuklab bo\'lmadi: ',
     loginTitle: 'Davom etish uchun kiring',
     loginLabel: 'Login',
     loginPassLabel: 'Parol',
@@ -3015,10 +3071,10 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div><div class="m-label">${t('convLabel')}</div><div class="m-value">${fWinRate}%</div></div>
         </div>
         <div class="mini-funnel-bar"><div class="mini-funnel-fill" style="width:${fWinRate}%;background:${color};"></div></div>
-        ${f.bottleneck ? `<div class="bottleneck-compact" title="Дольше всего без движения — «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.">«${f.bottleneck.name}» — ~${f.bottleneck.avgAgeDays} дн</div>` : ''}
+        ${f.bottleneck ? `<div class="bottleneck-compact" title="${t('bottleneckTitle')} — «${f.bottleneck.name}», ${t('onAvgDays')} ${f.bottleneck.avgAgeDays} ${t('daysCycle')}.">«${f.bottleneck.name}» — ~${f.bottleneck.avgAgeDays} ${t('daysCycle')}</div>` : ''}
         <div class="funnel-footer">
-          ${fPipeline > 0 ? `<div class="funnel-footer-item"><span class="funnel-footer-label">В работе</span><span class="funnel-footer-val">${fmtMoney(fPipeline, f.currency)}</span></div>` : ''}
-          ${fLost > 0 ? `<div class="funnel-footer-item funnel-footer-lost"><span class="funnel-footer-label">Упущено</span><span class="funnel-footer-val">${fmtMoney(fLost, f.currency)}</span></div>` : ''}
+          ${fPipeline > 0 ? `<div class="funnel-footer-item"><span class="funnel-footer-label">${t('inWork')}</span><span class="funnel-footer-val">${fmtMoney(fPipeline, f.currency)}</span></div>` : ''}
+          ${fLost > 0 ? `<div class="funnel-footer-item funnel-footer-lost"><span class="funnel-footer-label">${t('lost')}</span><span class="funnel-footer-val">${fmtMoney(fLost, f.currency)}</span></div>` : ''}
         </div>
       </div>
     `;
@@ -3069,35 +3125,35 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       <div class="fcard fcard-compact report-tile" data-detail="avgdeal" style="border-left:3px solid var(--accent-strong);">
         <div class="fcard-head"><div class="fcard-name">${t('avgDeal')}</div></div>
         <div class="report-tile-value">${fmtMoney(avgDeal, currency)}</div>
-        <div class="report-tile-note">по всем выигранным сделкам</div>
+        <div class="report-tile-note">${t('allWonDealsNote')}</div>
       </div>
     ` : ''}
     ${topManager ? `
       <div class="fcard fcard-compact report-tile" data-detail="manager" data-idx="0" style="border-left:3px solid var(--accent-strong);">
         <div class="fcard-head"><div class="fcard-name">${t('bestManager')}</div></div>
         <div class="report-tile-value">${topManager.name}</div>
-        <div class="report-tile-note">${fmtMoney(topManager.wonSum, currency)} · ${topManager.wonCount} сделок</div>
+        <div class="report-tile-note">${fmtMoney(topManager.wonSum, currency)} · ${topManager.wonCount} ${t('dealsWord')}</div>
       </div>
     ` : ''}
     ${lastBestDeal ? `
       <div class="fcard fcard-compact report-tile" data-detail="bestdeal" style="border-left:3px solid var(--accent-strong);">
         <div class="fcard-head"><div class="fcard-name">${t('biggestDeal')}</div></div>
         <div class="report-tile-value">${fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency)}</div>
-        <div class="report-tile-note">воронка «${lastBestDeal.funnelName}»</div>
+        <div class="report-tile-note">${t('funnelWord')} «${lastBestDeal.funnelName}»</div>
       </div>
     ` : ''}
     ${salesVelocity > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="kpi-velocity" style="border-left:3px solid #60A5FA;">
         <div class="fcard-head"><div class="fcard-name">${t('salesVelocity')}</div></div>
-        <div class="report-tile-value">${fmtMoney(salesVelocity, currency)}<span style="font-size:11px;font-weight:400;color:var(--ink-soft)">/день</span></div>
-        <div class="report-tile-note">цикл сделки ~${Math.round(avgCycleDays)} дн · конв. ${Math.round(overallConv*100)}%</div>
+        <div class="report-tile-value">${fmtMoney(salesVelocity, currency)}<span style="font-size:11px;font-weight:400;color:var(--ink-soft)">${t('perDay')}</span></div>
+        <div class="report-tile-note">${t('cycleConvNote')}${Math.round(avgCycleDays)} ${t('daysCycle')} · ${t('convShort')} ${Math.round(overallConv*100)}%</div>
       </div>
     ` : ''}
     ${dailyRate > 0 ? `
       <div class="fcard fcard-compact report-tile" data-detail="kpi-forecast" style="border-left:3px solid #A78BFA;">
         <div class="fcard-head"><div class="fcard-name">${t('forecastKpi')}</div></div>
         <div class="report-tile-value">${fmtMoney(forecast, currency)}</div>
-        <div class="report-tile-note">${goalAmount > 0 ? `${forecastPct}% от плана · ` : ''}осталось ${daysLeft} дн.</div>
+        <div class="report-tile-note">${goalAmount > 0 ? `${forecastPct}% ${t('ofPlan')} · ` : ''}${t('remainingShort')} ${daysLeft} ${t('daysCycle')}.</div>
       </div>
     ` : ''}
     ${activeDeals.length > 0 ? `
@@ -3108,7 +3164,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <span style="color:#F59E0B;font-weight:800">${warmLeads.length} ○</span>
           <span style="color:var(--ink-soft);font-weight:800">${coldLeads.length} ◌</span>
         </div>
-        <div class="report-tile-note">горячих · тёплых · холодных</div>
+        <div class="report-tile-note">${t('hotLeads')} · ${t('warmLeads')} · ${t('coldLeads')}</div>
       </div>
     ` : ''}
   `;
@@ -3366,30 +3422,30 @@ async function openDealDetail(flatIdx){
   if(!d) return;
   const currency = d.currency || '';
   const respName = lastManagers.find(m => String(m.id) === String(d.assignedTo))?.name
-    || (d.assignedTo ? `Сотрудник ID ${d.assignedTo}` : 'Не указан');
+    || (d.assignedTo ? `${t('employeeIdPrefix')}${d.assignedTo}` : t('sourceNotSet'));
 
   // Разметка с вкладками Детали / История
   const tabHtml = `
     <div class="deal-tabs" id="dealTabBar">
-      <button class="deal-tab active" data-deal-tab="info">Детали</button>
-      <button class="deal-tab" data-deal-tab="history">История изменений</button>
+      <button class="deal-tab active" data-deal-tab="info">${t('detailsTab')}</button>
+      <button class="deal-tab" data-deal-tab="history">${t('historyTab')}</button>
     </div>
     <div id="dealTabInfo">
-      ${statRow('Название', d.title ? escapeHtml(d.title) : `Сделка №${d.id}`)}
-      ${statRow('Сумма', fmtMoney(d.amount, currency))}
-      ${statRow('ID сделки', d.id)}
-      ${statRow('Воронка', d.funnelName)}
-      ${statRow('Стадия', d.stageName)}
-      ${statRow('Ответственный', respName)}
-      ${statRow('Дата создания', d.createdAt ? new Date(d.createdAt).toLocaleString('ru-RU') : '—')}
-      ${statRow('Изменена', d.updatedAt ? new Date(d.updatedAt).toLocaleString('ru-RU') : '—')}
-      <div id="dealDetailExtra" class="modal-note">Загружаю контакт, компанию и комментарии из CRM…</div>
+      ${statRow(t('nameLabel'), d.title ? escapeHtml(d.title) : `${t('dealNumberPrefix')}${d.id}`)}
+      ${statRow(t('amountCol'), fmtMoney(d.amount, currency))}
+      ${statRow(t('dealIdLabel'), d.id)}
+      ${statRow(t('funnelLabel'), d.funnelName)}
+      ${statRow(t('stageCol'), d.stageName)}
+      ${statRow(t('responsibleLabel'), respName)}
+      ${statRow(t('createdDateLabel'), d.createdAt ? new Date(d.createdAt).toLocaleString('ru-RU') : '—')}
+      ${statRow(t('changedLabel'), d.updatedAt ? new Date(d.updatedAt).toLocaleString('ru-RU') : '—')}
+      <div id="dealDetailExtra" class="modal-note">${t('loadingContactInfo')}</div>
     </div>
     <div id="dealTabHistory" style="display:none;">
-      <div class="modal-note" id="dealHistoryLoading">Загружаю историю изменений…</div>
+      <div class="modal-note" id="dealHistoryLoading">${t('loadingHistory')}</div>
     </div>`;
 
-  openModal(`Сделка №${d.id}`, tabHtml);
+  openModal(`${t('dealNumberPrefix')}${d.id}`, tabHtml);
   document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
 
   // Обработчик вкладок
@@ -3411,7 +3467,7 @@ async function openDealDetail(flatIdx){
     const full = await fetchDealFullDetails(currentConn.webhook, d.id);
     if(!full){
       const el = document.getElementById('dealDetailExtra');
-      if(el) el.textContent = 'Не удалось загрузить дополнительные данные.';
+      if(el) el.textContent = t('failedToLoadExtra');
       return;
     }
     const [contact, company] = await Promise.all([
@@ -3420,25 +3476,25 @@ async function openDealDetail(flatIdx){
     ]);
     let extra = '';
     if(contact){
-      extra += statRow('Контакт', escapeHtml(`${contact.NAME || ''} ${contact.LAST_NAME || ''}`.trim() || `ID ${full.CONTACT_ID}`));
+      extra += statRow(t('contactLabel'), escapeHtml(`${contact.NAME || ''} ${contact.LAST_NAME || ''}`.trim() || `ID ${full.CONTACT_ID}`));
       const phone = contact.PHONE && contact.PHONE[0] && contact.PHONE[0].VALUE;
-      if(phone) extra += statRow('Телефон', escapeHtml(phone));
+      if(phone) extra += statRow(t('phoneLabel'), escapeHtml(phone));
     }
-    if(company) extra += statRow('Компания', escapeHtml(company.TITLE || `ID ${full.COMPANY_ID}`));
-    if(full.SOURCE_ID) extra += statRow('Источник', escapeHtml(full.SOURCE_ID));
-    if(full.COMMENTS) extra += `<div class="modal-note"><b>Комментарий:</b> ${escapeHtml(full.COMMENTS)}</div>`;
+    if(company) extra += statRow(t('companyLabel'), escapeHtml(company.TITLE || `ID ${full.COMPANY_ID}`));
+    if(full.SOURCE_ID) extra += statRow(t('sourceCol'), escapeHtml(full.SOURCE_ID));
+    if(full.COMMENTS) extra += `<div class="modal-note"><b>${t('commentLabel')}</b> ${escapeHtml(full.COMMENTS)}</div>`;
     const ufFields = Object.keys(full).filter(k => k.startsWith('UF_') && full[k] !== null && full[k] !== '' && !Array.isArray(full[k]));
     if(ufFields.length > 0){
-      extra += `<div class="modal-subtitle">Пользовательские поля</div>`;
+      extra += `<div class="modal-subtitle">${t('customFieldsLabel')}</div>`;
       ufFields.forEach(k => { extra += statRow(k, escapeHtml(String(full[k]))); });
     }
     const url = buildBitrix24DealUrl(currentConn.webhook, d.id);
-    if(url) extra += `<a class="modal-open-link" href="${url}" target="_blank" rel="noopener">Открыть сделку в Bitrix24 →</a>`;
+    if(url) extra += `<a class="modal-open-link" href="${url}" target="_blank" rel="noopener">${t('openInBitrix')}</a>`;
     const el = document.getElementById('dealDetailExtra');
-    if(el) el.outerHTML = extra || '<div class="modal-note">Дополнительных данных нет.</div>';
+    if(el) el.outerHTML = extra || `<div class="modal-note">${t('noExtraData')}</div>`;
   }catch(e){
     const el = document.getElementById('dealDetailExtra');
-    if(el) el.textContent = 'Не удалось загрузить: ' + (e.message || e);
+    if(el) el.textContent = t('failedToLoad') + (e.message || e);
     logError('Карточка сделки', `Ошибка загрузки деталей сделки №${d.id}`, e.message);
   }
 }
