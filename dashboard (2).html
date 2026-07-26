@@ -94,13 +94,14 @@
   .dash-wrap .periodbar, .dash-wrap .toolbar2, .dash-wrap #dupWarning, .dash-wrap #goalBannerContainer{flex:none;}
 
   .kpis-row{flex:none;}
-  .dash-tiles{display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));grid-auto-rows:136px;grid-auto-flow:dense;gap:10px;align-content:start;}
+  .dash-tiles{display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));grid-auto-rows:min-content;grid-auto-flow:dense;gap:12px;align-content:start;align-items:start;}
+  .report-tile{align-self:start;}
 
   /* ===== Сайдбар ===== */
   .dash-body{display:flex;gap:20px;align-items:flex-start;flex:1;min-height:0;}
-  .dash-sidebar{flex:none;width:196px;display:flex;flex-direction:column;gap:2px;position:sticky;top:20px;}
-  .sbnav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;border:none;background:transparent;color:var(--ink-soft);font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;text-align:left;transition:background .12s ease,color .12s ease;}
-  .sbnav-item svg{width:17px;height:17px;flex:none;}
+  .dash-sidebar{flex:none;width:232px;display:flex;flex-direction:column;gap:3px;position:sticky;top:20px;}
+  .sbnav-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;border:none;background:transparent;color:var(--ink-soft);font-family:'Inter',sans-serif;font-weight:600;font-size:14px;cursor:pointer;text-align:left;transition:background .12s ease,color .12s ease;}
+  .sbnav-item svg{width:19px;height:19px;flex:none;}
   .sbnav-item:hover{background:var(--overlay-1);color:var(--ink);}
   .sbnav-item.active{background:var(--ink-solid);color:var(--accent);}
   .sbnav-spacer{flex:1;min-height:8px;}
@@ -132,14 +133,14 @@
   .chart-granularity button{background:var(--overlay-1);border:1px solid transparent;color:var(--ink-soft);font-size:12px;font-family:'Inter',sans-serif;font-weight:600;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
   .chart-granularity button:hover{color:var(--ink);}
   .chart-granularity button.active{background:var(--ink-solid);color:#fff;}
-  .tile-managers{grid-row:span 2;}
+  .tile-managers{}
   .tile .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;overflow-y:auto;background:none;border:none;padding:0 8px 0 0;scrollbar-width:thin;}
   .tile .managers-wrap::-webkit-scrollbar{width:4px;}
   .tile .managers-wrap::-webkit-scrollbar-track{background:transparent;}
   .tile .managers-wrap::-webkit-scrollbar-thumb{background:var(--overlay-2);border-radius:4px;}
-  .tile-loss{grid-row:span 2;}
-  .tile-calls{grid-row:span 2;}
-  .tile-funnel{grid-row:span 2;}
+  .tile-loss{}
+  .tile-calls{}
+  .tile-funnel{}
   .funnel-footer{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;}
   .funnel-footer-item{display:flex;flex-direction:column;gap:2px;min-width:0;}
   .funnel-footer-label{font-family:'JetBrains Mono',monospace;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);}
@@ -345,7 +346,11 @@
   .fcard:hover{box-shadow:0 8px 24px var(--shadow-color);transform:translateY(-2px);}
 
   /* ===== Карточка воронки ===== */
-  .fcard-compact{padding:14px 16px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;}
+  .fcard-compact{padding:14px 16px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;min-height:118px;}
+  .section-page{max-width:900px;}
+  .section-page-header{margin-bottom:18px;}
+  .section-page-header h2{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:24px;margin:0;letter-spacing:-0.02em;}
+  .section-list-scroll{max-height:none;}
   .fcard-compact:hover{border-color:var(--accent) !important;box-shadow:0 8px 24px var(--shadow-color);}
   .tile:hover, .fcard-compact:hover{transform:translateY(-2px);}
   .fcard-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
@@ -360,7 +365,7 @@
   .bottleneck-compact{font-size:10px;color:var(--ink-soft);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default;}
 
   /* ===== Карточки-отчёты ===== */
-  .report-tile{border-top:3px solid var(--accent-strong) !important;grid-row:span 2;}
+  .report-tile{border-top:3px solid var(--accent-strong) !important;}
   .report-tile-value{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:17px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:6px 0 4px;}
   .report-tile-note{font-size:10px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .funnels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px;}
@@ -3928,8 +3933,8 @@ function openManagerDetail(idx){
   document.getElementById('detailModal').style.display = 'flex';
 }
 
-function openTasksDetail(filterStatus){
-  if(!lastTasksFetched && lastRawTasks.length === 0) return;
+function buildTasksHtml(filterStatus, standalone){
+  if(!lastTasksFetched && lastRawTasks.length === 0) return null;
   filterStatus = filterStatus || 'all';
 
   const now = Date.now();
@@ -3995,8 +4000,9 @@ function openTasksDetail(filterStatus){
     </tr>`;
   }).join('');
 
+  const scrollClass = standalone ? 'section-list-scroll' : 'modal-list-scroll';
   const table = tasks.length > 0
-    ? `<div class="modal-list-scroll"><table class="modal-list-table">
+    ? `<div class="${scrollClass}"><table class="modal-list-table">
         <thead><tr><th>${t('taskRespCol')}</th><th style="text-align:center">${t('statusCol')}</th><th>${t('deadlineCol')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`
@@ -4008,8 +4014,23 @@ function openTasksDetail(filterStatus){
     + `<div class="modal-filter-row" id="tasksFilterRow">${chips}</div>`
     + table + note;
 
-  openModal(`${t('tasks')} (${stats.total})`, html);
+  return {title: `${t('tasks')} (${stats.total})`, html};
+}
+
+function openTasksDetail(filterStatus){
+  const built = buildTasksHtml(filterStatus, false);
+  if(!built) return;
+  openModal(built.title, built.html);
   document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+}
+
+function renderTasksSection(filterStatus){
+  const built = buildTasksHtml(filterStatus, true);
+  if(!built){
+    content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('tasks')}</h2></div><div class="modal-note">${t('noData')}</div></div>`;
+    return;
+  }
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${built.title}</h2></div>${built.html}</div>`;
 }
 
 function openLossDetail(idx){
@@ -4053,8 +4074,8 @@ function openBestDealDetail(){
   openModal(t('biggestDealTitle'), html);
 }
 
-function openCallsDetail(filterType){
-  if(!lastCallStats && lastRawCalls.length === 0) return;
+function buildCallsHtml(filterType, standalone){
+  if(!lastCallStats && lastRawCalls.length === 0) return null;
   const c = lastCallStats || {total:0, incoming:0, outgoing:0, successful:0, missed:0, totalDuration:0};
   filterType = filterType || 'all';
 
@@ -4122,8 +4143,9 @@ function openCallsDetail(filterType){
     </tr>`;
   }).join('');
 
+  const scrollClass = standalone ? 'section-list-scroll' : 'modal-list-scroll';
   const table = calls.length > 0
-    ? `<div class="modal-list-scroll"><table class="modal-list-table">
+    ? `<div class="${scrollClass}"><table class="modal-list-table">
         <thead><tr><th>${t('numberManagerCol')}</th><th style="text-align:center">${t('typeCol')}</th><th>${t('dateShortCol')}</th><th>${t('durShortCol')}</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`
@@ -4135,8 +4157,23 @@ function openCallsDetail(filterType){
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
     + table + note;
 
-  openModal(`${t('calls')} (${c.total})`, html);
+  return {title: `${t('calls')} (${c.total})`, html};
+}
+
+function openCallsDetail(filterType){
+  const built = buildCallsHtml(filterType, false);
+  if(!built) return;
+  openModal(built.title, built.html);
   document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+}
+
+function renderCallsSection(filterType){
+  const built = buildCallsHtml(filterType, true);
+  if(!built){
+    content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('calls')}</h2></div><div class="modal-note">${t('noData')}</div></div>`;
+    return;
+  }
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${built.title}</h2></div>${built.html}</div>`;
 }
 
 function openPipelineDetail(){
@@ -6262,20 +6299,22 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
   if(!btn) return;
   const nav = btn.dataset.nav;
   setSidebarActive(nav);
+  document.getElementById('analyticsView').style.display = 'none';
   if(nav === 'overview'){
-    document.getElementById('analyticsView').style.display = 'none';
+    rerenderCached();
   } else if(nav === 'funnels'){
+    setSidebarActive('funnels');
     openAnalytics('stages');
   } else if(nav === 'managers'){
+    setSidebarActive('managers');
     openAnalytics('managers');
   } else if(nav === 'analytics'){
+    setSidebarActive('analytics');
     openAnalytics('sources');
   } else if(nav === 'calls'){
-    setSidebarActive('overview');
-    openCallsDetail();
+    renderCallsSection();
   } else if(nav === 'tasks'){
-    setSidebarActive('overview');
-    openTasksDetail();
+    renderTasksSection();
   } else if(nav === 'settings'){
     setSidebarActive('overview');
     settingsBtn.click();
@@ -6970,17 +7009,19 @@ document.addEventListener('click', (e) => {
     return;
   }
 
-  // фильтр-чипсы внутри модалки звонков
+  // фильтр-чипсы внутри модалки звонков или раздела «Звонки»
   const callsChip = e.target.closest('[data-calls-filter]');
   if(callsChip){
-    openCallsDetail(callsChip.dataset.callsFilter);
+    if(callsChip.closest('#detailModal')) openCallsDetail(callsChip.dataset.callsFilter);
+    else renderCallsSection(callsChip.dataset.callsFilter);
     return;
   }
 
-  // фильтр-чипсы внутри модалки задач
+  // фильтр-чипсы внутри модалки задач или раздела «Задачи»
   const tasksChip = e.target.closest('[data-tasks-filter]');
   if(tasksChip){
-    openTasksDetail(tasksChip.dataset.tasksFilter);
+    if(tasksChip.closest('#detailModal')) openTasksDetail(tasksChip.dataset.tasksFilter);
+    else renderTasksSection(tasksChip.dataset.tasksFilter);
     return;
   }
 });
