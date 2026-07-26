@@ -1414,7 +1414,7 @@ const TRANSLATIONS = {
     outgoingBadge: '↗ Исходящий',
     successBadge: 'Успешный',
     missedBadge: 'Пропущен',
-    analyzeBtnLabel: '🤖 Анализ',
+    analyzeBtnLabel: 'Анализ',
     doneChip: 'Завершённые',
     overdueChip: 'Просроченные',
     overdueBadge: 'Просрочена',
@@ -1768,7 +1768,7 @@ const TRANSLATIONS = {
     outgoingBadge: '↗ Chiquvchi',
     successBadge: 'Muvaffaqiyatli',
     missedBadge: 'O\'tkazib yuborilgan',
-    analyzeBtnLabel: '🤖 Tahlil',
+    analyzeBtnLabel: 'Tahlil',
     doneChip: 'Bajarilgan',
     overdueChip: 'Muddati o\'tgan',
     overdueBadge: 'Muddati o\'tgan',
@@ -3357,9 +3357,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       <div class="fcard fcard-compact report-tile" data-detail="kpi-scoring" style="border-left:3px solid #F59E0B;">
         <div class="fcard-head"><div class="fcard-name">${t('leadScoring')}</div></div>
         <div class="report-tile-value" style="font-size:13px;display:flex;gap:10px;margin-top:6px;">
-          <span style="color:#EF4444;font-weight:800">${hotLeads.length} 🔥</span>
-          <span style="color:#F59E0B;font-weight:800">${warmLeads.length} ○</span>
-          <span style="color:var(--ink-soft);font-weight:800">${coldLeads.length} ◌</span>
+          <span style="color:#EF4444;font-weight:800">${hotLeads.length} <span style="font-size:9px;">●</span></span>
+          <span style="color:#F59E0B;font-weight:800">${warmLeads.length} <span style="font-size:9px;">●</span></span>
+          <span style="color:var(--ink-soft);font-weight:800">${coldLeads.length} <span style="font-size:9px;">●</span></span>
         </div>
         <div class="report-tile-note">${t('hotLeads')} · ${t('warmLeads')} · ${t('coldLeads')}</div>
       </div>
@@ -5174,7 +5174,7 @@ function answerScoring(){
   const hot = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)<=3).length;
   const warm = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>3&&Math.floor((now-new Date(d.createdAt))/86400000)<=14).length;
   const cold = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>14).length;
-  return `Скоринг активных лидов (${active.length} всего):\n\n🔴 Горячие (0–3 дня): ${hot}\n🟡 Тёплые (4–14 дней): ${warm}\n⚪ Холодные (14+ дней): ${cold}\n\n${cold>0?`Холодные требуют срочного внимания — риск потерять ${cold} сделок.`:'Холодных лидов нет — хорошо!'}`;
+  return `Скоринг активных лидов (${active.length} всего):\n\nГорячие (0–3 дня): ${hot}\nТёплые (4–14 дней): ${warm}\nХолодные (14+ дней): ${cold}\n\n${cold>0?`Холодные требуют срочного внимания — риск потерять ${cold} сделок.`:'Холодных лидов нет — хорошо!'}`;
 }
 
 const ASSISTANT_CHIPS = [
@@ -5285,7 +5285,7 @@ async function analyzeCallRecording(fileId, btnEl){
     const transcriptHtml = data.transcript
       ? `<div class="help" style="max-height:220px;overflow-y:auto;white-space:pre-wrap;font-size:12.5px;">${escapeHtml(data.transcript)}</div>`
       : '<div class="modal-note">Речь не распознана.</div>';
-    openModal('🤖 Анализ звонка', `
+    openModal('Анализ звонка', `
       <div class="analytics-section" style="margin-bottom:16px;">
         <div class="analytics-title" style="font-size:14px;">Разбор</div>
         <div style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(data.analysis || 'Нет ответа')}</div>
