@@ -5024,9 +5024,6 @@ const CLIENT_ACCOUNTS = [
   // { login: 'client1', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'starter',  expires: '2026-12-31' },
   // { login: 'client2', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'business', expires: '2026-09-01' },
   // { login: 'client3', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'pro'       }, // без ограничения
-
-  // ТЕСТОВЫЙ АККАУНТ (удалите перед релизом):
-  { login: 'demo', hash: 'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791', plan: 'pro' }, // demo123
 ];
 
 const AUTH_SESSION_KEY = 'salesPulseAuth_v1';
@@ -5069,17 +5066,17 @@ async function sha256(message){ return sha256Sync(message); }
 
 function getSessionAccount(){
   try{
-    const raw = sessionStorage.getItem(AUTH_SESSION_KEY);
+    const raw = localStorage.getItem(AUTH_SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   }catch(e){ return null; }
 }
 
 function setSessionAccount(account){
-  try{ sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(account)); }catch(e){}
+  try{ localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(account)); }catch(e){}
 }
 
 function clearSessionAccount(){
-  try{ sessionStorage.removeItem(AUTH_SESSION_KEY); }catch(e){}
+  try{ localStorage.removeItem(AUTH_SESSION_KEY); }catch(e){}
 }
 
 function showLoginView(){
