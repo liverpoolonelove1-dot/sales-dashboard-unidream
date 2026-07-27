@@ -964,7 +964,14 @@
         <label>Пароль</label>
         <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
       </div>
+      <div class="login-field" id="loginPasswordConfirmField" style="display:none;">
+        <label id="loginConfirmLabel">Повторите пароль</label>
+        <input type="password" id="loginPasswordConfirm" placeholder="••••••••" autocomplete="new-password">
+      </div>
       <button class="login-btn" id="loginBtn" type="button">Войти →</button>
+      <div class="login-mode-toggle" id="loginModeToggle" style="text-align:center;margin-top:14px;font-size:12.5px;color:var(--ink-soft);">
+        <span id="loginModeText">Нет аккаунта?</span> <a href="#" id="loginModeLink" style="color:var(--accent-strong);text-decoration:none;font-weight:600;">Зарегистрироваться</a>
+      </div>
       <div class="login-footer" id="loginFooter">PulseCRM · защищённый доступ</div>
     </div>
   </div>
@@ -1592,6 +1599,18 @@ const TRANSLATIONS = {
     hotLeadsAttention: 'Горячие лиды — требуют внимания сегодня',
     coldLeadsRisk: 'Холодные — риск потерять',
     loginRightTitle: 'Вход в кабинет',
+    registerTitle: 'Регистрация',
+    registerSubtitle: 'Придумайте логин и пароль',
+    registerBtn: 'Зарегистрироваться →',
+    haveAccountText: 'Уже есть аккаунт?',
+    loginModeLinkToLogin: 'Войти',
+    noAccountText: 'Нет аккаунта?',
+    loginModeLinkToRegister: 'Зарегистрироваться',
+    loginFormatError: 'Логин: 3–32 символа, латиница/цифры/._-',
+    passwordTooShort: 'Пароль должен быть не короче 6 символов',
+    passwordMismatch: 'Пароли не совпадают',
+    registerServerError: 'Сервер регистрации недоступен — попробуйте позже',
+    confirmPasswordLabel: 'Повторите пароль',
     loginSubtitle: 'Введите логин и пароль',
     loginHeroTitle: 'Все воронки продаж<br>в <em>одном окне</em>',
     loginHeroDesc: 'Аналитика в реальном времени из Битрикс24 — без программистов и сложных настроек',
@@ -2012,6 +2031,18 @@ const TRANSLATIONS = {
     hotLeadsAttention: 'Issiq lidlar — bugun e\'tibor talab qiladi',
     coldLeadsRisk: 'Sovuq — yo\'qotish xavfi',
     loginRightTitle: 'Kabinetga kirish',
+    registerTitle: 'Ro\'yxatdan o\'tish',
+    registerSubtitle: 'Login va parol o\'ylab toping',
+    registerBtn: 'Ro\'yxatdan o\'tish →',
+    haveAccountText: 'Akkauntingiz bormi?',
+    loginModeLinkToLogin: 'Kirish',
+    noAccountText: 'Akkauntingiz yo\'qmi?',
+    loginModeLinkToRegister: 'Ro\'yxatdan o\'tish',
+    loginFormatError: 'Login: 3–32 belgi, lotin harflari/raqamlar/._-',
+    passwordTooShort: 'Parol kamida 6 belgidan iborat bo\'lishi kerak',
+    passwordMismatch: 'Parollar mos kelmadi',
+    registerServerError: 'Ro\'yxatdan o\'tish serveri mavjud emas — keyinroq urinib ko\'ring',
+    confirmPasswordLabel: 'Parolni takrorlang',
     loginSubtitle: 'Login va parolni kiriting',
     loginHeroTitle: 'Barcha savdo voronkalari<br><em>bitta oynada</em>',
     loginHeroDesc: 'Bitrix24 dan real vaqtda tahlil — dasturchilarsiz va murakkab sozlamalarsiz',
@@ -2116,10 +2147,22 @@ function applyLang(){
   if(loginErrEl) loginErrEl.textContent = t('loginError');
   const loginUsernameLabel = document.querySelector('#loginView .login-field:first-of-type label');
   if(loginUsernameLabel) loginUsernameLabel.textContent = t('loginLabel');
-  const loginPassLabelEl = document.querySelector('#loginView .login-field:last-of-type label');
+  const loginPassLabelEl = document.getElementById('loginPassword')?.closest('.login-field')?.querySelector('label');
   if(loginPassLabelEl) loginPassLabelEl.textContent = t('loginPassLabel');
+  const loginConfirmLabelEl = document.getElementById('loginConfirmLabel');
+  if(loginConfirmLabelEl) loginConfirmLabelEl.textContent = t('confirmPasswordLabel');
   const loginBtnEl = document.getElementById('loginBtn');
-  if(loginBtnEl && !loginBtnEl.disabled) loginBtnEl.textContent = t('loginBtn');
+  if(loginBtnEl && !loginBtnEl.disabled) loginBtnEl.textContent = t(typeof loginMode !== 'undefined' && loginMode === 'register' ? 'registerBtn' : 'loginBtn');
+  if(typeof loginMode !== 'undefined' && loginMode === 'register'){
+    const modeText = document.getElementById('loginModeText');
+    const modeLink = document.getElementById('loginModeLink');
+    if(modeText) modeText.textContent = t('haveAccountText');
+    if(modeLink) modeLink.textContent = t('loginModeLinkToLogin');
+    const rt = document.getElementById('loginRightTitle');
+    if(rt) rt.textContent = t('registerTitle');
+    const st = document.getElementById('loginSubText');
+    if(st) st.textContent = t('registerSubtitle');
+  }
 }
 
 const langToggleBtn = document.getElementById('langToggleBtn');
@@ -5380,6 +5423,89 @@ const loginUsername = document.getElementById('loginUsername');
 const loginPassword = document.getElementById('loginPassword');
 const loginError = document.getElementById('loginError');
 
+let loginMode = 'login'; // 'login' | 'register'
+
+function setLoginMode(mode){
+  loginMode = mode;
+  const confirmField = document.getElementById('loginPasswordConfirmField');
+  const modeText = document.getElementById('loginModeText');
+  const modeLink = document.getElementById('loginModeLink');
+  loginError.style.display = 'none';
+  if(mode === 'register'){
+    confirmField.style.display = '';
+    loginRightTitleEl().textContent = t('registerTitle');
+    document.getElementById('loginSubText').textContent = t('registerSubtitle');
+    loginBtn.textContent = t('registerBtn');
+    modeText.textContent = t('haveAccountText');
+    modeLink.textContent = t('loginModeLinkToLogin');
+  } else {
+    confirmField.style.display = 'none';
+    loginRightTitleEl().textContent = t('loginRightTitle');
+    document.getElementById('loginSubText').textContent = t('loginSubtitle');
+    loginBtn.textContent = t('loginBtn');
+    modeText.textContent = t('noAccountText');
+    modeLink.textContent = t('loginModeLinkToRegister');
+  }
+}
+function loginRightTitleEl(){ return document.getElementById('loginRightTitle'); }
+
+document.getElementById('loginModeLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  setLoginMode(loginMode === 'login' ? 'register' : 'login');
+});
+
+async function attemptRegister(){
+  const username = loginUsername.value.trim().toLowerCase();
+  const password = loginPassword.value;
+  const passwordConfirm = document.getElementById('loginPasswordConfirm').value;
+  if(!username || !password){ loginError.style.display='block'; loginError.textContent = t('loginError'); return; }
+  if(!/^[a-z0-9_.-]{3,32}$/.test(username)){
+    loginError.style.display = 'block';
+    loginError.textContent = t('loginFormatError');
+    return;
+  }
+  if(password.length < 6){
+    loginError.style.display = 'block';
+    loginError.textContent = t('passwordTooShort');
+    return;
+  }
+  if(password !== passwordConfirm){
+    loginError.style.display = 'block';
+    loginError.textContent = t('passwordMismatch');
+    return;
+  }
+  loginBtn.disabled = true;
+  loginBtn.textContent = t('loginChecking');
+  const hash = await sha256(password);
+  try{
+    const res = await fetch(REGISTER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({login: username, hash})
+    });
+    const data = await res.json();
+    loginBtn.disabled = false;
+    loginBtn.textContent = t('registerBtn');
+    if(!data.ok){
+      loginError.style.display = 'block';
+      loginError.textContent = data.error || t('loginError');
+      return;
+    }
+    // Регистрация успешна — сразу логиним и ведём на подключение CRM
+    loginError.style.display = 'none';
+    setSessionAccount({login: username, webhook: null, brand: null, plan: 'starter', hash});
+    hideLoginView();
+    currentPlan = 'starter';
+    applyPlanRestrictions();
+    landingView.style.display = 'block';
+  }catch(e){
+    loginBtn.disabled = false;
+    loginBtn.textContent = t('registerBtn');
+    loginError.style.display = 'block';
+    loginError.textContent = t('registerServerError');
+  }
+}
+
 async function attemptLogin(){
   const username = loginUsername.value.trim().toLowerCase();
   const password = loginPassword.value;
@@ -5387,12 +5513,33 @@ async function attemptLogin(){
   loginBtn.disabled = true;
   loginBtn.textContent = t('loginChecking');
   const hash = await sha256(password);
-  const account = CLIENT_ACCOUNTS.find(a => a.login.toLowerCase() === username && a.hash === hash);
+
+  // Сначала проверяем статический список (вручную заведённые аккаунты в коде),
+  // если там не нашлось — идём на сервер, где хранятся саморегистрирующиеся клиенты.
+  let account = CLIENT_ACCOUNTS.find(a => a.login.toLowerCase() === username && a.hash === hash);
+  let loginErrorMsg = '';
+  if(!account){
+    try{
+      const res = await fetch(LOGIN_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({login: username, hash})
+      });
+      const data = await res.json();
+      if(data.ok){
+        account = {login: username, webhook: data.account.webhook, plan: data.account.plan, expires: data.account.expires};
+      } else if(data.error === 'expired'){
+        account = null;
+        loginErrorMsg = `${t('subscriptionExpiredMsg')} ${new Date(data.expires).toLocaleDateString('ru-RU')}. ${t('contactManagerMsg')}`;
+      }
+    }catch(e){ /* сервер недоступен — просто не найдём аккаунт ниже */ }
+  }
+
   loginBtn.disabled = false;
   loginBtn.textContent = t('loginBtn');
   if(account){
     loginError.style.display = 'none';
-    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro'});
+    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro', hash});
     hideLoginView();
     currentPlan = account.plan || 'pro';
     // Проверяем срок подписки
@@ -5426,13 +5573,14 @@ async function attemptLogin(){
     landingView.style.display = 'block';
   } else {
     loginError.style.display = 'block';
+    if(loginErrorMsg) loginError.textContent = loginErrorMsg;
     loginPassword.value = '';
     loginPassword.focus();
   }
 }
 
-loginBtn.addEventListener('click', attemptLogin);
-[loginUsername, loginPassword].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') attemptLogin(); }));
+loginBtn.addEventListener('click', () => { loginMode === 'register' ? attemptRegister() : attemptLogin(); });
+[loginUsername, loginPassword].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') (loginMode === 'register' ? attemptRegister() : attemptLogin()); }));
 
 // При выходе — очищаем сессию
 const origDisconnect = disconnectBtn.onclick;
@@ -5511,6 +5659,18 @@ function attemptConnect(){
   currentAdapter = adapter;
   currentConn = adapter.buildConnection(raw);
   if(adapter.status === 'ready') saveConnection(adapter.id, raw);
+  // Если это первое подключение вебхука для залогиненного (саморегистрированного) клиента —
+  // сохраняем вебхук на сервере тоже, чтобы он подхватывался при входе с другого устройства.
+  const session = getSessionAccount();
+  if(session && session.hash && !session.webhook && adapter.status === 'ready' && raw.webhook){
+    fetch(SAVE_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({login: session.login, hash: session.hash, webhook: raw.webhook})
+    }).then(() => {
+      setSessionAccount({...session, webhook: raw.webhook});
+    }).catch(() => {}); // не критично, если не получилось — вебхук всё равно есть в localStorage на этом устройстве
+  }
   stripWebhookFromUrl(); // если раньше открывали по ссылке со старым вебхуком (?wh=...) — она больше не должна перебивать то, что ввели сейчас
   loadDashboard();
 }
@@ -5878,6 +6038,9 @@ function buildDashboardContext(){
 // AI через Cloudflare Workers прокси — ключ скрыт от клиентов
 const AI_PROXY_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/ai';
 const CALL_ANALYZE_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/analyze-call';
+const REGISTER_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/register';
+const LOGIN_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/login';
+const SAVE_WEBHOOK_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-webhook';
 
 async function analyzeCallRecording(fileId, btnEl){
   const originalHtml = btnEl.innerHTML;
@@ -7736,7 +7899,7 @@ applyLang(); // применяем язык сразу
   }
 
   // Если список клиентов пуст — логин не нужен, работаем без защиты (режим разработки)
-  const authRequired = CLIENT_ACCOUNTS.length > 0;
+  const authRequired = true; // теперь всегда — саморегистрация стала основным способом входа
 
   if(authRequired){
     const session = getSessionAccount();
