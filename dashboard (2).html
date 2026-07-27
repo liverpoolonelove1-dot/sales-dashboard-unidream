@@ -3552,15 +3552,17 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const lostValue = funnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0), 0);
 
   // === Sales Velocity = (сделок × средний чек × конверсия%) / дней цикла ===
+  // Используем totalWon/totalLost за ВЫБРАННЫЙ ПЕРИОД (не жёстко месяц) — раньше здесь
+  // ошибочно стояли lastMonthWonCount/lastMonthLostCount, и карточка не реагировала на фильтр периода.
   const totalDealsFlat = lastDealsFlat.length;
-  const overallConv = (lastMonthWonCount + lastMonthLostCount) > 0
-    ? lastMonthWonCount / (lastMonthWonCount + lastMonthLostCount) : 0;
+  const overallConv = (totalWon + totalLost) > 0
+    ? totalWon / (totalWon + totalLost) : 0;
   // Средний цикл сделки в днях
   const closedDeals = lastDealsFlat.filter(d => (d.semantic === 'S' || d.semantic === 'F') && d.createdAt && d.updatedAt);
   const avgCycleDays = closedDeals.length > 0
     ? closedDeals.reduce((a,d) => a + Math.max(1, Math.round((new Date(d.updatedAt) - new Date(d.createdAt)) / 86400000)), 0) / closedDeals.length
     : 30;
-  const salesVelocity = avgCycleDays > 0 ? Math.round((lastMonthWonCount * avgDeal * overallConv) / avgCycleDays) : 0;
+  const salesVelocity = avgCycleDays > 0 ? Math.round((totalWon * avgDeal * overallConv) / avgCycleDays) : 0;
 
   // === AI Forecast — прогноз выручки до конца месяца ===
   const now = new Date();
