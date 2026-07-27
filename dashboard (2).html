@@ -5571,6 +5571,11 @@ async function attemptLogin(){
       const data = await res.json();
       if(data.ok){
         account = {login: username, webhook: data.account.webhook, plan: data.account.plan, expires: data.account.expires};
+        // Подтягиваем сохранённые на сервере критерии анализа звонков — чтобы они
+        // работали на этом устройстве, даже если клиент настраивал их с другого.
+        if(data.account.callPrompt){
+          try{ localStorage.setItem(CALL_PROMPT_STORAGE_KEY, data.account.callPrompt); }catch(e){}
+        }
       } else if(data.error === 'expired'){
         account = null;
         loginErrorMsg = `${t('subscriptionExpiredMsg')} ${new Date(data.expires).toLocaleDateString('ru-RU')}. ${t('contactManagerMsg')}`;
@@ -6090,6 +6095,7 @@ const CALL_ANALYZE_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev
 const REGISTER_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/register';
 const LOGIN_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/login';
 const SAVE_WEBHOOK_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-webhook';
+const SAVE_CALL_PROMPT_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-call-prompt';
 
 const CALL_PROMPT_STORAGE_KEY = 'salesPulseCallPrompt';
 
@@ -6108,6 +6114,15 @@ function openCallAnalysisSettings(){
     const val = document.getElementById('callPromptInput').value.trim();
     if(val) localStorage.setItem(CALL_PROMPT_STORAGE_KEY, val);
     else localStorage.removeItem(CALL_PROMPT_STORAGE_KEY);
+    // Сохраняем и на сервере, чтобы подхватывалось на любом устройстве этого клиента
+    const session = getSessionAccount();
+    if(session && session.login && session.hash){
+      fetch(SAVE_CALL_PROMPT_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({login: session.login, hash: session.hash, callPrompt: val})
+      }).catch(() => {}); // не критично, если не получилось — на этом устройстве всё равно сохранено локально
+    }
     closeModal();
   });
   document.getElementById('callPromptClearBtn').addEventListener('click', () => {
