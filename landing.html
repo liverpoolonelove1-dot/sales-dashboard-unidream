@@ -99,6 +99,16 @@
   .landing-setup-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15.5px;margin-bottom:6px;}
   .landing-setup-desc{font-size:13.5px;line-height:1.6;color:var(--ink-soft);}
   @media(max-width:640px){.landing-setup{padding:28px 24px 0;}.landing-setup-card{flex-direction:column;}}
+
+  .landing-howworks{padding:56px 64px 0;max-width:1000px;margin:0 auto;}
+  .landing-howworks-head{text-align:center;margin-bottom:36px;}
+  .landing-howworks-head .landing-badge{margin-bottom:16px;}
+  .landing-steps{width:100%;border-collapse:separate;border-spacing:14px 0;}
+  .landing-step{width:33.33%;vertical-align:top;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 20px;}
+  .landing-step-num{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:26px;color:var(--accent-strong);margin-bottom:10px;}
+  .landing-step-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14.5px;margin-bottom:6px;}
+  .landing-step-desc{font-size:12.5px;line-height:1.55;color:var(--ink-soft);}
+  @media(max-width:720px){.landing-howworks{padding:40px 24px 0;}.landing-steps,.landing-steps tbody,.landing-steps tr,.landing-step{display:block;width:100%;}.landing-steps{border-spacing:0;}.landing-step{margin-bottom:12px;}}
   @media(max-width:860px){
     .landing-hero{padding:36px 24px 32px;gap:28px;}
     .landing-hero-visual{display:none;}
@@ -196,6 +206,30 @@
     </div>
   </div>
 
+  <div class="landing-howworks">
+    <div class="landing-howworks-head">
+      <div class="landing-badge" data-i18n="howBadge">Как это работает</div>
+      <h2 class="landing-about-title" data-i18n="howTitle">От подключения до первого отчёта — 5 минут</h2>
+    </div>
+    <table class="landing-steps"><tr>
+      <td class="landing-step">
+        <div class="landing-step-num">01</div>
+        <div class="landing-step-title" data-i18n="step1Title">Вставляете ссылку вебхука</div>
+        <div class="landing-step-desc" data-i18n="step1Desc">Из настроек Bitrix24 — без программистов и сложных интеграций</div>
+      </td>
+      <td class="landing-step">
+        <div class="landing-step-num">02</div>
+        <div class="landing-step-title" data-i18n="step2Title">Дашборд сам находит все воронки</div>
+        <div class="landing-step-desc" data-i18n="step2Desc">Сделки, менеджеры, звонки и задачи подтягиваются автоматически</div>
+      </td>
+      <td class="landing-step">
+        <div class="landing-step-num">03</div>
+        <div class="landing-step-title" data-i18n="step3Title">Настраиваем лично</div>
+        <div class="landing-step-desc" data-i18n="step3Desc">Сами подключаем вебхук, настраиваем права доступа и помогаем с первым запуском</div>
+      </td>
+    </tr></table>
+  </div>
+
   <div class="landing-pricing" id="pricing">
     <div class="landing-pricing-head">
       <div class="landing-badge" data-i18n="pricingBadge">Тарифы</div>
@@ -264,6 +298,14 @@ const LANDING_TRANSLATIONS = {
     feat4Desc: 'Статистика звонков, просроченные задачи — всё в одном месте',
     aboutBadge: 'О нас',
     aboutTitle: 'Почему появился PulseCRM',
+    howBadge: 'Как это работает',
+    howTitle: 'От подключения до первого отчёта — 5 минут',
+    step1Title: 'Вставляете ссылку вебхука',
+    step1Desc: 'Из настроек Bitrix24 — без программистов и сложных интеграций',
+    step2Title: 'Дашборд сам находит все воронки',
+    step2Desc: 'Сделки, менеджеры, звонки и задачи подтягиваются автоматически',
+    step3Title: 'Настраиваем лично',
+    step3Desc: 'Сами подключаем вебхук, настраиваем права доступа и помогаем с первым запуском',
     aboutText1: 'PulseCRM появился из простого наблюдения: у большинства отделов продаж в Узбекистане данные уже есть — в Bitrix24, в звонках, в переписках. Просто их никто не видит вживую. Руководители узнают о проблемах постфактум — когда сделка уже потеряна, а менеджер вторую неделю не отвечает клиентам.',
     aboutText2: 'Мы делаем один дашборд, который показывает всё это сразу — без ожидания отчётов, без Excel. Чтобы решения принимались по фактам, а не по ощущениям.',
     setupTitle: 'Настроим лично, а не отдадим инструкцию',
@@ -310,6 +352,14 @@ const LANDING_TRANSLATIONS = {
     feat4Desc: 'Qo\'ng\'iroqlar statistikasi, muddati o\'tgan vazifalar — barchasi bir joyda',
     aboutBadge: 'Biz haqimizda',
     aboutTitle: 'PulseCRM nima uchun paydo bo\'ldi',
+    howBadge: 'Bu qanday ishlaydi',
+    howTitle: 'Ulanishdan birinchi hisobotgacha — 5 daqiqa',
+    step1Title: 'Vebhuk havolasini kiritasiz',
+    step1Desc: 'Bitrix24 sozlamalaridan — dasturchilarsiz va murakkab integratsiyalarsiz',
+    step2Title: 'Dashboard barcha voronkalarni o\'zi topadi',
+    step2Desc: 'Bitimlar, menejerlar, qo\'ng\'iroqlar va vazifalar avtomatik tortiladi',
+    step3Title: 'Shaxsan sozlab beramiz',
+    step3Desc: 'Vebhukni o\'zimiz ulaymiz, huquqlarni sozlaymiz va birinchi ishga tushirishda yordam beramiz',
     aboutText1: 'PulseCRM oddiy bir kuzatuvdan paydo bo\'ldi: O\'zbekistondagi ko\'pchilik savdo bo\'limlarida ma\'lumotlar allaqachon bor — Bitrix24\'da, qo\'ng\'iroqlarda, yozishmalarda. Shunchaki hech kim ularni jonli ko\'rmaydi. Rahbarlar muammolar haqida keyin bilib olishadi — bitim allaqachon yo\'qotilganda, menejer esa ikkinchi haftadir mijozlarga javob bermayotganda.',
     aboutText2: 'Biz bitta dashboard yaratamiz — bularning barchasini darhol ko\'rsatadi, hisobot kutmasdan, Excel\'siz. Qarorlar taxminlarga emas, faktlarga asoslanib qabul qilinishi uchun.',
     setupTitle: 'Shaxsan sozlab beramiz, ko\'rsatma bilan qoldirmaymiz',
