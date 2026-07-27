@@ -1611,6 +1611,9 @@ const TRANSLATIONS = {
     passwordMismatch: 'Пароли не совпадают',
     registerServerError: 'Сервер регистрации недоступен — попробуйте позже',
     confirmPasswordLabel: 'Повторите пароль',
+    pendingTitle: 'Заявка принята',
+    pendingDesc: 'Ваш аккаунт создан и ожидает подтверждения оплаты. Как только оплата будет подтверждена, вы сможете войти с этим же логином и паролем. Если уже оплатили — свяжитесь с менеджером, чтобы ускорить активацию.',
+    pendingBackBtn: 'Понятно',
     loginSubtitle: 'Введите логин и пароль',
     loginHeroTitle: 'Все воронки продаж<br>в <em>одном окне</em>',
     loginHeroDesc: 'Аналитика в реальном времени из Битрикс24 — без программистов и сложных настроек',
@@ -2043,6 +2046,9 @@ const TRANSLATIONS = {
     passwordMismatch: 'Parollar mos kelmadi',
     registerServerError: 'Ro\'yxatdan o\'tish serveri mavjud emas — keyinroq urinib ko\'ring',
     confirmPasswordLabel: 'Parolni takrorlang',
+    pendingTitle: 'Ariza qabul qilindi',
+    pendingDesc: 'Akkauntingiz yaratildi va to\'lov tasdiqlanishini kutmoqda. To\'lov tasdiqlangach, shu login va parol bilan kira olasiz. Agar allaqachon to\'lagan bo\'lsangiz — faollashtirishni tezlashtirish uchun menejer bilan bog\'laning.',
+    pendingBackBtn: 'Tushunarli',
     loginSubtitle: 'Login va parolni kiriting',
     loginHeroTitle: 'Barcha savdo voronkalari<br><em>bitta oynada</em>',
     loginHeroDesc: 'Bitrix24 dan real vaqtda tahlil — dasturchilarsiz va murakkab sozlamalarsiz',
@@ -5454,6 +5460,20 @@ document.getElementById('loginModeLink').addEventListener('click', (e) => {
   setLoginMode(loginMode === 'login' ? 'register' : 'login');
 });
 
+function showPendingApprovalScreen(){
+  const rightCol = document.querySelector('.login-right');
+  if(!rightCol) return;
+  rightCol.innerHTML = `
+    <div class="login-right-title">${t('pendingTitle')}</div>
+    <div class="login-right-sub" style="margin-bottom:24px;">${t('pendingDesc')}</div>
+    <button class="login-btn" id="pendingBackBtn" type="button">${t('pendingBackBtn')}</button>
+    <div class="login-footer">PulseCRM · защищённый доступ</div>
+  `;
+  document.getElementById('pendingBackBtn').addEventListener('click', () => {
+    window.location.reload();
+  });
+}
+
 async function attemptRegister(){
   const username = loginUsername.value.trim().toLowerCase();
   const password = loginPassword.value;
@@ -5491,13 +5511,10 @@ async function attemptRegister(){
       loginError.textContent = data.error || t('loginError');
       return;
     }
-    // Регистрация успешна — сразу логиним и ведём на подключение CRM
+    // Регистрация принята, но аккаунт "ожидает оплаты" — доступ пока не даём,
+    // показываем понятное сообщение вместо того, чтобы сразу пускать в дашборд.
     loginError.style.display = 'none';
-    setSessionAccount({login: username, webhook: null, brand: null, plan: 'starter', hash});
-    hideLoginView();
-    currentPlan = 'starter';
-    applyPlanRestrictions();
-    landingView.style.display = 'block';
+    showPendingApprovalScreen();
   }catch(e){
     loginBtn.disabled = false;
     loginBtn.textContent = t('registerBtn');
@@ -5531,6 +5548,12 @@ async function attemptLogin(){
       } else if(data.error === 'expired'){
         account = null;
         loginErrorMsg = `${t('subscriptionExpiredMsg')} ${new Date(data.expires).toLocaleDateString('ru-RU')}. ${t('contactManagerMsg')}`;
+      } else if(data.error === 'pending'){
+        account = null;
+        loginBtn.disabled = false;
+        loginBtn.textContent = t('loginBtn');
+        showPendingApprovalScreen();
+        return;
       }
     }catch(e){ /* сервер недоступен — просто не найдём аккаунт ниже */ }
   }
