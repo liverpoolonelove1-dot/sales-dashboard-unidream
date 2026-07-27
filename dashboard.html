@@ -1208,6 +1208,10 @@ const TRANSLATIONS = {
     wonKpi: 'Выиграно сделок',
     convKpi: 'Конверсия',
     thisMonthSuffix: '· этот месяц',
+    suffixAll: '· за всё время',
+    suffixToday: '· сегодня',
+    suffixWeek: '· эта неделя',
+    suffixCustom: '· за период',
     setGoalPlaceholder: 'Задайте план продаж на этот период, чтобы видеть прогресс',
     setGoalBtn: 'Утвердить план',
     chartTitle: 'Динамика продаж · по дням этого месяца',
@@ -1258,6 +1262,8 @@ const TRANSLATIONS = {
     navAnalytics: 'Аналитика',
     navSettings: 'Настройки',
     prevMonth: 'прошлому месяцу',
+    prevPeriodLabel: 'прошлому периоду',
+    periodNote: 'Все показатели ниже и KPI сверху следуют за периодом, выбранным в фильтре выше. Исключение — график «Динамика продаж»: он всегда показывает календарь текущего месяца.',
     deltaNoData: 'нет данных за',
     deltaNewSales: 'новые продажи за период (пусто ранее)',
     deltaFlat: 'без изменений к',
@@ -1611,6 +1617,10 @@ const TRANSLATIONS = {
     wonKpi: 'Yutilgan bitimlar',
     convKpi: 'Konversiya',
     thisMonthSuffix: '· bu oy',
+    suffixAll: '· barcha vaqt',
+    suffixToday: '· bugun',
+    suffixWeek: '· bu hafta',
+    suffixCustom: '· davr uchun',
     setGoalPlaceholder: 'Ushbu davr uchun savdo rejasini belgilang',
     setGoalBtn: 'Rejani tasdiqlash',
     chartTitle: 'Savdo dinamikasi · bu oyning kunlari bo\'yicha',
@@ -1659,6 +1669,8 @@ const TRANSLATIONS = {
     navAnalytics: 'Tahlil',
     navSettings: 'Sozlamalar',
     prevMonth: 'oldingi oyga',
+    prevPeriodLabel: 'oldingi davrga',
+    periodNote: 'Pastdagi barcha ko\'rsatkichlar va yuqoridagi KPI yuqoridagi filtrda tanlangan davrga amal qiladi. Istisno — "Savdo dinamikasi" grafigi: u doim joriy oy kalendarini ko\'rsatadi.',
     deltaNoData: 'ma\'lumot yo\'q',
     deltaNewSales: 'yangi savdolar (avval bo\'sh edi)',
     deltaFlat: 'o\'zgarishsiz',
@@ -1993,6 +2005,10 @@ const TRANSLATIONS = {
 let currentLang = (() => { try{ return localStorage.getItem('salesPulseLang') || 'ru'; }catch(e){ return 'ru'; } })();
 
 function t(key){ return TRANSLATIONS[currentLang][key] || TRANSLATIONS['ru'][key] || key; }
+function periodSuffix(){
+  const map = {all:'suffixAll', today:'suffixToday', week:'suffixWeek', month:'thisMonthSuffix', custom:'suffixCustom'};
+  return t(map[currentPeriod.type] || 'thisMonthSuffix');
+}
 
 function applyLang(){
   // кнопки периода
@@ -3127,22 +3143,22 @@ async function loadDashboard(){
       ? adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
       : Promise.resolve(null);
 
-    // Новые клиенты за текущий месяц — параллельно
+    // Новые клиенты — теперь за выбранный период (было жёстко "текущий месяц")
     const thisMonthRange = computePeriod('month');
+    const prevPeriod = computePrevPeriod(currentPeriod);
     const newClientsPromise = callMethod(conn.webhook, 'crm.contact.list', {
-      filter: {'>=DATE_CREATE': `${thisMonthRange.from} 00:00:00`, '<=DATE_CREATE': `${thisMonthRange.to} 23:59:59`},
+      filter: {'>=DATE_CREATE': `${currentPeriod.from} 00:00:00`, '<=DATE_CREATE': `${currentPeriod.to} 23:59:59`},
       select: ['ID'], start: 0
     }).then(d => d.total || (Array.isArray(d.result) ? d.result.length : 0))
       .catch(() => null); // если нет прав — просто null
 
-    const prevMonthRange = computePrevPeriod({type:'month', from:thisMonthRange.from, to:thisMonthRange.to});
-    const prevNewClientsPromise = callMethod(conn.webhook, 'crm.contact.list', {
-      filter: {'>=DATE_CREATE': `${prevMonthRange.from} 00:00:00`, '<=DATE_CREATE': `${prevMonthRange.to} 23:59:59`},
+    const prevNewClientsPromise = prevPeriod ? callMethod(conn.webhook, 'crm.contact.list', {
+      filter: {'>=DATE_CREATE': `${prevPeriod.from} 00:00:00`, '<=DATE_CREATE': `${prevPeriod.to} 23:59:59`},
       select: ['ID'], start: 0
     }).then(d => d.total || (Array.isArray(d.result) ? d.result.length : 0))
-      .catch(() => null);
-    const prevPeriod = computePrevPeriod(currentPeriod);
+      .catch(() => null) : Promise.resolve(null);
     const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
+    const prevMonthRange = computePrevPeriod(thisMonthPeriod);
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
     const lostReasonMap = {}; // stageName -> {count, sum} — причины отказов
     const wonPoints = [];     // {date, amount} по каждой выигранной сделке — для гибкого графика
@@ -3520,6 +3536,15 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const totalDeals = funnels.reduce((a,f) => a + f.deals, 0);
   const totalWon = funnels.reduce((a,f) => a + f.wonCount, 0);
   const totalLost = funnels.reduce((a,f) => a + f.lostCount, 0);
+
+  // KPI-карточки теперь следуют за выбранным периодом фильтра, а не жёстко за текущим месяцем —
+  // переприсваиваем глобальные переменные из уже посчитанных сумм за период (totalRevenue и т.д.),
+  // это отражается в KPI сразу при каждом рендере (включая смену периода).
+  lastMonthRevenue = totalRevenue;
+  lastMonthDealsTotal = totalDeals;
+  lastMonthWonCount = totalWon;
+  lastMonthLostCount = totalLost;
+  lastPrevMonthRevenue = hasPrev ? totalPrevRevenue : null;
   const winRate = (totalWon + totalLost) > 0 ? Math.round(100 * totalWon / (totalWon + totalLost)) : 0;
   const currency = funnels.find(f => f.currency)?.currency || '';
 
@@ -3749,14 +3774,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   const html = `
     <div class="kpis kpis-row">
       <div class="kpi kpi-hero" data-detail="kpi-revenue" data-tooltip="${t('tipRevenue')}">
-        <div class="label">${t('salesKpi')} ${t('thisMonthSuffix')}</div>
+        <div class="label">${t('salesKpi')} ${periodSuffix()}</div>
         <div class="value" data-countup="${lastMonthRevenue}" data-suffix=" ${lastMonthCurrency || currency}">0 ${lastMonthCurrency || currency}</div>
-        ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, true, t('prevMonth'))}
+        ${deltaBadge(lastMonthRevenue, lastPrevMonthRevenue, hasPrev, t('prevPeriodLabel'))}
       </div>
-      <div class="kpi" data-detail="kpi-deals" data-tooltip="${t('tipDeals')}"><div class="label">${t('dealsKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthDealsTotal}">0</div></div>
-      <div class="kpi" data-detail="kpi-won" data-tooltip="${t('tipWon')}"><div class="label">${t('wonKpi')} ${t('thisMonthSuffix')}</div><div class="value" data-countup="${lastMonthWonCount}">0</div></div>
+      <div class="kpi" data-detail="kpi-deals" data-tooltip="${t('tipDeals')}"><div class="label">${t('dealsKpi')} ${periodSuffix()}</div><div class="value" data-countup="${lastMonthDealsTotal}">0</div></div>
+      <div class="kpi" data-detail="kpi-won" data-tooltip="${t('tipWon')}"><div class="label">${t('wonKpi')} ${periodSuffix()}</div><div class="value" data-countup="${lastMonthWonCount}">0</div></div>
       <div class="kpi kpi-gauge" data-detail="kpi-conv" data-tooltip="${t('tipConv')}">
-        <div class="label">${t('convKpi')} ${t('thisMonthSuffix')}</div>
+        <div class="label">${t('convKpi')} ${periodSuffix()}</div>
         <div class="value" data-countup="${monthWinRate}" data-suffix-html="<small>%</small>">0<small>%</small></div>
         <svg class="mini-gauge" viewBox="0 0 44 44">
           <circle class="mini-gauge-track" cx="22" cy="22" r="18"></circle>
@@ -3767,13 +3792,13 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
       </div>
       ${lastNewClientsCount !== null ? `
       <div class="kpi" data-detail="kpi-newclients" data-tooltip="${t('tipNewClients')}">
-        <div class="label">${t('newClients')} ${t('thisMonthSuffix')}</div>
+        <div class="label">${t('newClients')} ${periodSuffix()}</div>
         <div class="value" data-countup="${lastNewClientsCount}">0</div>
-        ${deltaBadge(lastNewClientsCount, lastPrevNewClientsCount, lastPrevNewClientsCount !== null, t('prevMonth'))}
+        ${deltaBadge(lastNewClientsCount, lastPrevNewClientsCount, lastPrevNewClientsCount !== null, t('prevPeriodLabel'))}
       </div>` : ''}
     </div>
 
-    <p class="period-sub-note">Воронки, менеджеры и причины отказов ниже показывают период, выбранный в фильтре выше; KPI сверху и график динамики — всегда за текущий месяц.</p>
+    <p class="period-sub-note">${t('periodNote')}</p>
 
     ${(() => {
       const showFunnels = isBlockVisible('funnels') && planHas('funnels');
@@ -4549,7 +4574,7 @@ function openKpiDetail(type){
     if(wonThisMonth.length) dealListHtml += `<div class="modal-subtitle" style="margin-top:16px;">${t('wonDealsTitle')} <span style="font-weight:400;color:var(--ink-soft)">(${wonThisMonth.length})</span></div><div class="modal-deal-list">${buildDealListRows(wonThisMonth, 25)}</div>`;
     if(lostThisMonth.length) dealListHtml += `<div class="modal-subtitle" style="margin-top:16px;">${t('lostDealsTitle')} <span style="font-weight:400;color:var(--ink-soft)">(${lostThisMonth.length})</span></div><div class="modal-deal-list">${buildDealListRows(lostThisMonth, 25)}</div>`;
   } else if(type === 'kpi-newclients'){
-    title = `${t('newClients')} ${t('thisMonthSuffix')}`;
+    title = `${t('newClients')} ${periodSuffix()}`;
     const html = statRow(t('newContactsLbl'), lastNewClientsCount ?? '—')
       + (lastPrevNewClientsCount !== null ? statRow(t('prevMonthLbl'), lastPrevNewClientsCount) : '')
       + (lastNewClientsCount !== null && lastPrevNewClientsCount !== null && lastPrevNewClientsCount > 0
@@ -5301,11 +5326,11 @@ function generateInsights(){
   const insights = [];
   if(lastFunnels.length === 0) return insights;
 
-  // 1. динамика месяц к месяцу
+  // 1. динамика период к периоду
   if(lastPrevMonthRevenue > 0){
     const pct = Math.round(((lastMonthRevenue - lastPrevMonthRevenue) / lastPrevMonthRevenue) * 100);
-    if(pct <= -15) insights.push({type: 'bad', text: `Продажи в этом месяце ниже прошлого на ${Math.abs(pct)}% — стоит проверить, в какой воронке произошло падение.`});
-    else if(pct >= 15) insights.push({type: 'good', text: `Продажи выросли на ${pct}% к прошлому месяцу — посмотрите, что сработало, и повторите.`});
+    if(pct <= -15) insights.push({type: 'bad', text: `Продажи за этот период ниже прошлого на ${Math.abs(pct)}% — стоит проверить, в какой воронке произошло падение.`});
+    else if(pct >= 15) insights.push({type: 'good', text: `Продажи выросли на ${pct}% к прошлому периоду — посмотрите, что сработало, и повторите.`});
   }
 
   // 2. самая слабая воронка по конверсии (только там, где достаточно сделок для выводов)
@@ -7128,7 +7153,7 @@ function checkAndNotify(){
   // 3. Падение конверсии
   if(notifSettings['conv_drop'] && lastPrevMonthRevenue > 0 && lastMonthRevenue > 0){
     const drop = Math.round(100*(lastMonthRevenue - lastPrevMonthRevenue)/lastPrevMonthRevenue);
-    if(drop <= -20) addNotif('error', 'Падение продаж', `Продажи упали на ${Math.abs(drop)}% к прошлому месяцу`);
+    if(drop <= -20) addNotif('error', 'Падение продаж', `Продажи упали на ${Math.abs(drop)}% к прошлому периоду`);
   }
 
   // 4. Зависшие сделки
