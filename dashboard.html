@@ -2140,6 +2140,10 @@ langToggleBtn.addEventListener('click', () => {
 
 let currentPeriod = (() => { const r = computePeriod('month'); return {type: 'month', from: r.from, to: r.to}; })();
 let lastFunnels = [];
+// Список воронок и их стадий не зависит от выбранного периода (это структура CRM, не данные) —
+// раньше при каждой смене периода (Сегодня/Неделя/...) они запрашивались заново вместе со сделками.
+// Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
+let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
 let lastManagers = [];
 let lastDailyEntries = [];
 let lastNamesResolved = true;
@@ -3183,7 +3187,7 @@ function renderSkeleton(){
 
 let loadRequestId = 0; // счётчик поколений запроса — защита от гонки, если новое подключение стартует раньше, чем завершился старый запрос
 
-async function loadDashboard(){
+async function loadDashboard(forceRefresh){
   if(!currentAdapter || !currentConn){
     renderError('сначала подключите CRM выше');
     return;
@@ -3196,7 +3200,12 @@ async function loadDashboard(){
   renderLoading('получаю список воронок…');
 
   try{
-    const rawFunnels = await adapter.fetchFunnels(conn);
+    const connKey = conn.webhook || JSON.stringify(conn);
+    if(structureCache.connKey !== connKey || forceRefresh){
+      structureCache = { connKey, funnels: null, stagesByFunnelId: {} };
+    }
+    const rawFunnels = structureCache.funnels || await adapter.fetchFunnels(conn);
+    structureCache.funnels = rawFunnels;
     const seenIds = new Set();
     const allFunnels = rawFunnels.filter(c => {
       const key = String(c.id);
@@ -3265,8 +3274,11 @@ async function loadDashboard(){
     const prevIsSameAsPrevMonth = periodIsMonth; // при periodIsMonth prevPeriod всегда совпадает с prevMonthRange
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${funnelsToLoad.length === 1 ? 'воронка' : 'воронок'}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
+      const stagesPromise = structureCache.stagesByFunnelId[fn.id]
+        ? Promise.resolve(structureCache.stagesByFunnelId[fn.id])
+        : adapter.fetchStages(conn, fn.id).then(s => { structureCache.stagesByFunnelId[fn.id] = s; return s; });
       const promises = [
-        adapter.fetchStages(conn, fn.id),
+        stagesPromise,
         adapter.fetchDeals(conn, fn.id, currentPeriod),
         periodIsMonth ? null : adapter.fetchDeals(conn, fn.id, thisMonthPeriod),
         prevIsSameAsPrevMonth ? null : adapter.fetchDeals(conn, fn.id, prevMonthRange)
@@ -5518,6 +5530,7 @@ disconnectBtn.addEventListener('click', () => {
   clearSettings();
   currentAdapter = null;
   currentConn = null;
+  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
   goalAmount = null;
   selectedFunnelIds = null;
   availableFunnels = [];
@@ -7704,7 +7717,7 @@ dashboardView.addEventListener('keydown', (e) => {
 
 crmSelect.addEventListener('change', onCrmChange);
 connectBtn.addEventListener('click', attemptConnect);
-refreshBtn.addEventListener('click', loadDashboard);
+refreshBtn.addEventListener('click', () => loadDashboard(true));
 connFields.addEventListener('keydown', e => { if(e.key === 'Enter') attemptConnect(); });
 
 renderCrmSelect();
