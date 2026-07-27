@@ -3156,13 +3156,20 @@ async function loadDashboard(){
     // Раньше сделки по воронкам запрашивались строго одна воронка за другой —
     // если воронок несколько, вторая даже не начинала грузиться, пока не закончится первая.
     // Теперь запрашиваем данные по всем воронкам параллельно, а обрабатываем их уже из готовых ответов.
+    //
+    // Дополнительно: когда выбранный период — это и есть "месяц" (значение по умолчанию),
+    // "сделки за период" и "сделки за этот месяц" — буквально один и тот же запрос. Раньше
+    // они всё равно запрашивались дважды. То же самое с прошлым периодом/прошлым месяцем.
+    // Теперь такие дубли не отправляются вообще — экономит до 40% запросов в самом частом случае.
+    const periodIsMonth = currentPeriod.type === 'month';
+    const prevIsSameAsPrevMonth = periodIsMonth; // при periodIsMonth prevPeriod всегда совпадает с prevMonthRange
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${funnelsToLoad.length === 1 ? 'воронка' : 'воронок'}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const promises = [
         adapter.fetchStages(conn, fn.id),
         adapter.fetchDeals(conn, fn.id, currentPeriod),
-        adapter.fetchDeals(conn, fn.id, thisMonthPeriod),
-        adapter.fetchDeals(conn, fn.id, prevMonthRange)
+        periodIsMonth ? null : adapter.fetchDeals(conn, fn.id, thisMonthPeriod),
+        prevIsSameAsPrevMonth ? null : adapter.fetchDeals(conn, fn.id, prevMonthRange)
       ];
       if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod));
       return Promise.all(promises);
@@ -3172,8 +3179,12 @@ async function loadDashboard(){
     for(let i = 0; i < funnelsToLoad.length; i++){
       const fn = funnelsToLoad[i];
       const results = funnelFetches[i];
-      const stageOrder = results[0], deals = results[1], monthDeals = results[2], prevMonthDeals = results[3];
+      const stageOrder = results[0], deals = results[1];
+      // Если период — это месяц, "сделки за период" и "сделки за месяц" совпадают:
+      // переиспользуем уже полученный результат вместо повторного запроса.
+      const monthDeals = periodIsMonth ? deals : results[2];
       const prevDeals = prevPeriod ? results[4] : [];
+      const prevMonthDeals = prevIsSameAsPrevMonth ? prevDeals : results[3];
 
       monthDealsTotal += monthDeals.length;
       monthDeals.forEach(d => {
