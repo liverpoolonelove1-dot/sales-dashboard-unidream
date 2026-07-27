@@ -817,9 +817,76 @@
   .loss-fill{height:100%;background:rgba(220,38,38,0.55);border-radius:20px;}
   .dwell-fill{height:100%;background:var(--amber);border-radius:20px;}
   .loss-count, .dwell-value{font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap;text-align:right;}
+
+  /* ===================================================================
+     КИНЕМАТОГРАФИЧЕСКИЙ DEMO-РЕЖИМ
+     Чисто визуальный слой поверх существующих компонентов — не меняет
+     разметку, бизнес-логику и палитру, только добавляет анимацию появления
+     и лёгкое "дыхание" интерфейса. Использует только transform/opacity —
+     не триггерит layout, GPU-ускорено (will-change).
+     =================================================================== */
+
+  #cineOverlay{position:fixed;inset:0;z-index:2000;background:#050604;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:1;transition:opacity 1.1s ease;}
+  #cineOverlay.cine-overlay-hide{opacity:0;}
+  #cineOverlay .cine-glow{position:absolute;width:60vw;height:60vw;max-width:900px;max-height:900px;background:radial-gradient(circle, rgba(198,241,53,.35) 0%, rgba(198,241,53,0) 68%);border-radius:50%;animation:cineGlowPulse 2.4s ease-in-out infinite;}
+  #cineOverlay .cine-mark{position:relative;width:64px;height:64px;background:var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:32px;color:#0F1014;animation:cineMarkIn 1.4s cubic-bezier(.16,1,.3,1) both;box-shadow:0 0 60px rgba(198,241,53,.5);}
+  @keyframes cineGlowPulse{0%,100%{transform:scale(.85);opacity:.7;}50%{transform:scale(1.05);opacity:1;}}
+  @keyframes cineMarkIn{0%{transform:scale(.4);opacity:0;}60%{transform:scale(1.08);opacity:1;}100%{transform:scale(1);opacity:1;}}
+
+  .cine-particle{position:fixed;z-index:1999;bottom:-10px;width:3px;height:3px;border-radius:50%;background:var(--accent);pointer-events:none;opacity:0;box-shadow:0 0 6px 1px rgba(198,241,53,.6);animation:cineParticleFloat linear infinite;}
+  @keyframes cineParticleFloat{
+    0%{transform:translateY(0) translateX(0);opacity:0;}
+    8%{opacity:.7;}
+    92%{opacity:.4;}
+    100%{transform:translateY(-100vh) translateX(var(--drift,20px));opacity:0;}
+  }
+
+  .cine-active #dashboardView{animation:cineCameraBreathe 19s ease-in-out infinite;transform-origin:50% 20%;will-change:transform;}
+  @keyframes cineCameraBreathe{
+    0%{transform:scale(1) translateY(0);}
+    45%{transform:scale(1.018) translateY(-4px);}
+    100%{transform:scale(1) translateY(0);}
+  }
+
+  /* Стартовое скрытое состояние для элементов до появления в сборке */
+  .cine-hidden{opacity:0 !important;transform:translateY(22px) scale(.98);will-change:transform,opacity;}
+  .cine-hidden.cine-hidden-left{transform:translateX(-26px) scale(.98);}
+  .cine-reveal{animation:cineFlyIn .75s cubic-bezier(.22,1.15,.4,1) both;}
+  @keyframes cineFlyIn{
+    0%{opacity:0;transform:translateY(22px) scale(.97);}
+    55%{opacity:1;transform:translateY(-3px) scale(1.008);}
+    100%{opacity:1;transform:translateY(0) scale(1);}
+  }
+  .cine-reveal-left{animation:cineFlyInLeft .7s cubic-bezier(.22,1.15,.4,1) both;}
+  @keyframes cineFlyInLeft{
+    0%{opacity:0;transform:translateX(-26px) scale(.97);}
+    100%{opacity:1;transform:translateX(0) scale(1);}
+  }
+
+  /* Световой блик, пробегающий по карточкам после появления */
+  .cine-sweep{position:relative;overflow:hidden;}
+  .cine-sweep::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.08) 45%,rgba(198,241,53,.12) 50%,rgba(255,255,255,.08) 55%,transparent);transform:skewX(-18deg);animation:cineSweepMove 3.2s ease-in-out infinite;animation-delay:var(--sweep-delay,0s);pointer-events:none;}
+  @keyframes cineSweepMove{0%{left:-60%;}55%{left:130%;}100%{left:130%;}}
+
+  .cal-cell{transition:none;}
+  .cine-active .cal-cell.cine-cell-hidden{opacity:0;transform:scale(.5);}
+  .cine-active .cal-cell.cine-cell-reveal{animation:cineCellPop .45s cubic-bezier(.34,1.56,.64,1) both;}
+  @keyframes cineCellPop{0%{opacity:0;transform:scale(.5);}70%{opacity:1;transform:scale(1.12);}100%{opacity:1;transform:scale(1);}}
+
+  @media(prefers-reduced-motion:reduce){
+    .cine-active #dashboardView{animation:none;}
+    .cine-sweep::after{animation:none;display:none;}
+    .cine-particle{display:none;}
+    .cine-hidden{opacity:1 !important;transform:none;}
+    .cine-reveal,.cine-reveal-left{animation:none;}
+  }
 </style>
 </head>
 <body>
+<div id="cineOverlay" style="display:none;">
+  <div class="cine-glow"></div>
+  <div class="cine-mark">P</div>
+</div>
 <div class="topbar-icons">
 <button id="notifBtn" class="theme-toggle" style="display:none;" title="Уведомления" aria-label="Уведомления">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -7319,9 +7386,125 @@ function startDemoMode(){
   renderDashboard(funnels, managers, dailyEntries, true, true, lastLostReasons);
   renderChartHero(dailyEntries, 'UZS');
   renderGoalBanner(9900000, 'UZS');
+  runCinematicDemo();
 }
 
 landingDemoBtn && landingDemoBtn.addEventListener('click', startDemoMode);
+
+// ===================================================================
+// КИНЕМАТОГРАФИЧЕСКАЯ ПРЕЗЕНТАЦИЯ DEMO-РЕЖИМА
+// Работает поверх уже отрисованного демо-дашборда (startDemoMode выше
+// строит реальный DOM теми же функциями, что и настоящие данные) —
+// здесь только хореография появления и "оживления" уже готовых элементов.
+// Не трогает бизнес-логику, разметку и цвета.
+// ===================================================================
+let cineLoopTimer = null;
+
+function cineSpawnParticles(container, count){
+  for(let i = 0; i < count; i++){
+    const p = document.createElement('div');
+    p.className = 'cine-particle';
+    const startX = Math.random() * 100;
+    const drift = (Math.random() * 80 - 40).toFixed(0) + 'px';
+    const duration = (7 + Math.random() * 6).toFixed(1);
+    const delay = (Math.random() * 8).toFixed(1);
+    p.style.left = startX + 'vw';
+    p.style.setProperty('--drift', drift);
+    p.style.animationDuration = duration + 's';
+    p.style.animationDelay = delay + 's';
+    container.appendChild(p);
+  }
+}
+
+function cineRevealGroup(elements, opts){
+  opts = opts || {};
+  const stagger = opts.stagger ?? 70;
+  const startDelay = opts.startDelay ?? 0;
+  const leftStyle = !!opts.fromLeft;
+  elements.forEach((el, i) => {
+    if(!el) return;
+    el.classList.add('cine-hidden');
+    if(leftStyle) el.classList.add('cine-hidden-left');
+    setTimeout(() => {
+      el.classList.remove('cine-hidden', 'cine-hidden-left');
+      el.classList.add(leftStyle ? 'cine-reveal-left' : 'cine-reveal');
+      setTimeout(() => el.classList.remove('cine-reveal', 'cine-reveal-left'), 900);
+    }, startDelay + i * stagger);
+  });
+}
+
+function cineAddSweep(elements, opts){
+  opts = opts || {};
+  elements.forEach((el, i) => {
+    if(!el) return;
+    el.classList.add('cine-sweep');
+    el.style.setProperty('--sweep-delay', ((opts.baseDelay ?? 0) + i * (opts.stagger ?? 0.35)) + 's');
+  });
+}
+
+function cineRevealHeatmapCells(){
+  const cells = Array.from(document.querySelectorAll('.cal-cell')).filter(c => !c.classList.contains('cal-future'));
+  cells.forEach((c, i) => {
+    c.classList.add('cine-cell-hidden');
+    setTimeout(() => {
+      c.classList.remove('cine-cell-hidden');
+      c.classList.add('cine-cell-reveal');
+      setTimeout(() => c.classList.remove('cine-cell-reveal'), 500);
+    }, i * 18);
+  });
+}
+
+function runCinematicDemo(){
+  if(!isDemoMode) return;
+  document.body.classList.add('cine-active');
+
+  const overlay = document.getElementById('cineOverlay');
+  overlay.style.display = 'flex';
+  overlay.classList.remove('cine-overlay-hide');
+  cineSpawnParticles(overlay, 14);
+
+  // Фаза 1 — тёмный экран с зелёным свечением (~1.4с)
+  setTimeout(() => {
+    overlay.classList.add('cine-overlay-hide');
+    setTimeout(() => { overlay.style.display = 'none'; overlay.innerHTML = '<div class="cine-glow"></div><div class="cine-mark">P</div>'; }, 1100);
+
+    // Фаза 2 — последовательная сборка интерфейса
+    const sidebar = document.querySelector('.dash-sidebar');
+    cineRevealGroup([sidebar], {startDelay: 0, fromLeft: true});
+
+    const kpiCards = Array.from(document.querySelectorAll('.kpis > *'));
+    cineRevealGroup(kpiCards, {startDelay: 220, stagger: 90});
+
+    const chartHero = document.querySelector('.chart-hero');
+    cineRevealGroup([chartHero], {startDelay: 220 + kpiCards.length * 90 + 100});
+
+    const afterChartDelay = 220 + kpiCards.length * 90 + 100 + 500;
+    const sections = Array.from(document.querySelectorAll('.dash-section'));
+    let tileDelay = afterChartDelay;
+    const allTiles = [];
+    sections.forEach(sec => {
+      const tiles = Array.from(sec.querySelectorAll('.dash-tiles > *'));
+      cineRevealGroup(tiles, {startDelay: tileDelay, stagger: 60});
+      allTiles.push(...tiles);
+      tileDelay += tiles.length * 60 + 120;
+    });
+
+    // Фаза 3 — интерфейс оживает: счётчики, кольцевая диаграмма, тепловая карта, блики
+    setTimeout(() => {
+      animateCountUps();
+      cineRevealHeatmapCells();
+      cineAddSweep([chartHero, ...kpiCards.slice(0,1)].filter(Boolean), {baseDelay: 0, stagger: .4});
+      cineAddSweep(allTiles.slice(0, 6), {baseDelay: .6, stagger: .35});
+    }, tileDelay + 150);
+
+  }, 1400);
+
+  // Полный цикл ~19с — затем плавно перезапускаем сборку с начала
+  clearTimeout(cineLoopTimer);
+  cineLoopTimer = setTimeout(() => {
+    if(isDemoMode) runCinematicDemo();
+  }, 19000);
+}
 
 // ===== БРЕНДИРОВАНИЕ КЛИЕНТА =====
 // Можно задать в CLIENT_ACCOUNTS: { login:'...', hash:'...', webhook:'...', brand:{name:'Название компании', logo:'URL логотипа'} }
