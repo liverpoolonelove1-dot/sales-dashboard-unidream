@@ -1560,6 +1560,12 @@ const TRANSLATIONS = {
     successBadge: 'Успешный',
     missedBadge: 'Пропущен',
     analyzeBtnLabel: 'Анализ',
+    customAnalysisLink: 'Настроить критерии анализа звонков',
+    customAnalysisTitle: 'Критерии анализа звонков',
+    customAnalysisDesc: 'Опишите своими словами, на что ИИ должен обращать внимание при разборе звонков — например, проверять упоминание конкретной акции, оценивать по вашей шкале, следовать вашему скрипту продаж. Если оставить пустым — используется стандартный разбор.',
+    customAnalysisPlaceholder: 'Например:\n1. Упомянул ли менеджер акцию "Скидка 10% при оплате картой"?\n2. Задал ли уточняющие вопросы о потребностях клиента?\n3. Оцени по шкале 1-10, насколько уверенно менеджер отвечал на возражения',
+    customAnalysisSave: 'Сохранить',
+    customAnalysisReset: 'Сбросить',
     doneChip: 'Завершённые',
     overdueChip: 'Просроченные',
     overdueBadge: 'Просрочена',
@@ -1995,6 +2001,12 @@ const TRANSLATIONS = {
     successBadge: 'Muvaffaqiyatli',
     missedBadge: 'O\'tkazib yuborilgan',
     analyzeBtnLabel: 'Tahlil',
+    customAnalysisLink: 'Qo\'ng\'iroq tahlili mezonlarini sozlash',
+    customAnalysisTitle: 'Qo\'ng\'iroq tahlili mezonlari',
+    customAnalysisDesc: 'AI qo\'ng\'iroqlarni tahlil qilishda nimalarga e\'tibor berishi kerakligini o\'z so\'zlaringiz bilan yozing — masalan, aniq aksiya aytilganini tekshirish, o\'z shkalangiz bo\'yicha baholash, savdo skriptingizga amal qilish. Bo\'sh qoldirsangiz — standart tahlil ishlatiladi.',
+    customAnalysisPlaceholder: 'Masalan:\n1. Menejer "Karta orqali to\'lovda 10% chegirma" aksiyasini aytdimi?\n2. Mijoz ehtiyojlari haqida aniqlashtiruvchi savollar berdimi?\n3. Menejer e\'tirozlarga qanchalik ishonchli javob berganini 1-10 shkalasi bo\'yicha baholang',
+    customAnalysisSave: 'Saqlash',
+    customAnalysisReset: 'Tozalash',
     doneChip: 'Bajarilgan',
     overdueChip: 'Muddati o\'tgan',
     overdueBadge: 'Muddati o\'tgan',
@@ -4628,6 +4640,8 @@ function buildCallsHtml(filterType, standalone){
     </div>
   `;
 
+  const analysisSettingsLink = `<div style="margin-bottom:12px;"><a href="#" id="callAnalysisSettingsLink" style="font-size:12px;color:var(--ink-soft);text-decoration:none;border-bottom:1px dashed var(--line);">${t('customAnalysisLink')}</a></div>`;
+
   // Фильтр-чипсы
   const chips = [
     {key:'all', label:t('allChip')},
@@ -4688,7 +4702,7 @@ function buildCallsHtml(filterType, standalone){
 
   const note = calls.length > 100 ? `<div class="modal-note">${t('last100shown')} ${calls.length} ${t('callsWord')}.</div>` : '';
 
-  const html = summary
+  const html = analysisSettingsLink + summary
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
     + table + note;
 
@@ -6077,6 +6091,37 @@ const REGISTER_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/reg
 const LOGIN_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/login';
 const SAVE_WEBHOOK_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-webhook';
 
+const CALL_PROMPT_STORAGE_KEY = 'salesPulseCallPrompt';
+
+function openCallAnalysisSettings(){
+  const saved = localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '';
+  const html = `
+    <p class="modal-note" style="margin-bottom:12px;">${t('customAnalysisDesc')}</p>
+    <textarea id="callPromptInput" style="width:100%;min-height:160px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;resize:vertical;" placeholder="${t('customAnalysisPlaceholder')}">${escapeHtml(saved)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+      <button class="btn btn-ghost" id="callPromptClearBtn" type="button">${t('customAnalysisReset')}</button>
+      <button class="btn btn-primary" id="callPromptSaveBtn" type="button">${t('customAnalysisSave')}</button>
+    </div>
+  `;
+  openModal(t('customAnalysisTitle'), html);
+  document.getElementById('callPromptSaveBtn').addEventListener('click', () => {
+    const val = document.getElementById('callPromptInput').value.trim();
+    if(val) localStorage.setItem(CALL_PROMPT_STORAGE_KEY, val);
+    else localStorage.removeItem(CALL_PROMPT_STORAGE_KEY);
+    closeModal();
+  });
+  document.getElementById('callPromptClearBtn').addEventListener('click', () => {
+    localStorage.removeItem(CALL_PROMPT_STORAGE_KEY);
+    document.getElementById('callPromptInput').value = '';
+  });
+}
+document.addEventListener('click', (e) => {
+  if(e.target.id === 'callAnalysisSettingsLink'){
+    e.preventDefault();
+    openCallAnalysisSettings();
+  }
+});
+
 async function analyzeCallRecording(fileId, btnEl){
   const originalHtml = btnEl.innerHTML;
   btnEl.disabled = true;
@@ -6085,7 +6130,7 @@ async function analyzeCallRecording(fileId, btnEl){
     const res = await fetch(CALL_ANALYZE_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fileId})
+      body: JSON.stringify({fileId, customPrompt: localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || ''})
     });
     const data = await res.json();
     btnEl.disabled = false;
