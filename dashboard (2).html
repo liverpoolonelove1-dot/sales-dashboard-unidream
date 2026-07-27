@@ -984,7 +984,7 @@
   </div>
 </div>
 
-<div class="wrap">
+<div class="wrap" id="mainWrap" style="display:none;">
   <div id="landingView" style="display:none;">
     <div class="landing-connect-wrap" id="landingConnectWrap">
       <div class="topbar">
@@ -2530,12 +2530,14 @@ const landingView = document.getElementById('landingView');
 const dashboardView = document.getElementById('dashboardView');
 
 function showLanding(){
+  document.getElementById('mainWrap').style.display = 'block';
   landingView.style.display = 'block';
   dashboardView.style.display = 'none';
   setTimeout(applyLang, 0);
 }
 
 function showDashboard(){
+  document.getElementById('mainWrap').style.display = 'block';
   landingView.style.display = 'none';
   dashboardView.style.display = 'block';
   setTimeout(applyLang, 0);
@@ -5426,10 +5428,12 @@ function showLoginView(){
   document.getElementById('loginView').style.display = 'flex';
   document.getElementById('landingView').style.display = 'none';
   document.getElementById('dashboardView').style.display = 'none';
+  document.getElementById('mainWrap').style.display = 'none';
 }
 
 function hideLoginView(){
   document.getElementById('loginView').style.display = 'none';
+  document.getElementById('mainWrap').style.display = 'block';
 }
 
 const loginBtn = document.getElementById('loginBtn');
@@ -7938,6 +7942,7 @@ applyLang(); // применяем язык сразу
       showLoginView();
       return;
     }
+    document.getElementById('mainWrap').style.display = 'block';
     // Восстанавливаем план и брендинг из сессии
     currentPlan = session.plan || 'pro';
     if(session.brand) applyClientBranding({brand: session.brand});
