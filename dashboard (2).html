@@ -1056,6 +1056,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Менеджеры</span>
       </button>
+      <button class="sbnav-item" data-nav="leads">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 8v6M19 11h6"/></svg>
+        <span>Лиды</span>
+      </button>
       <button class="sbnav-item" data-nav="calls">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.65 12 19.79 19.79 0 0 1 1.57 3.42 2 2 0 0 1 3.54 1H6.5a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.52 8.63a16 16 0 0 0 5.85 5.85l1-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
         <span>Звонки</span>
@@ -1264,6 +1268,19 @@ const TRANSLATIONS = {
     prevMonth: 'прошлому месяцу',
     prevPeriodLabel: 'прошлому периоду',
     periodNote: 'Все показатели ниже и KPI сверху следуют за периодом, выбранным в фильтре выше. Исключение — график «Динамика продаж»: он всегда показывает календарь текущего месяца.',
+    leadsNav: 'Лиды',
+    convertedLbl: 'Конвертировано',
+    junkLbl: 'Некачественные',
+    convRateLbl: 'Конверсия в сделки',
+    leadNameCol: 'Лид / Источник',
+    noLeadsFilter: 'По этому фильтру лидов нет.',
+    leadsWord: 'лидов',
+    convertedChip: 'Конвертированные',
+    junkChip: 'Некачественные',
+    inProgressChip: 'В работе',
+    leadsByStatus: 'По статусам',
+    leadsBySource: 'По источникам',
+    potentialSum: 'Потенциальная сумма',
     deltaNoData: 'нет данных за',
     deltaNewSales: 'новые продажи за период (пусто ранее)',
     deltaFlat: 'без изменений к',
@@ -1671,6 +1688,19 @@ const TRANSLATIONS = {
     prevMonth: 'oldingi oyga',
     prevPeriodLabel: 'oldingi davrga',
     periodNote: 'Pastdagi barcha ko\'rsatkichlar va yuqoridagi KPI yuqoridagi filtrda tanlangan davrga amal qiladi. Istisno — "Savdo dinamikasi" grafigi: u doim joriy oy kalendarini ko\'rsatadi.',
+    leadsNav: 'Lidlar',
+    convertedLbl: 'Bitimga aylandi',
+    junkLbl: 'Sifatsiz',
+    convRateLbl: 'Bitimga aylanish',
+    leadNameCol: 'Lid / Manba',
+    noLeadsFilter: 'Bu filtr bo\'yicha lidlar yo\'q.',
+    leadsWord: 'lid',
+    convertedChip: 'Aylantirilgan',
+    junkChip: 'Sifatsiz',
+    inProgressChip: 'Ishda',
+    leadsByStatus: 'Statuslar bo\'yicha',
+    leadsBySource: 'Manbalar bo\'yicha',
+    potentialSum: 'Potensial summa',
     deltaNoData: 'ma\'lumot yo\'q',
     deltaNewSales: 'yangi savdolar (avval bo\'sh edi)',
     deltaFlat: 'o\'zgarishsiz',
@@ -2054,7 +2084,7 @@ function applyLang(){
     if(key) el.textContent = t(key);
   });
   // сайдбар
-  const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', calls:'navCalls', tasks:'navTasks', analytics:'navAnalytics', settings:'navSettings'};
+  const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', leads:'leadsNav', calls:'navCalls', tasks:'navTasks', analytics:'navAnalytics', settings:'navSettings'};
   document.querySelectorAll('.sbnav-item').forEach(btn => {
     const key = navMap[btn.dataset.nav];
     const span = btn.querySelector('span');
@@ -2128,6 +2158,10 @@ let lastMonthLostCount = 0;
 let lastNewClientsCount = null;  // новые клиенты этот месяц (null = нет прав)
 let lastPrevNewClientsCount = null; // новые клиенты прошлый месяц
 let lastCallStats = null;
+let lastLeadStats = null;
+let lastRawLeads = [];
+let lastLeadStatusMap = {};
+let lastLeadStatsError = '';
 let lastRawCalls = [];
 let lastCallStatsError = '';
 let lastRawTasks = [];
@@ -2697,6 +2731,48 @@ function fmtDuration(totalSeconds){
   return `${m} мин`;
 }
 
+async function fetchLeadStatuses(webhook){
+  try{
+    const data = await callMethod(webhook, 'crm.status.list', {filter: {ENTITY_ID: 'STATUS'}});
+    const map = {};
+    (data.result || []).forEach(s => { map[s.STATUS_ID] = s.NAME; });
+    return map;
+  }catch(e){ return {}; }
+}
+
+async function fetchLeadStats(webhook, period){
+  const filter = {};
+  if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
+  if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
+  const select = ['ID','TITLE','STATUS_ID','SOURCE_ID','ASSIGNED_BY_ID','OPPORTUNITY','CURRENCY_ID','DATE_CREATE','DATE_MODIFY','NAME','LAST_NAME'];
+  const [rawLeads, statusMap] = await Promise.all([
+    fetchAllPaged(webhook, 'crm.lead.list', {filter, select, order: {DATE_CREATE: 'DESC'}}),
+    fetchLeadStatuses(webhook)
+  ]);
+  return {rawLeads, statusMap};
+}
+
+function aggregateLeadStats(rawLeads, statusMap){
+  let converted = 0, junk = 0, inProgress = 0, opportunitySum = 0;
+  const statusCounts = {};
+  const sourceCounts = {};
+  rawLeads.forEach(l => {
+    const status = l.STATUS_ID || 'NEW';
+    if(status === 'CONVERTED') converted += 1;
+    else if(status === 'JUNK') junk += 1;
+    else inProgress += 1;
+    if(!statusCounts[status]) statusCounts[status] = {count: 0, name: statusMap[status] || status};
+    statusCounts[status].count += 1;
+    const src = l.SOURCE_ID || 'OTHER';
+    if(!sourceCounts[src]) sourceCounts[src] = 0;
+    sourceCounts[src] += 1;
+    opportunitySum += parseFloat(l.OPPORTUNITY) || 0;
+  });
+  const total = rawLeads.length;
+  const convRate = total > 0 ? Math.round(100 * converted / total) : 0;
+  return {total, converted, junk, inProgress, convRate, opportunitySum, statusCounts, sourceCounts};
+}
+
 async function fetchTaskStats(webhook, period){
   // ответ tasks.task.list оборачивает список в result.tasks — обычная fetchAllPaged тут не подходит
   const filter = {};
@@ -2798,6 +2874,9 @@ const CRM_ADAPTERS = {
     },
     async fetchCalls(conn, period){
       return fetchCallStats(conn.webhook, period);
+    },
+    async fetchLeads(conn, period){
+      return fetchLeadStats(conn.webhook, period);
     },
     async fetchTasks(conn, period){
       return fetchTaskStats(conn.webhook, period);
@@ -3143,6 +3222,11 @@ async function loadDashboard(){
       ? adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
       : Promise.resolve(null);
 
+    // лиды — отдельная от сделок сущность в Bitrix24, запрашивается параллельно
+    const leadStatsPromise = (typeof adapter.fetchLeads === 'function')
+      ? adapter.fetchLeads(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
+      : Promise.resolve(null);
+
     // Новые клиенты — теперь за выбранный период (было жёстко "текущий месяц")
     const thisMonthRange = computePeriod('month');
     const prevPeriod = computePrevPeriod(currentPeriod);
@@ -3421,6 +3505,24 @@ async function loadDashboard(){
       lastTaskStatsError = '';
     }
 
+    const leadsResult = await leadStatsPromise;
+    if(leadsResult && leadsResult.__error){
+      lastLeadStats = null;
+      lastRawLeads = [];
+      lastLeadStatusMap = {};
+      lastLeadStatsError = leadsResult.__error; logError("Лиды", "Не удалось получить лиды", leadsResult.__error);
+    } else if(leadsResult){
+      lastRawLeads = leadsResult.rawLeads;
+      lastLeadStatusMap = leadsResult.statusMap;
+      lastLeadStats = aggregateLeadStats(leadsResult.rawLeads, leadsResult.statusMap);
+      lastLeadStatsError = '';
+    } else {
+      lastLeadStats = null;
+      lastRawLeads = [];
+      lastLeadStatusMap = {};
+      lastLeadStatsError = '';
+    }
+
     renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
 
     if(dupPairs.length > 0){
@@ -3676,6 +3778,29 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     ` : ''}
   `;
 
+  let leadsTile = '';
+  if(lastLeadStats){
+    leadsTile = `
+      <div class="fcard tile tile-calls" data-detail="leads">
+        <p class="section-title">${t('leadsNav')}</p>
+        <div class="calls-grid">
+          <div><span class="calls-label">${t('totalLeads')}</span><span class="calls-value">${lastLeadStats.total}</span></div>
+          <div><span class="calls-label">${t('inWork')}</span><span class="calls-value">${lastLeadStats.inProgress}</span></div>
+          <div><span class="calls-label">${t('convertedLbl')}</span><span class="calls-value calls-good">${lastLeadStats.converted}</span></div>
+          <div><span class="calls-label">${t('junkLbl')}</span><span class="calls-value calls-bad">${lastLeadStats.junk}</span></div>
+        </div>
+        <div class="calls-duration">${t('convRateLbl')}: ${lastLeadStats.convRate}%</div>
+      </div>
+    `;
+  } else if(lastLeadStatsError){
+    leadsTile = `
+      <div class="fcard tile tile-calls">
+        <p class="section-title">${t('leadsNav')}</p>
+        <div class="managers-note">Не удалось получить лиды: ${lastLeadStatsError} — добавьте вебхуку право доступа <b>crm</b>.</div>
+      </div>
+    `;
+  }
+
   let callsTile = '';
   if(lastCallStats){
     callsTile = `
@@ -3827,11 +3952,13 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           </div>
         </div>` : '';
 
-      const opsSection = (showCalls || showTasks) ? `
+      const showLeads = isBlockVisible('leads') && planHas('leads') && (lastLeadStats || lastLeadStatsError);
+      const opsSection = (showCalls || showTasks || showLeads) ? `
         <div class="dash-section">
           <div class="dash-section-head"><span class="dot" style="background:var(--ink-soft)"></span><h3>${t('sectionOps')}</h3></div>
           <div class="dash-tiles">
             ${showCalls ? callsTile : ''}
+            ${showLeads ? leadsTile : ''}
             ${showTasks ? tasksTile : ''}
           </div>
         </div>` : '';
@@ -4497,6 +4624,114 @@ function buildCallsHtml(filterType, standalone){
   return {title: `${t('calls')} (${c.total})`, html};
 }
 
+function buildLeadsHtml(filterType, standalone){
+  if(!lastLeadStats && lastRawLeads.length === 0) return null;
+  const c = lastLeadStats || {total:0, converted:0, junk:0, inProgress:0, convRate:0, opportunitySum:0, statusCounts:{}, sourceCounts:{}};
+  filterType = filterType || 'all';
+  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+
+  const summary = `
+    <div class="modal-summary-row">
+      <div class="modal-summary-cell"><div class="val">${c.total}</div><div class="lbl">${t('totalLeads')}</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--accent-strong)">${c.converted}</div><div class="lbl">${t('convertedLbl')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${c.convRate}%</div><div class="lbl">${t('convRateLbl')}</div></div>
+    </div>
+    <div class="modal-summary-row">
+      <div class="modal-summary-cell"><div class="val">${c.inProgress}</div><div class="lbl">${t('inWork')}</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${c.junk}</div><div class="lbl">${t('junkLbl')}</div></div>
+      <div class="modal-summary-cell"><div class="val">${fmtMoney(c.opportunitySum, currency)}</div><div class="lbl">${t('potentialSum')}</div></div>
+    </div>
+  `;
+
+  const chips = [
+    {key:'all', label:t('allChip')},
+    {key:'progress', label:t('inProgressChip')},
+    {key:'converted', label:t('convertedChip')},
+    {key:'junk', label:t('junkChip')}
+  ].map(ch => `<span class="modal-filter-chip ${filterType===ch.key?'active':''}" data-leads-filter="${ch.key}">${ch.label}</span>`).join('');
+
+  let leads = [...lastRawLeads];
+  if(filterType === 'converted') leads = leads.filter(l => l.STATUS_ID === 'CONVERTED');
+  else if(filterType === 'junk') leads = leads.filter(l => l.STATUS_ID === 'JUNK');
+  else if(filterType === 'progress') leads = leads.filter(l => l.STATUS_ID !== 'CONVERTED' && l.STATUS_ID !== 'JUNK');
+
+  leads.sort((a,b) => new Date(b.DATE_CREATE) - new Date(a.DATE_CREATE));
+
+  const rows = leads.slice(0, 100).map(lead => {
+    const status = lead.STATUS_ID || 'NEW';
+    const statusName = lastLeadStatusMap[status] || status;
+    let badge;
+    if(status === 'CONVERTED') badge = `<span class="badge-ok">${escapeHtml(statusName)}</span>`;
+    else if(status === 'JUNK') badge = `<span class="badge-miss">${escapeHtml(statusName)}</span>`;
+    else badge = `<span class="badge-work">${escapeHtml(statusName)}</span>`;
+    const mgr = lastManagers.find(m => String(m.id) === String(lead.ASSIGNED_BY_ID));
+    const mgrName = mgr ? mgr.name : (lead.ASSIGNED_BY_ID ? `ID ${lead.ASSIGNED_BY_ID}` : '—');
+    const date = lead.DATE_CREATE ? new Date(lead.DATE_CREATE).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    const title = lead.TITLE ? escapeHtml(lead.TITLE) : (lead.NAME || lead.LAST_NAME ? escapeHtml(`${lead.NAME||''} ${lead.LAST_NAME||''}`.trim()) : `ID ${lead.ID}`);
+    const src = escapeHtml(lead.SOURCE_ID || '—');
+    return `<tr>
+      <td>
+        <div style="font-weight:600;font-size:12.5px;">${title}</div>
+        <div style="font-size:10.5px;color:var(--ink-soft);margin-top:2px;">${src} · ${escapeHtml(mgrName)}</div>
+      </td>
+      <td>${badge}</td>
+      <td>${date}</td>
+      <td>${lead.OPPORTUNITY ? fmtMoney(parseFloat(lead.OPPORTUNITY), lead.CURRENCY_ID || currency) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const scrollClass = standalone ? 'section-list-scroll' : 'modal-list-scroll';
+  const table = leads.length > 0
+    ? `<div class="${scrollClass}"><table class="modal-list-table">
+        <thead><tr><th>${t('leadNameCol')}</th><th>${t('statusCol')}</th><th>${t('dateShortCol')}</th><th>${t('amountCol')}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`
+    : `<div class="modal-note">${t('noLeadsFilter')}</div>`;
+
+  const note = leads.length > 100 ? `<div class="modal-note">${t('last100shown')} ${leads.length} ${t('leadsWord')}.</div>` : '';
+
+  const statusRows = Object.entries(c.statusCounts).sort((a,b) => b[1].count - a[1].count)
+    .map(([id, s]) => `<tr><td>${escapeHtml(s.name)}</td><td>${s.count}</td></tr>`).join('');
+  const sourceRows = Object.entries(c.sourceCounts).sort((a,b) => b[1] - a[1])
+    .map(([src, count]) => `<tr><td>${escapeHtml(src)}</td><td>${count}</td></tr>`).join('');
+
+  const breakdown = `
+    <table style="width:100%;margin-top:16px;border-collapse:collapse;"><tr>
+      <td style="width:48%;vertical-align:top;">
+        <div class="modal-subtitle">${t('leadsByStatus')}</div>
+        <table class="modal-table"><tbody>${statusRows}</tbody></table>
+      </td>
+      <td style="width:4%;"></td>
+      <td style="width:48%;vertical-align:top;">
+        <div class="modal-subtitle">${t('leadsBySource')}</div>
+        <table class="modal-table"><tbody>${sourceRows}</tbody></table>
+      </td>
+    </tr></table>
+  `;
+
+  const html = summary
+    + `<div class="modal-filter-row" id="leadsFilterRow">${chips}</div>`
+    + table + note + breakdown;
+
+  return {title: `${t('leadsNav')} (${c.total})`, html};
+}
+
+function openLeadsDetail(filterType){
+  const built = buildLeadsHtml(filterType, false);
+  if(!built) return;
+  openModal(built.title, built.html);
+  document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+}
+
+function renderLeadsSection(filterType){
+  const built = buildLeadsHtml(filterType, true);
+  if(!built){
+    content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('leadsNav')}</h2></div><div class="modal-note">${t('noData')}</div></div>`;
+    return;
+  }
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${built.title}</h2></div>${built.html}</div>`;
+}
+
 function openCallsDetail(filterType){
   const built = buildCallsHtml(filterType, false);
   if(!built) return;
@@ -4670,6 +4905,7 @@ document.addEventListener('click', (e) => {
   else if(type === 'avgdeal') openAvgDealDetail();
   else if(type === 'bestdeal') openBestDealDetail();
   else if(type === 'calls') openCallsDetail();
+  else if(type === 'leads') openLeadsDetail();
   else if(type === 'tasks') openTasksDetail('all');
   else if(type === 'tasks-new') openTasksDetail('new');
   else if(type === 'tasks-work') openTasksDetail('work');
@@ -5003,12 +5239,12 @@ const PLANS = {
   },
   business: {
     name: 'Бизнес',
-    features: ['kpis','chart','goal','funnels','managers','loss','calls','tasks','reports'],
+    features: ['kpis','chart','goal','funnels','managers','loss','calls','tasks','leads','reports'],
     // Недоступно: analytics, editor
   },
   pro: {
     name: 'Про',
-    features: ['kpis','chart','goal','funnels','managers','loss','calls','tasks','reports','analytics','editor'],
+    features: ['kpis','chart','goal','funnels','managers','loss','calls','tasks','leads','reports','analytics','editor'],
     // Всё доступно
   }
 };
@@ -5289,6 +5525,10 @@ disconnectBtn.addEventListener('click', () => {
   lastCallStats = null;
   lastCallStatsError = '';
   lastRawCalls = [];
+  lastLeadStats = null;
+  lastLeadStatsError = '';
+  lastRawLeads = [];
+  lastLeadStatusMap = {};
   lastRawTasks = [];
   lastTasksFetched = false;
   lastTaskStatsError = '';
@@ -6664,6 +6904,8 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
     openAnalytics('sources');
   } else if(nav === 'calls'){
     renderCallsSection();
+  } else if(nav === 'leads'){
+    renderLeadsSection();
   } else if(nav === 'tasks'){
     renderTasksSection();
   } else if(nav === 'settings'){
@@ -6772,6 +7014,16 @@ function startDemoMode(){
   lastHasManagers = true;
   lastCallStats = {incoming:48, outgoing:112, successful:124, missed:36, total:160, totalDuration:14400};
   lastRawCalls = [];
+  lastLeadStatusMap = {NEW:'Новый', IN_PROCESS:'В работе', CONVERTED:'Конвертирован', JUNK:'Некачественный'};
+  lastRawLeads = [
+    {ID:'l1',TITLE:'Заявка с сайта — Ромашка ООО',STATUS_ID:'CONVERTED',SOURCE_ID:'WEB',ASSIGNED_BY_ID:'d1',OPPORTUNITY:'850000',CURRENCY_ID:'UZS',DATE_CREATE:new Date(Date.now()-3*86400000).toISOString()},
+    {ID:'l2',TITLE:'Заявка с сайта — Акме',STATUS_ID:'IN_PROCESS',SOURCE_ID:'WEB',ASSIGNED_BY_ID:'d2',OPPORTUNITY:'420000',CURRENCY_ID:'UZS',DATE_CREATE:new Date(Date.now()-1*86400000).toISOString()},
+    {ID:'l3',TITLE:'Звонок — Технопром',STATUS_ID:'NEW',SOURCE_ID:'CALL',ASSIGNED_BY_ID:'d1',OPPORTUNITY:'0',CURRENCY_ID:'UZS',DATE_CREATE:new Date().toISOString()},
+    {ID:'l4',TITLE:'Instagram — частное лицо',STATUS_ID:'JUNK',SOURCE_ID:'INSTAGRAM',ASSIGNED_BY_ID:'d3',OPPORTUNITY:'0',CURRENCY_ID:'UZS',DATE_CREATE:new Date(Date.now()-5*86400000).toISOString()},
+    {ID:'l5',TITLE:'Заявка на консультацию',STATUS_ID:'IN_PROCESS',SOURCE_ID:'WEB',ASSIGNED_BY_ID:'d2',OPPORTUNITY:'300000',CURRENCY_ID:'UZS',DATE_CREATE:new Date(Date.now()-2*86400000).toISOString()},
+  ];
+  lastLeadStats = aggregateLeadStats(lastRawLeads, lastLeadStatusMap);
+  lastLeadStatsError = '';
   lastTasksFetched = true;
   lastRawTasks = [
     {id:'t1',title:'Позвонить клиенту Ромашка',status:'3',deadline:null,createdDate:new Date().toISOString(),responsibleId:'d1'},
@@ -7374,6 +7626,14 @@ document.addEventListener('click', (e) => {
   if(tasksChip){
     if(tasksChip.closest('#detailModal')) openTasksDetail(tasksChip.dataset.tasksFilter);
     else renderTasksSection(tasksChip.dataset.tasksFilter);
+    return;
+  }
+
+  // фильтр-чипсы внутри модалки лидов или раздела «Лиды»
+  const leadsChip = e.target.closest('[data-leads-filter]');
+  if(leadsChip){
+    if(leadsChip.closest('#detailModal')) openLeadsDetail(leadsChip.dataset.leadsFilter);
+    else renderLeadsSection(leadsChip.dataset.leadsFilter);
     return;
   }
 });
