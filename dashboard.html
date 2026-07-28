@@ -1603,10 +1603,11 @@ const TRANSLATIONS = {
     successBadge: 'Успешный',
     missedBadge: 'Пропущен',
     analyzeBtnLabel: 'Анализ',
+    callScoreLabel: 'Оценка звонка ИИ',
     customAnalysisLink: 'Настроить критерии анализа звонков',
     customAnalysisTitle: 'Критерии анализа звонков',
-    customAnalysisDesc: 'Опишите своими словами, на что ИИ должен обращать внимание при разборе звонков — например, проверять упоминание конкретной акции, оценивать по вашей шкале, следовать вашему скрипту продаж. Если оставить пустым — используется стандартный разбор.',
-    customAnalysisPlaceholder: 'Например:\n1. Упомянул ли менеджер акцию "Скидка 10% при оплате картой"?\n2. Задал ли уточняющие вопросы о потребностях клиента?\n3. Оцени по шкале 1-10, насколько уверенно менеджер отвечал на возражения',
+    customAnalysisDesc: 'Опишите своими словами, на что ИИ должен обращать внимание при разборе звонков — например, проверять упоминание конкретной акции, следовать вашему скрипту продаж. Оценка звонка по 10-балльной шкале добавляется автоматически при любом разборе, задавать её отдельно не нужно. Если оставить поле пустым — используется стандартный разбор.',
+    customAnalysisPlaceholder: 'Например:\n1. Упомянул ли менеджер акцию "Скидка 10% при оплате картой"?\n2. Задал ли уточняющие вопросы о потребностях клиента?\n3. Предложил ли встречу или следующий шаг перед завершением звонка?',
     customAnalysisSave: 'Сохранить',
     customAnalysisReset: 'Сбросить',
     doneChip: 'Завершённые',
@@ -2044,10 +2045,11 @@ const TRANSLATIONS = {
     successBadge: 'Muvaffaqiyatli',
     missedBadge: 'O\'tkazib yuborilgan',
     analyzeBtnLabel: 'Tahlil',
+    callScoreLabel: 'AI qo\'ng\'iroq bahosi',
     customAnalysisLink: 'Qo\'ng\'iroq tahlili mezonlarini sozlash',
     customAnalysisTitle: 'Qo\'ng\'iroq tahlili mezonlari',
-    customAnalysisDesc: 'AI qo\'ng\'iroqlarni tahlil qilishda nimalarga e\'tibor berishi kerakligini o\'z so\'zlaringiz bilan yozing — masalan, aniq aksiya aytilganini tekshirish, o\'z shkalangiz bo\'yicha baholash, savdo skriptingizga amal qilish. Bo\'sh qoldirsangiz — standart tahlil ishlatiladi.',
-    customAnalysisPlaceholder: 'Masalan:\n1. Menejer "Karta orqali to\'lovda 10% chegirma" aksiyasini aytdimi?\n2. Mijoz ehtiyojlari haqida aniqlashtiruvchi savollar berdimi?\n3. Menejer e\'tirozlarga qanchalik ishonchli javob berganini 1-10 shkalasi bo\'yicha baholang',
+    customAnalysisDesc: 'AI qo\'ng\'iroqlarni tahlil qilishda nimalarga e\'tibor berishi kerakligini o\'z so\'zlaringiz bilan yozing — masalan, aniq aksiya aytilganini tekshirish, savdo skriptingizga amal qilish. 10 balllik shkala bo\'yicha baho har doim avtomatik qo\'shiladi, uni alohida so\'rash shart emas. Bo\'sh qoldirsangiz — standart tahlil ishlatiladi.',
+    customAnalysisPlaceholder: 'Masalan:\n1. Menejer "Karta orqali to\'lovda 10% chegirma" aksiyasini aytdimi?\n2. Mijoz ehtiyojlari haqida aniqlashtiruvchi savollar berdimi?\n3. Qo\'ng\'iroqni tugatishdan oldin uchrashuv yoki keyingi qadamni taklif qildimi?',
     customAnalysisSave: 'Saqlash',
     customAnalysisReset: 'Tozalash',
     doneChip: 'Bajarilgan',
@@ -6206,10 +6208,20 @@ async function analyzeCallRecording(fileId, btnEl){
     const transcriptHtml = data.transcript
       ? `<div class="help" style="max-height:220px;overflow-y:auto;white-space:pre-wrap;font-size:12.5px;">${escapeHtml(data.transcript)}</div>`
       : '<div class="modal-note">Речь не распознана.</div>';
+    // Убираем строку "ОЦЕНКА: X/10" из текста разбора — она уже показана отдельным значком ниже
+    const analysisText = (data.analysis || 'Нет ответа').replace(/^\s*ОЦЕНКА:\s*\d{1,2}\s*\/\s*10\s*\n?/i, '').trim();
+    const score = data.score;
+    const scoreColor = score === null ? 'var(--ink-soft)' : score >= 8 ? 'var(--accent-strong)' : score >= 5 ? '#F59E0B' : 'var(--red-bad)';
+    const scoreBadge = score !== null ? `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 16px;background:var(--overlay-1);border-radius:10px;border-left:3px solid ${scoreColor};">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:26px;color:${scoreColor};">${score}<span style="font-size:14px;color:var(--ink-soft);font-weight:600;">/10</span></div>
+        <div style="font-size:12px;color:var(--ink-soft);">${t('callScoreLabel')}</div>
+      </div>` : '';
     openModal('Анализ звонка', `
+      ${scoreBadge}
       <div class="analytics-section" style="margin-bottom:16px;">
         <div class="analytics-title" style="font-size:14px;">Разбор</div>
-        <div style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(data.analysis || 'Нет ответа')}</div>
+        <div style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(analysisText)}</div>
       </div>
       <div class="analytics-section">
         <div class="analytics-title" style="font-size:14px;">Расшифровка</div>
