@@ -8129,7 +8129,6 @@ applyLang(); // применяем язык сразу
   // до логина. Раньше логин перехватывал раньше, и кнопка «Посмотреть демо» не работала.
   const params = new URLSearchParams(window.location.search);
   if(params.get('demo') === '1'){
-    try{ window.history.replaceState(null, '', window.location.pathname); }catch(e){}
     startDemoMode();
     return;
   }
