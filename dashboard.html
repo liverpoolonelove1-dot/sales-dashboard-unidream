@@ -2267,7 +2267,7 @@ let lastFunnels = [];
 // Список воронок и их стадий не зависит от выбранного периода (это структура CRM, не данные) —
 // раньше при каждой смене периода (Сегодня/Неделя/...) они запрашивались заново вместе со сделками.
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
-let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
+let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} }; // + статусы лидов, имена сотрудников и семантика стадий — тоже структура, не данные, незачем перезапрашивать каждый раз
 let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null }; // сделки, звонки, лиды, задачи за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
@@ -2955,14 +2955,14 @@ async function fetchLeadStatuses(webhook){
   }catch(e){ return {}; }
 }
 
-async function fetchLeadStats(webhook, period){
+async function fetchLeadStats(webhook, period, cachedStatusMap){
   const filter = {};
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
-  const select = ['ID','TITLE','STATUS_ID','SOURCE_ID','ASSIGNED_BY_ID','OPPORTUNITY','CURRENCY_ID','DATE_CREATE','DATE_MODIFY','NAME','LAST_NAME'];
+  const select = ['ID','TITLE','STATUS_ID','SOURCE_ID','ASSIGNED_BY_ID','OPPORTUNITY','CURRENCY_ID','DATE_CREATE','NAME','LAST_NAME'];
   const [rawLeads, statusMap] = await Promise.all([
     fetchAllPaged(webhook, 'crm.lead.list', {filter, select, order: {DATE_CREATE: 'DESC'}}),
-    fetchLeadStatuses(webhook)
+    cachedStatusMap ? Promise.resolve(cachedStatusMap) : fetchLeadStatuses(webhook)
   ]);
   return {rawLeads, statusMap};
 }
@@ -3069,10 +3069,11 @@ const CRM_ADAPTERS = {
       return raw.map(s => ({id: s.STATUS_ID, name: s.NAME}));
     },
     async fetchDeals(conn, funnelId, period){
-      const [semMap, raw] = await Promise.all([
-        fetchSemantics(conn.webhook, funnelId),
-        fetchDealsForCategory(conn.webhook, funnelId, period)
-      ]);
+      if(!structureCache.semanticsByFunnelId[funnelId]){
+        structureCache.semanticsByFunnelId[funnelId] = fetchSemantics(conn.webhook, funnelId);
+      }
+      const semMap = await structureCache.semanticsByFunnelId[funnelId];
+      const raw = await fetchDealsForCategory(conn.webhook, funnelId, period);
       const mapped = raw.map(d => ({
         id: d.ID,
         title: d.TITLE || '',
@@ -3098,7 +3099,9 @@ const CRM_ADAPTERS = {
       return fetchCallStats(conn.webhook, period);
     },
     async fetchLeads(conn, period){
-      return fetchLeadStats(conn.webhook, period);
+      const result = await fetchLeadStats(conn.webhook, period, structureCache.leadStatusMap);
+      if(!structureCache.leadStatusMap) structureCache.leadStatusMap = result.statusMap;
+      return result;
     },
     async fetchTasks(conn, period){
       return fetchTaskStats(conn.webhook, period);
@@ -3420,7 +3423,7 @@ async function loadDashboard(forceRefresh){
   try{
     const connKey = conn.webhook || JSON.stringify(conn);
     if(structureCache.connKey !== connKey || forceRefresh){
-      structureCache = { connKey, funnels: null, stagesByFunnelId: {} };
+      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null };
     }
     if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
@@ -3693,7 +3696,12 @@ async function loadDashboard(forceRefresh){
     let namesErrorMsg = '';
     if(managerIds.length > 0){
       try{
-        nameMap = await adapter.fetchUserNames(conn, managerIds);
+        if(structureCache.userNames){
+          nameMap = structureCache.userNames;
+        } else {
+          nameMap = await adapter.fetchUserNames(conn, managerIds);
+          structureCache.userNames = nameMap;
+        }
       }catch(e){
         namesResolved = false;
         namesErrorMsg = e.message || String(e);
@@ -5998,7 +6006,7 @@ disconnectBtn.addEventListener('click', () => {
   clearSettings();
   currentAdapter = null;
   currentConn = null;
-  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
+  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null };
   monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
   goalAmount = null;
   selectedFunnelIds = null;
