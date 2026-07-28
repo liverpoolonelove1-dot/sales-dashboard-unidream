@@ -3423,7 +3423,7 @@ async function loadDashboard(forceRefresh){
   try{
     const connKey = conn.webhook || JSON.stringify(conn);
     if(structureCache.connKey !== connKey || forceRefresh){
-      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null };
+      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} };
     }
     if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
@@ -6006,7 +6006,7 @@ disconnectBtn.addEventListener('click', () => {
   clearSettings();
   currentAdapter = null;
   currentConn = null;
-  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null };
+  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} };
   monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
   goalAmount = null;
   selectedFunnelIds = null;
