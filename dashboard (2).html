@@ -2268,6 +2268,7 @@ let lastFunnels = [];
 // раньше при каждой смене периода (Сегодня/Неделя/...) они запрашивались заново вместе со сделками.
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
 let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
+let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {} }; // сделки за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
 let lastDailyEntries = [];
@@ -3350,6 +3351,9 @@ async function loadDashboard(forceRefresh){
     if(structureCache.connKey !== connKey || forceRefresh){
       structureCache = { connKey, funnels: null, stagesByFunnelId: {} };
     }
+    if(forceRefresh){
+      monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {} };
+    }
     const rawFunnels = structureCache.funnels || await adapter.fetchFunnels(conn);
     structureCache.funnels = rawFunnels;
     const seenIds = new Set();
@@ -3418,11 +3422,32 @@ async function loadDashboard(forceRefresh){
     // Теперь такие дубли не отправляются вообще — экономит до 40% запросов в самом частом случае.
     const periodIsMonth = currentPeriod.type === 'month';
     const prevIsSameAsPrevMonth = periodIsMonth; // при periodIsMonth prevPeriod всегда совпадает с prevMonthRange
+    // Периоды "Сегодня"/"Эта неделя"/"Этот месяц" — все являются подмножеством текущего месяца.
+    // Чтобы переключение между ними было мгновенным (без нового похода на сервер), при любом
+    // из этих трёх периодов запрашиваем сразу ВЕСЬ месяц один раз и кэшируем — а сам показываемый
+    // период потом просто фильтруем на клиенте из уже полученных данных.
+    const monthKey = `${thisMonthRange.from}_${thisMonthRange.to}`;
+    const canUseMonthCache = ['today','week','month'].includes(currentPeriod.type);
+    const monthCacheValid = monthDealsCache.connKey === connKey && monthDealsCache.monthKey === monthKey;
+    if(canUseMonthCache && !monthCacheValid){
+      monthDealsCache = { connKey, monthKey, byFunnelId: {} };
+    }
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${funnelsToLoad.length === 1 ? 'воронка' : 'воронок'}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const stagesPromise = structureCache.stagesByFunnelId[fn.id]
         ? Promise.resolve(structureCache.stagesByFunnelId[fn.id])
         : adapter.fetchStages(conn, fn.id).then(s => { structureCache.stagesByFunnelId[fn.id] = s; return s; });
+
+      if(canUseMonthCache){
+        // Сделки за месяц — либо уже в кэше (мгновенно, без сети), либо запрашиваем один раз
+        const monthDealsPromise = monthDealsCache.byFunnelId[fn.id]
+          ? Promise.resolve(monthDealsCache.byFunnelId[fn.id])
+          : adapter.fetchDeals(conn, fn.id, thisMonthPeriod).then(d => { monthDealsCache.byFunnelId[fn.id] = d; return d; });
+        const promises = [stagesPromise, monthDealsPromise];
+        if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod));
+        return Promise.all(promises);
+      }
+
       const promises = [
         stagesPromise,
         adapter.fetchDeals(conn, fn.id, currentPeriod),
@@ -3438,13 +3463,26 @@ async function loadDashboard(forceRefresh){
     for(let i = 0; i < funnelsToLoad.length; i++){
       const fn = funnelsToLoad[i];
       const results = funnelFetches[i];
-      const stageOrder = results[0], deals = results[1];
-      if(deals.__truncated) dataMayBeTruncated = true;
-      // Если период — это месяц, "сделки за период" и "сделки за месяц" совпадают:
-      // переиспользуем уже полученный результат вместо повторного запроса.
-      const monthDeals = periodIsMonth ? deals : results[2];
-      const prevDeals = prevPeriod ? results[4] : [];
-      const prevMonthDeals = prevIsSameAsPrevMonth ? prevDeals : results[3];
+      const stageOrder = results[0];
+      let deals, monthDeals, prevDeals, prevMonthDeals;
+      if(canUseMonthCache){
+        // Сделки уже за весь месяц (из кэша или только что загруженные) — саму выборку
+        // под конкретный период (сегодня/неделя) просто фильтруем на клиенте, без сети.
+        monthDeals = results[1];
+        if(monthDeals.__truncated) dataMayBeTruncated = true;
+        deals = periodIsMonth ? monthDeals : monthDeals.filter(d =>
+          d.createdAt && d.createdAt.slice(0,10) >= currentPeriod.from && d.createdAt.slice(0,10) <= currentPeriod.to);
+        prevDeals = prevPeriod ? results[2] : [];
+        prevMonthDeals = prevDeals; // отдельный запрос "прошлый месяц" в этой ветке не делаем — прошлые KPI и так считаются от prevDeals
+      } else {
+        deals = results[1];
+        if(deals.__truncated) dataMayBeTruncated = true;
+        // Если период — это месяц, "сделки за период" и "сделки за месяц" совпадают:
+        // переиспользуем уже полученный результат вместо повторного запроса.
+        monthDeals = periodIsMonth ? deals : results[2];
+        prevDeals = prevPeriod ? results[4] : [];
+        prevMonthDeals = prevIsSameAsPrevMonth ? prevDeals : results[3];
+      }
 
       monthDealsTotal += monthDeals.length;
       monthDeals.forEach(d => {
@@ -5428,7 +5466,7 @@ autoRefreshSelect.addEventListener('change', () => {
   const minutes = parseInt(autoRefreshSelect.value, 10);
   if(minutes > 0){
     autoRefreshTimer = setInterval(() => {
-      if(currentConn) loadDashboard();
+      if(currentConn) loadDashboard(true); // forceRefresh — авто-обновление должно видеть новые сделки, а не брать из кэша месяца
     }, minutes * 60 * 1000);
   }
   saveSettings();
@@ -5800,7 +5838,7 @@ function restoreSettings(){
     autoRefreshSelect.value = String(s.autoRefreshMinutes);
     if(autoRefreshTimer) clearInterval(autoRefreshTimer);
     autoRefreshTimer = setInterval(() => {
-      if(currentConn) loadDashboard();
+      if(currentConn) loadDashboard(true); // forceRefresh — авто-обновление должно видеть новые сделки, а не брать из кэша месяца
     }, s.autoRefreshMinutes * 60 * 1000);
   }
 }
@@ -5873,6 +5911,7 @@ disconnectBtn.addEventListener('click', () => {
   currentAdapter = null;
   currentConn = null;
   structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
+  monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {} };
   goalAmount = null;
   selectedFunnelIds = null;
   availableFunnels = [];
