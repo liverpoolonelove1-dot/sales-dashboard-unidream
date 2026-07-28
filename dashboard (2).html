@@ -7869,8 +7869,8 @@ function addNotif(type, title, body){
   notifications.unshift({type, title, body, ts: new Date().toISOString()});
   if(notifications.length > 50) notifications.pop();
   updateNotifBadge();
-  // Browser Push если разрешён
-  if(Notification.permission === 'granted' && document.hidden){
+  // Browser Push если разрешён (и если браузер вообще поддерживает Notification API — в iOS Safari его нет)
+  if(typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden){
     try{ new Notification(`PulseCRM: ${title}`, {body, icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="%2314151A"/><text y="22" x="4" font-size="20" font-weight="900" fill="%23C6F135">P</text></svg>'}); }catch(e){}
   }
 }
