@@ -841,12 +841,8 @@
     100%{transform:translateY(-100vh) translateX(var(--drift,20px));opacity:0;}
   }
 
-  .cine-active #dashboardView{animation:cineCameraBreathe 19s ease-in-out infinite;transform-origin:50% 20%;will-change:transform;}
-  @keyframes cineCameraBreathe{
-    0%{transform:scale(1) translateY(0);}
-    45%{transform:scale(1.018) translateY(-4px);}
-    100%{transform:scale(1) translateY(0);}
-  }
+  .cine-active .chart-hero{animation:cineHeroGlow 6s ease-in-out infinite;}
+  @keyframes cineHeroGlow{0%,100%{box-shadow:0 1px 3px var(--shadow-color);}50%{box-shadow:0 4px 24px rgba(198,241,53,.15);}}
 
   /* Стартовое скрытое состояние для элементов до появления в сборке */
   .cine-hidden{opacity:0 !important;transform:translateY(22px) scale(.98);will-change:transform,opacity;}
@@ -874,7 +870,7 @@
   @keyframes cineCellPop{0%{opacity:0;transform:scale(.5);}70%{opacity:1;transform:scale(1.12);}100%{opacity:1;transform:scale(1);}}
 
   @media(prefers-reduced-motion:reduce){
-    .cine-active #dashboardView{animation:none;}
+    .cine-active .chart-hero{animation:none;}
     .cine-sweep::after{animation:none;display:none;}
     .cine-particle{display:none;}
     .cine-hidden{opacity:1 !important;transform:none;}
@@ -5807,6 +5803,11 @@ function stripWebhookFromUrl(){
 }
 
 disconnectBtn.addEventListener('click', () => {
+  isDemoMode = false;
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = '';
+  document.body.classList.remove('cine-active');
+  clearTimeout(cineLoopTimer);
   clearSavedConnection();
   clearSettings();
   currentAdapter = null;
@@ -7381,6 +7382,8 @@ function startDemoMode(){
   document.getElementById('demoBanner').style.display = 'flex';
   document.getElementById('analyticsBtn').style.display = 'inline-flex';
   document.getElementById('assistantToggleBtn').style.display = 'flex';
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = 'none';
   renderAssistantInsights();
   showDashboard();
   renderDashboard(funnels, managers, dailyEntries, true, true, lastLostReasons);
