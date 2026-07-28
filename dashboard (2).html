@@ -1326,7 +1326,7 @@ const TRANSLATIONS = {
     prevMonth: 'прошлому месяцу',
     prevPeriodLabel: 'прошлому периоду',
     periodNote: 'Все показатели ниже и KPI сверху следуют за периодом, выбранным в фильтре выше. Исключение — график «Динамика продаж»: он всегда показывает календарь текущего месяца.',
-    truncatedWarning: 'У одной из воронок за этот период больше 5 000 сделок — для скорости загружена только часть, поэтому цифры на этой странице могут быть неполными. Сузьте период (например, «Эта неделя» вместо «Всё время»), чтобы увидеть точные данные.',
+    truncatedWarning: 'У одной из воронок за этот период больше 50 000 сделок — для скорости загружена только часть, поэтому цифры на этой странице могут быть неполными. Сузьте период (например, «Эта неделя» вместо «Всё время»), чтобы увидеть точные данные.',
     leadsNav: 'Лиды',
     convertedLbl: 'Конвертировано',
     junkLbl: 'Некачественные',
@@ -1773,7 +1773,7 @@ const TRANSLATIONS = {
     prevMonth: 'oldingi oyga',
     prevPeriodLabel: 'oldingi davrga',
     periodNote: 'Pastdagi barcha ko\'rsatkichlar va yuqoridagi KPI yuqoridagi filtrda tanlangan davrga amal qiladi. Istisno — "Savdo dinamikasi" grafigi: u doim joriy oy kalendarini ko\'rsatadi.',
-    truncatedWarning: 'Voronkalardan birida shu davr uchun 5 000 dan ortiq bitim bor — tezlik uchun faqat bir qismi yuklandi, shuning uchun bu sahifadagi raqamlar to\'liq bo\'lmasligi mumkin. Aniq ma\'lumotlarni ko\'rish uchun davrni torraytiring (masalan, "Bu hafta" ni "Barcha vaqt" o\'rniga tanlang).',
+    truncatedWarning: 'Voronkalardan birida shu davr uchun 50 000 dan ortiq bitim bor — tezlik uchun faqat bir qismi yuklandi, shuning uchun bu sahifadagi raqamlar to\'liq bo\'lmasligi mumkin. Aniq ma\'lumotlarni ko\'rish uchun davrni torraytiring (masalan, "Bu hafta" ni "Barcha vaqt" o\'rniga tanlang).',
     leadsNav: 'Lidlar',
     convertedLbl: 'Bitimga aylandi',
     junkLbl: 'Sifatsiz',
@@ -2844,7 +2844,7 @@ async function fetchAllPaged(webhook, method, params){
   // это ОБРЕЗАЛО данные молча, и все расчёты (включая конверсию) шли по неполной выборке.
   // Подняли лимит и вместо тихой обрезки — честно помечаем, что данные неполные,
   // чтобы дашборд мог показать предупреждение пользователю.
-  const MAX_RECORDS = 5000;
+  const MAX_RECORDS = 50000;
   const first = await callMethod(webhook, method, {...params, start: 0});
   let all = Array.isArray(first.result) ? first.result.slice() : [];
   const total = typeof first.total === 'number' ? first.total : null;
@@ -2999,7 +2999,7 @@ async function fetchTaskStats(webhook, period){
   const total = typeof first.total === 'number' ? first.total : null;
   if(!first.next || !total || all.length === 0) return all;
   const pageSize = all.length;
-  const MAX_RECORDS = 5000;
+  const MAX_RECORDS = 50000;
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
