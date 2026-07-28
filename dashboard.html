@@ -2738,6 +2738,74 @@ async function callMethod(webhook, method, params){
   return enqueueRequest(() => callMethodRaw(webhook, method, qs, 0));
 }
 
+// Bitrix24 batch API — объединяет до 50 вызовов в ОДИН HTTP-запрос (POST, чтобы не упереться
+// в лимит длины URL). Раньше 100 страниц пагинации = 100 отдельных HTTP-запросов даже с очередью
+// параллельности; теперь то же самое — всего 2 запроса по 50 команд каждый. Это главный резерв
+// скорости для клиентов с большим объёмом сделок.
+async function callBatchRaw(webhook, cmd, attempt){
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+  try{
+    const body = new URLSearchParams();
+    body.append('halt', '0');
+    for(const key in cmd) body.append(`cmd[${key}]`, cmd[key]);
+    const res = await fetch(`${webhook}batch.json`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: body.toString()
+    });
+    clearTimeout(timeout);
+    if(res.status === 401) throw new Error('HTTP 401 — нет прав доступа. Проверьте настройки вебхука.');
+    if(res.status === 403) throw new Error('HTTP 403 — доступ запрещён. Добавьте нужные права вебхуку.');
+    if((res.status === 503 || res.status === 429) && attempt < 5){
+      await sleep(350 * (attempt + 1));
+      return callBatchRaw(webhook, cmd, attempt + 1);
+    }
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < 5){
+      await sleep(350 * (attempt + 1));
+      return callBatchRaw(webhook, cmd, attempt + 1);
+    }
+    if(data.error) throw new Error(data.error_description || data.error);
+    return data.result; // {result:{key:[...]}, result_error:{...}, ...}
+  }catch(e){
+    clearTimeout(timeout);
+    if(e.name === 'AbortError') throw new Error('Превышено время ожидания batch-запроса.');
+    if(e instanceof TypeError && attempt < 3){
+      await sleep(500 * (attempt + 1));
+      return callBatchRaw(webhook, cmd, attempt + 1);
+    }
+    throw e;
+  }
+}
+
+// calls: [{method, params}] — выполняет их одним (или несколькими, если больше 50) batch-запросом,
+// возвращает массив "сырых" result-массивов в том же порядке, что и calls
+async function callBatch(webhook, calls){
+  const CHUNK = 50; // лимит Bitrix24 на команд в одном batch
+  const out = new Array(calls.length);
+  const chunks = [];
+  for(let i = 0; i < calls.length; i += CHUNK) chunks.push(calls.slice(i, i + CHUNK));
+  await Promise.all(chunks.map(async (chunk, chunkIdx) => {
+    const cmd = {};
+    chunk.forEach((c, i) => {
+      const qs = new URLSearchParams();
+      for(const k in c.params) appendParams(qs, k, c.params[k]);
+      cmd['c' + i] = `${c.method}?${qs.toString()}`;
+    });
+    const result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+    chunk.forEach((c, i) => {
+      const key = 'c' + i;
+      out[chunkIdx * CHUNK + i] = (result.result_error && result.result_error[key])
+        ? { __batchError: result.result_error[key].error_description || result.result_error[key].error }
+        : (result.result ? result.result[key] : []) || [];
+    });
+  }));
+  return out;
+}
+
 async function callMethodRaw(webhook, method, qs, attempt){
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000); // 15 сек таймаут
@@ -2784,16 +2852,18 @@ async function fetchAllPaged(webhook, method, params){
     if(total !== null) all.__total = total;
     return all;
   }
-  // Раньше страницы запрашивались одна за другой (await в цикле).
-  // Теперь, зная общее количество записей (total), сразу запрашиваем все
-  // оставшиеся страницы параллельно (через очередь выше — не наперегонки с лимитом Bitrix).
+  // Раньше страницы запрашивались одна за другой (await в цикле), потом — параллельно,
+  // но каждая всё равно отдельным HTTP-запросом. Теперь используем batch API Bitrix24:
+  // до 50 страниц пагинации объединяются в ОДИН HTTP-запрос — это и есть основной резерв
+  // скорости для клиентов с большим объёмом данных.
   const pageSize = all.length;
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
   if(starts.length){
-    const pages = await Promise.all(starts.map(start => callMethod(webhook, method, {...params, start})));
-    pages.forEach(p => { if(Array.isArray(p.result)) all = all.concat(p.result); });
+    const calls = starts.map(start => ({method, params: {...params, start}}));
+    const pages = await callBatch(webhook, calls);
+    pages.forEach(p => { if(Array.isArray(p)) all = all.concat(p); });
   }
   all.__total = total;
   all.__truncated = total > MAX_RECORDS;
@@ -2934,8 +3004,9 @@ async function fetchTaskStats(webhook, period){
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
   if(starts.length){
-    const pages = await Promise.all(starts.map(start => callMethod(webhook, 'tasks.task.list', {filter, select, start})));
-    pages.forEach(p => { if(p.result && p.result.tasks) all = all.concat(p.result.tasks); });
+    const calls = starts.map(start => ({method: 'tasks.task.list', params: {filter, select, start}}));
+    const pages = await callBatch(webhook, calls);
+    pages.forEach(p => { if(p && p.tasks) all = all.concat(p.tasks); });
   }
   all.__total = total;
   all.__truncated = total > MAX_RECORDS;
