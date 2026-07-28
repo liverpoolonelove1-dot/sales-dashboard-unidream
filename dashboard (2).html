@@ -2292,6 +2292,8 @@ let callFilterManagerId = 'all'; // выбранный менеджер для �
 let callFilterType = 'all'; // текущий чипс-фильтр звонков (все/входящие/...), чтобы не сбрасывался при смене менеджера
 let stagesDateFrom = ''; // свой диапазон дат для вкладки «По стадиям» в Аналитике — независим от общего фильтра периода
 let stagesDateTo = '';
+let leadFilterManagerId = 'all'; // выбранный менеджер для фильтра лидов
+let leadFilterType = 'all'; // текущий чипс-фильтр лидов, чтобы не сбрасывался при смене менеджера
 
 // ===== ЖУРНАЛ ОШИБОК =====
 const errorLog = [];
@@ -4778,9 +4780,30 @@ function buildCallsHtml(filterType, standalone){
 
 function buildLeadsHtml(filterType, standalone){
   if(!lastLeadStats && lastRawLeads.length === 0) return null;
-  const c = lastLeadStats || {total:0, converted:0, junk:0, inProgress:0, convRate:0, opportunitySum:0, statusCounts:{}, sourceCounts:{}};
   filterType = filterType || 'all';
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
+
+  // Фильтр по менеджеру — сводка ниже пересчитывается только по его лидам
+  const uniqueLeadManagers = [...new Set(lastRawLeads.map(l => String(l.ASSIGNED_BY_ID || '')))].filter(Boolean);
+  const leadManagerOptions = uniqueLeadManagers.map(id => {
+    const found = lastManagers.find(m => String(m.id) === id);
+    const name = found ? found.name : `${t('employeeIdPrefix')} ${id}`;
+    return `<option value="${id}" ${leadFilterManagerId === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+  }).join('');
+  const leadManagerFilterHtml = uniqueLeadManagers.length > 0 ? `
+    <div style="margin-bottom:12px;">
+      <select id="leadManagerFilter" class="tasks-manager-select">
+        <option value="all" ${leadFilterManagerId === 'all' ? 'selected' : ''}>${t('allManagers')}</option>
+        ${leadManagerOptions}
+      </select>
+    </div>` : '';
+
+  const leadsByManager = leadFilterManagerId !== 'all'
+    ? lastRawLeads.filter(l => String(l.ASSIGNED_BY_ID) === leadFilterManagerId)
+    : lastRawLeads;
+  const c = leadsByManager.length > 0 || leadFilterManagerId !== 'all'
+    ? aggregateLeadStats(leadsByManager, lastLeadStatusMap)
+    : (lastLeadStats || {total:0, converted:0, junk:0, inProgress:0, convRate:0, opportunitySum:0, statusCounts:{}, sourceCounts:{}});
 
   const summary = `
     <div class="modal-summary-row">
@@ -4802,7 +4825,7 @@ function buildLeadsHtml(filterType, standalone){
     {key:'junk', label:t('junkChip')}
   ].map(ch => `<span class="modal-filter-chip ${filterType===ch.key?'active':''}" data-leads-filter="${ch.key}">${ch.label}</span>`).join('');
 
-  let leads = [...lastRawLeads];
+  let leads = [...leadsByManager];
   if(filterType === 'converted') leads = leads.filter(l => l.STATUS_ID === 'CONVERTED');
   else if(filterType === 'junk') leads = leads.filter(l => l.STATUS_ID === 'JUNK');
   else if(filterType === 'progress') leads = leads.filter(l => l.STATUS_ID !== 'CONVERTED' && l.STATUS_ID !== 'JUNK');
@@ -4861,7 +4884,7 @@ function buildLeadsHtml(filterType, standalone){
     </tr></table>
   `;
 
-  const html = summary
+  const html = leadManagerFilterHtml + summary
     + `<div class="modal-filter-row" id="leadsFilterRow">${chips}</div>`
     + table + note + breakdown;
 
@@ -5836,6 +5859,8 @@ disconnectBtn.addEventListener('click', () => {
   taskFilterManagerId = 'all';
   callFilterManagerId = 'all';
   callFilterType = 'all';
+  leadFilterManagerId = 'all';
+  leadFilterType = 'all';
   lastNewClientsCount = null;
   lastPrevNewClientsCount = null;
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
@@ -8130,8 +8155,9 @@ document.addEventListener('click', (e) => {
   // фильтр-чипсы внутри модалки лидов или раздела «Лиды»
   const leadsChip = e.target.closest('[data-leads-filter]');
   if(leadsChip){
-    if(leadsChip.closest('#detailModal')) openLeadsDetail(leadsChip.dataset.leadsFilter);
-    else renderLeadsSection(leadsChip.dataset.leadsFilter);
+    leadFilterType = leadsChip.dataset.leadsFilter;
+    if(leadsChip.closest('#detailModal')) openLeadsDetail(leadFilterType);
+    else renderLeadsSection(leadFilterType);
     return;
   }
 });
@@ -8145,6 +8171,11 @@ document.addEventListener('change', (e) => {
     callFilterManagerId = e.target.value;
     if(e.target.closest('#detailModal')) openCallsDetail(callFilterType);
     else renderCallsSection(callFilterType);
+  }
+  if(e.target.id === 'leadManagerFilter'){
+    leadFilterManagerId = e.target.value;
+    if(e.target.closest('#detailModal')) openLeadsDetail(leadFilterType);
+    else renderLeadsSection(leadFilterType);
   }
 });
 
