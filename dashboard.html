@@ -602,6 +602,7 @@
   html[data-theme="dark"] .badge-ok{background:#132A1B;color:#86EFAC;}
   .badge-miss{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#FEF2F2;color:#991B1B;}
   html[data-theme="dark"] .badge-miss{background:#3A1717;color:#FCA5A5;}
+  .badge-noanswer{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#3A2E14;color:#FBBF24;}
   .badge-done{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#F0FDF4;color:#166534;}
   html[data-theme="dark"] .badge-done{background:#132A1B;color:#86EFAC;}
   .badge-work{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#EFF6FF;color:#1D4ED8;}
@@ -1603,6 +1604,11 @@ const TRANSLATIONS = {
     outgoingBadge: '↗ Исходящий',
     successBadge: 'Успешный',
     missedBadge: 'Пропущен',
+    noAnswerBadge: 'Не дозвонились',
+    listenBtnLabel: 'Прослушать',
+    loadingRecording: 'Загрузка…',
+    recordingNotFound: 'Запись недоступна.',
+    unsuccessfulLabel: 'Не успешные',
     analyzeBtnLabel: 'Анализ',
     callScoreLabel: 'Оценка звонка ИИ',
     stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
@@ -2050,6 +2056,11 @@ const TRANSLATIONS = {
     outgoingBadge: '↗ Chiquvchi',
     successBadge: 'Muvaffaqiyatli',
     missedBadge: 'O\'tkazib yuborilgan',
+    noAnswerBadge: 'Javob bermadi',
+    listenBtnLabel: 'Tinglash',
+    loadingRecording: 'Yuklanmoqda…',
+    recordingNotFound: 'Yozuv mavjud emas.',
+    unsuccessfulLabel: 'Muvaffaqiyatsiz',
     analyzeBtnLabel: 'Tahlil',
     callScoreLabel: 'AI qo\'ng\'iroq bahosi',
     stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
@@ -2928,15 +2939,20 @@ async function fetchCallStats(webhook, period){
 }
 
 function aggregateCallStats(rawCalls){
-  let incoming = 0, outgoing = 0, successful = 0, missed = 0, totalDuration = 0;
+  let incoming = 0, outgoing = 0, successful = 0, missed = 0, noAnswer = 0, totalDuration = 0;
   rawCalls.forEach(c => {
     // конвенция Bitrix24: CALL_TYPE 2 — входящий, 1 — исходящий
-    if(String(c.CALL_TYPE) === '2') incoming += 1; else outgoing += 1;
+    const isIn = String(c.CALL_TYPE) === '2';
+    if(isIn) incoming += 1; else outgoing += 1;
     const dur = parseInt(c.CALL_DURATION, 10) || 0;
     totalDuration += dur;
-    if(dur > 0) successful += 1; else missed += 1;
+    if(dur > 0) successful += 1;
+    // "Пропущенный" — это только про входящие звонки, которые не приняли.
+    // Если менеджер сам звонил, но клиент не взял трубку — это "не дозвонились", другая ситуация.
+    else if(isIn) missed += 1;
+    else noAnswer += 1;
   });
-  return {incoming, outgoing, successful, missed, totalDuration, total: rawCalls.length};
+  return {incoming, outgoing, successful, missed, noAnswer, totalDuration, total: rawCalls.length};
 }
 
 function fmtDuration(totalSeconds){
@@ -4104,7 +4120,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div><span class="calls-label">${t('incoming')}</span><span class="calls-value">${lastCallStats.incoming}</span></div>
           <div><span class="calls-label">${t('outgoing')}</span><span class="calls-value">${lastCallStats.outgoing}</span></div>
           <div><span class="calls-label">${t('successful')}</span><span class="calls-value calls-good">${lastCallStats.successful}</span></div>
-          <div><span class="calls-label">${t('missed')}</span><span class="calls-value calls-bad">${lastCallStats.missed}</span></div>
+          <div><span class="calls-label">${t('unsuccessfulLabel')}</span><span class="calls-value calls-bad">${lastCallStats.missed + lastCallStats.noAnswer}</span></div>
         </div>
         <div class="calls-duration">${fmtDuration(lastCallStats.totalDuration)} ${currentLang === 'uz' ? 'davr uchun suhbat' : 'разговоров за период'}</div>
       </div>
@@ -4853,7 +4869,10 @@ function buildCallsHtml(filterType, standalone){
     </div>
     <div class="modal-summary-row">
       <div class="modal-summary-cell"><div class="val" style="color:var(--red-bad)">${c.missed}</div><div class="lbl">${t('missed')}</div></div>
+      <div class="modal-summary-cell"><div class="val" style="color:#FBBF24">${c.noAnswer}</div><div class="lbl">${t('noAnswerBadge')}</div></div>
       <div class="modal-summary-cell"><div class="val">${c.total}</div><div class="lbl">${t('totalShort')}</div></div>
+    </div>
+    <div class="modal-summary-row">
       <div class="modal-summary-cell"><div class="val">${fmtDuration(c.totalDuration)}</div><div class="lbl">${t('durationLbl')}</div></div>
     </div>
   `;
@@ -4909,10 +4928,13 @@ function buildCallsHtml(filterType, standalone){
       : `<span class="badge-out">${t('outgoingBadge')}</span>`;
     const statusBadge = isOk
       ? `<span class="badge-ok">${t('successBadge')}</span>`
-      : `<span class="badge-miss">${t('missedBadge')}</span>`;
+      : (isIn ? `<span class="badge-miss">${t('missedBadge')}</span>` : `<span class="badge-noanswer">${t('noAnswerBadge')}</span>`);
     const recordFileId = call.RECORD_FILE_ID;
     const analyzeBtn = recordFileId
       ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">${t('analyzeBtnLabel')}</button>`
+      : '';
+    const playBtn = recordFileId
+      ? `<button class="btn btn-ghost call-play-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">▶ ${t('listenBtnLabel')}</button>`
       : '';
     return `<tr>
       <td>
@@ -4922,7 +4944,10 @@ function buildCallsHtml(filterType, standalone){
       <td>${dirBadge} ${statusBadge}</td>
       <td>${date}</td>
       <td>${durStr}</td>
-      <td>${analyzeBtn}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${playBtn}${analyzeBtn}</div>
+        <div class="call-audio-box" data-call-audio-box="${escapeHtml(String(recordFileId || ''))}"></div>
+      </td>
     </tr>`;
   }).join('');
 
@@ -5437,6 +5462,7 @@ function generatePdfReport(currency, period, now){
         <tr><td>Исходящие</td><td>${lastCallStats.outgoing}</td></tr>
         <tr><td>Успешные</td><td>${lastCallStats.successful}</td></tr>
         <tr><td>Пропущенные</td><td>${lastCallStats.missed}</td></tr>
+        <tr><td>Не дозвонились</td><td>${lastCallStats.noAnswer}</td></tr>
         <tr><td>Общая длительность</td><td>${fmtDuration(lastCallStats.totalDuration)}</td></tr>
       </table>
     </div>` : '';
@@ -6404,6 +6430,31 @@ document.addEventListener('click', (e) => {
   }
 });
 
+async function playCallRecording(fileId, btnEl){
+  const box = document.querySelector(`[data-call-audio-box="${CSS.escape(fileId)}"]`);
+  if(!box) return;
+  if(box.querySelector('audio')){
+    // уже загружена — просто показать/скрыть плеер повторным нажатием
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+  const originalText = btnEl.textContent;
+  btnEl.disabled = true;
+  btnEl.textContent = t('loadingRecording');
+  try{
+    const data = await callMethod(currentConn.webhook, 'disk.file.get', {id: fileId});
+    const url = data.result && data.result.DOWNLOAD_URL;
+    if(!url) throw new Error(t('recordingNotFound'));
+    box.innerHTML = `<audio controls autoplay style="width:100%;max-width:320px;height:32px;margin-top:6px;" src="${escapeHtml(url)}"></audio>`;
+    box.style.display = 'block';
+  }catch(e){
+    box.innerHTML = `<div class="modal-note" style="color:var(--red-bad);margin-top:6px;">${escapeHtml(e.message || String(e))}</div>`;
+  }finally{
+    btnEl.disabled = false;
+    btnEl.textContent = originalText;
+  }
+}
+
 async function analyzeCallRecording(fileId, btnEl){
   const originalHtml = btnEl.innerHTML;
   btnEl.disabled = true;
@@ -6472,6 +6523,8 @@ async function analyzeCallRecording(fileId, btnEl){
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.call-analyze-btn');
   if(btn) analyzeCallRecording(btn.dataset.fileId, btn);
+  const playBtn = e.target.closest('.call-play-btn');
+  if(playBtn) playCallRecording(playBtn.dataset.fileId, playBtn);
 });
 
 async function askGeminiAI(query){
@@ -7607,7 +7660,7 @@ function startDemoMode(){
   lastMonthLostCount = 11;
   lastNamesResolved = true;
   lastHasManagers = true;
-  lastCallStats = {incoming:48, outgoing:112, successful:124, missed:36, total:160, totalDuration:14400};
+  lastCallStats = {incoming:48, outgoing:112, successful:124, missed:18, noAnswer:18, total:160, totalDuration:14400};
   lastRawCalls = [];
   lastLeadStatusMap = {NEW:'Новый', IN_PROCESS:'В работе', CONVERTED:'Конвертирован', JUNK:'Некачественный'};
   lastRawLeads = [
