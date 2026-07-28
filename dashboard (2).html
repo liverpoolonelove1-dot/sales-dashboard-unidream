@@ -1326,6 +1326,7 @@ const TRANSLATIONS = {
     prevMonth: 'прошлому месяцу',
     prevPeriodLabel: 'прошлому периоду',
     periodNote: 'Все показатели ниже и KPI сверху следуют за периодом, выбранным в фильтре выше. Исключение — график «Динамика продаж»: он всегда показывает календарь текущего месяца.',
+    truncatedWarning: 'У одной из воронок за этот период больше 20 000 сделок — для скорости загружена только часть, поэтому цифры на этой странице могут быть неполными. Сузьте период (например, «Эта неделя» вместо «Всё время»), чтобы увидеть точные данные.',
     leadsNav: 'Лиды',
     convertedLbl: 'Конвертировано',
     junkLbl: 'Некачественные',
@@ -1626,6 +1627,9 @@ const TRANSLATIONS = {
     tasksWord: 'задач',
     shareAmongLosses: 'Доля среди всех отказов',
     lossReasonNote: 'Это стадия, помеченная в CRM как «провал». Если нужна более точная причина — потребуется отдельное поле в самой CRM.',
+    lostDealsListTitle: 'Сделки с этой причиной',
+    noDealsForReason: 'Сделок с этой причиной за выбранный период не найдено.',
+    lossReasonLabel: 'Причина отказа',
     salesThisDay: 'Продажи в этот день',
     dealsClosedThisDay: 'Сделок закрыто',
     avgDealByFunnels: 'Средний чек по воронкам',
@@ -1769,6 +1773,7 @@ const TRANSLATIONS = {
     prevMonth: 'oldingi oyga',
     prevPeriodLabel: 'oldingi davrga',
     periodNote: 'Pastdagi barcha ko\'rsatkichlar va yuqoridagi KPI yuqoridagi filtrda tanlangan davrga amal qiladi. Istisno — "Savdo dinamikasi" grafigi: u doim joriy oy kalendarini ko\'rsatadi.',
+    truncatedWarning: 'Voronkalardan birida shu davr uchun 20 000 dan ortiq bitim bor — tezlik uchun faqat bir qismi yuklandi, shuning uchun bu sahifadagi raqamlar to\'liq bo\'lmasligi mumkin. Aniq ma\'lumotlarni ko\'rish uchun davrni torraytiring (masalan, "Bu hafta" ni "Barcha vaqt" o\'rniga tanlang).',
     leadsNav: 'Lidlar',
     convertedLbl: 'Bitimga aylandi',
     junkLbl: 'Sifatsiz',
@@ -2069,6 +2074,9 @@ const TRANSLATIONS = {
     tasksWord: 'vazifa',
     shareAmongLosses: 'Barcha yutqazishlar orasidagi ulush',
     lossReasonNote: 'Bu CRM-da "yutqazilgan" deb belgilangan bosqich. Aniqroq sabab kerak bo\'lsa — CRM-ning o\'zida alohida maydon kerak bo\'ladi.',
+    lostDealsListTitle: 'Shu sabab bilan bitimlar',
+    noDealsForReason: 'Tanlangan davr uchun shu sabab bilan bitimlar topilmadi.',
+    lossReasonLabel: 'Rad etish sababi',
     salesThisDay: 'Shu kungi savdo',
     dealsClosedThisDay: 'Yopilgan bitimlar',
     avgDealByFunnels: 'Voronkalar bo\'yicha o\'rtacha chek',
@@ -2260,6 +2268,7 @@ let lastFunnels = [];
 // раньше при каждой смене периода (Сегодня/Неделя/...) они запрашивались заново вместе со сделками.
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
 let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
+let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
 let lastDailyEntries = [];
 let lastNamesResolved = true;
@@ -2762,11 +2771,16 @@ async function callMethodRaw(webhook, method, qs, attempt){
 }
 
 async function fetchAllPaged(webhook, method, params){
-  const MAX_RECORDS = 2500; // тот же предохранитель, что был (макс 50 страниц × 50)
+  // Раньше лимит был 2500 — у клиентов с крупными объёмами (десятки/сотни тысяч сделок)
+  // это ОБРЕЗАЛО данные молча, и все расчёты (включая конверсию) шли по неполной выборке.
+  // Подняли лимит и вместо тихой обрезки — честно помечаем, что данные неполные,
+  // чтобы дашборд мог показать предупреждение пользователю.
+  const MAX_RECORDS = 20000;
   const first = await callMethod(webhook, method, {...params, start: 0});
   let all = Array.isArray(first.result) ? first.result.slice() : [];
   const total = typeof first.total === 'number' ? first.total : null;
   if(!first.next || !total || all.length === 0){
+    if(total !== null) all.__total = total;
     return all;
   }
   // Раньше страницы запрашивались одна за другой (await в цикле).
@@ -2780,6 +2794,8 @@ async function fetchAllPaged(webhook, method, params){
     const pages = await Promise.all(starts.map(start => callMethod(webhook, method, {...params, start})));
     pages.forEach(p => { if(Array.isArray(p.result)) all = all.concat(p.result); });
   }
+  all.__total = total;
+  all.__truncated = total > MAX_RECORDS;
   return all;
 }
 
@@ -2912,7 +2928,7 @@ async function fetchTaskStats(webhook, period){
   const total = typeof first.total === 'number' ? first.total : null;
   if(!first.next || !total || all.length === 0) return all;
   const pageSize = all.length;
-  const MAX_RECORDS = 2500;
+  const MAX_RECORDS = 20000;
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
@@ -2920,6 +2936,8 @@ async function fetchTaskStats(webhook, period){
     const pages = await Promise.all(starts.map(start => callMethod(webhook, 'tasks.task.list', {filter, select, start})));
     pages.forEach(p => { if(p.result && p.result.tasks) all = all.concat(p.result.tasks); });
   }
+  all.__total = total;
+  all.__truncated = total > MAX_RECORDS;
   return all;
 }
 
@@ -2983,7 +3001,7 @@ const CRM_ADAPTERS = {
         fetchSemantics(conn.webhook, funnelId),
         fetchDealsForCategory(conn.webhook, funnelId, period)
       ]);
-      return raw.map(d => ({
+      const mapped = raw.map(d => ({
         id: d.ID,
         title: d.TITLE || '',
         stageId: d.STAGE_ID,
@@ -2996,6 +3014,10 @@ const CRM_ADAPTERS = {
         source: d.SOURCE_ID || '',
         semantic: guessSemantic(d.STAGE_ID, semMap)
       }));
+      // map() создаёт новый массив и теряет __truncated/__total, проставленные в fetchAllPaged — переносим их
+      if(raw.__truncated) mapped.__truncated = true;
+      if(raw.__total !== undefined) mapped.__total = raw.__total;
+      return mapped;
     },
     async fetchUserNames(conn, ids){
       return fetchUserNames(conn.webhook, ids);
@@ -3412,10 +3434,12 @@ async function loadDashboard(forceRefresh){
     }));
 
     const funnels = [];
+    dataMayBeTruncated = false;
     for(let i = 0; i < funnelsToLoad.length; i++){
       const fn = funnelsToLoad[i];
       const results = funnelFetches[i];
       const stageOrder = results[0], deals = results[1];
+      if(deals.__truncated) dataMayBeTruncated = true;
       // Если период — это месяц, "сделки за период" и "сделки за месяц" совпадают:
       // переиспользуем уже полученный результат вместо повторного запроса.
       const monthDeals = periodIsMonth ? deals : results[2];
@@ -4060,6 +4084,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     </div>
 
     <p class="period-sub-note">${t('periodNote')}</p>
+    ${dataMayBeTruncated ? `<div class="modal-note" style="background:rgba(245,158,11,.1);border-left:3px solid #F59E0B;padding:10px 14px;border-radius:8px;margin:8px 0 12px;color:#F59E0B;">${t('truncatedWarning')}</div>` : ''}
 
     ${(() => {
       const showFunnels = isBlockVisible('funnels') && planHas('funnels');
@@ -4240,6 +4265,7 @@ async function openDealDetail(flatIdx, src){
       ${statRow(t('dealIdLabel'), d.id)}
       ${statRow(t('funnelLabel'), d.funnelName)}
       ${statRow(t('stageCol'), d.stageName)}
+      ${d.semantic === 'F' ? `<div class="modal-note" style="background:rgba(220,38,38,.08);border-left:3px solid var(--red-bad);margin:8px 0;"><b style="color:var(--red-bad)">${t('lossReasonLabel')}:</b> ${escapeHtml(d.stageName)}</div>` : ''}
       ${statRow(t('responsibleLabel'), respName)}
       ${statRow(t('createdDateLabel'), d.createdAt ? new Date(d.createdAt).toLocaleString('ru-RU') : '—')}
       ${statRow(t('changedLabel'), d.updatedAt ? new Date(d.updatedAt).toLocaleString('ru-RU') : '—')}
@@ -4639,11 +4665,16 @@ function openLossDetail(idx){
   const totalLost = lastLostReasons.reduce((a,x) => a + x.count, 0);
   const share = totalLost > 0 ? Math.round(100 * r.count / totalLost) : 0;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  // Каждая отдельная провальная сделка с этой причиной — не только агрегат, но и сам список
+  const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && d.stageName === r.name);
   const html = statRow(t('dealsLabel'), r.count)
     + statRow(t('amountCol'), fmtMoney(r.sum, currency))
     + statRow(t('shareAmongLosses'), share + '%')
-    + `<div class="modal-note">${t('lossReasonNote')}</div>`;
+    + `<div class="modal-note">${t('lossReasonNote')}</div>`
+    + `<div class="modal-subtitle" style="margin-top:16px;">${t('lostDealsListTitle')}</div>`
+    + (matchingDeals.length > 0 ? buildDealListRows(matchingDeals, 100) : `<div class="modal-note">${t('noDealsForReason')}</div>`);
   openModal(r.name, html);
+  document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
 }
 
 function openDayDetail(idx){
