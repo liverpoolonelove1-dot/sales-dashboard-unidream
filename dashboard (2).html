@@ -1604,6 +1604,7 @@ const TRANSLATIONS = {
     missedBadge: 'Пропущен',
     analyzeBtnLabel: 'Анализ',
     callScoreLabel: 'Оценка звонка ИИ',
+    stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
     customAnalysisLink: 'Настроить критерии анализа звонков',
     customAnalysisTitle: 'Критерии анализа звонков',
     customAnalysisDesc: 'Опишите своими словами, на что ИИ должен обращать внимание при разборе звонков — на русском или на узбекском языке, как удобнее. Например: проверять упоминание конкретной акции, следовать вашему скрипту продаж. Оценка звонка по 10-балльной шкале добавляется автоматически при любом разборе, задавать её отдельно не нужно. Если оставить поле пустым — используется стандартный разбор.',
@@ -2046,6 +2047,7 @@ const TRANSLATIONS = {
     missedBadge: 'O\'tkazib yuborilgan',
     analyzeBtnLabel: 'Tahlil',
     callScoreLabel: 'AI qo\'ng\'iroq bahosi',
+    stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
     customAnalysisLink: 'Qo\'ng\'iroq tahlili mezonlarini sozlash',
     customAnalysisTitle: 'Qo\'ng\'iroq tahlili mezonlari',
     customAnalysisDesc: 'AI qo\'ng\'iroqlarni tahlil qilishda nimalarga e\'tibor berishi kerakligini o\'z so\'zlaringiz bilan yozing — ruscha yoki o\'zbekcha, qulay bo\'lgan tilda. Masalan: aniq aksiya aytilganini tekshirish, savdo skriptingizga amal qilish. 10 balllik shkala bo\'yicha baho har doim avtomatik qo\'shiladi, uni alohida so\'rash shart emas. Bo\'sh qoldirsangiz — standart tahlil ishlatiladi.',
@@ -2286,6 +2288,10 @@ let lastRawTasks = [];
 let lastTasksFetched = false;
 let lastTaskStatsError = '';
 let taskFilterManagerId = 'all'; // выбранный менеджер для фильтра задач (внутри уже загруженных данных)
+let callFilterManagerId = 'all'; // выбранный менеджер для фильтра звонков
+let callFilterType = 'all'; // текущий чипс-фильтр звонков (все/входящие/...), чтобы не сбрасывался при смене менеджера
+let stagesDateFrom = ''; // свой диапазон дат для вкладки «По стадиям» в Аналитике — независим от общего фильтра периода
+let stagesDateTo = '';
 
 // ===== ЖУРНАЛ ОШИБОК =====
 const errorLog = [];
@@ -4687,6 +4693,21 @@ function buildCallsHtml(filterType, standalone){
 
   const analysisSettingsLink = `<div style="margin-bottom:12px;"><a href="#" id="callAnalysisSettingsLink" style="font-size:12px;color:var(--ink-soft);text-decoration:none;border-bottom:1px dashed var(--line);">${t('customAnalysisLink')}</a></div>`;
 
+  // Фильтр по менеджеру — по всем звонкам, которые реально есть в загруженных данных
+  const uniqueCallManagers = [...new Set(lastRawCalls.map(c => String(c.PORTAL_USER_ID || '')))].filter(Boolean);
+  const callManagerOptions = uniqueCallManagers.map(id => {
+    const found = lastManagers.find(m => String(m.id) === id);
+    const name = found ? found.name : `${t('employeeIdPrefix')} ${id}`;
+    return `<option value="${id}" ${callFilterManagerId === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+  }).join('');
+  const managerFilterHtml = uniqueCallManagers.length > 0 ? `
+    <div style="margin-bottom:12px;">
+      <select id="callManagerFilter" class="tasks-manager-select">
+        <option value="all" ${callFilterManagerId === 'all' ? 'selected' : ''}>${t('allManagers')}</option>
+        ${callManagerOptions}
+      </select>
+    </div>` : '';
+
   // Фильтр-чипсы
   const chips = [
     {key:'all', label:t('allChip')},
@@ -4698,6 +4719,7 @@ function buildCallsHtml(filterType, standalone){
 
   // Список звонков с фильтром
   let calls = [...lastRawCalls];
+  if(callFilterManagerId !== 'all') calls = calls.filter(c => String(c.PORTAL_USER_ID) === callFilterManagerId);
   if(filterType === 'in') calls = calls.filter(c => String(c.CALL_TYPE) === '2');
   else if(filterType === 'out') calls = calls.filter(c => String(c.CALL_TYPE) !== '2');
   else if(filterType === 'ok') calls = calls.filter(c => (parseInt(c.CALL_DURATION,10)||0) > 0);
@@ -4747,7 +4769,7 @@ function buildCallsHtml(filterType, standalone){
 
   const note = calls.length > 100 ? `<div class="modal-note">${t('last100shown')} ${calls.length} ${t('callsWord')}.</div>` : '';
 
-  const html = analysisSettingsLink + summary
+  const html = analysisSettingsLink + managerFilterHtml + summary
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
     + table + note;
 
@@ -5812,6 +5834,8 @@ disconnectBtn.addEventListener('click', () => {
   lastTasksFetched = false;
   lastTaskStatsError = '';
   taskFilterManagerId = 'all';
+  callFilterManagerId = 'all';
+  callFilterType = 'all';
   lastNewClientsCount = null;
   lastPrevNewClientsCount = null;
   if(autoRefreshTimer) clearInterval(autoRefreshTimer);
@@ -6466,9 +6490,25 @@ function buildDailyTab(){
 }
 
 function buildStagesTab(){
-  const deals = lastDealsFlat;
+  let deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
+
+  // Свой диапазон дат для этой вкладки — не зависит от общего фильтра периода наверху
+  if(stagesDateFrom) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) >= stagesDateFrom);
+  if(stagesDateTo) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) <= stagesDateTo);
+
+  const dateRangeHtml = `
+    <div class="analytics-section" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--ink-soft);">${t('stagesDateRangeLabel')}</span>
+      <input type="date" id="stagesDateFrom" value="${stagesDateFrom}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
+      <span style="color:var(--ink-soft);">—</span>
+      <input type="date" id="stagesDateTo" value="${stagesDateTo}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
+      <button class="btn btn-primary" id="stagesDateApplyBtn" style="font-size:12px;padding:7px 14px;">${t('applyBtn')}</button>
+      ${(stagesDateFrom || stagesDateTo) ? `<button class="btn btn-ghost" id="stagesDateResetBtn" style="font-size:12px;padding:7px 14px;">${t('customAnalysisReset')}</button>` : ''}
+    </div>`;
+
+  if(!deals.length) return dateRangeHtml + `<div class="analytics-empty">${t("noData")}</div>`;
 
   const totalWon = deals.filter(d=>d.semantic==='S');
   const overviewCards = `
@@ -6516,7 +6556,7 @@ function buildStagesTab(){
     </div>`;
   }).join('');
 
-  return sections ? overviewCards + sections : `<div class="analytics-empty">${t("noData")}</div>`;
+  return dateRangeHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noData")}</div>`);
 }
 
 function buildManagersLoadTab(){
@@ -7231,6 +7271,18 @@ document.getElementById('analyticsBackBtn').addEventListener('click', () => {
 document.getElementById('analyticsTabs').addEventListener('click', e => {
   const tab = e.target.closest('.atab')?.dataset.tab;
   if(tab) openAnalytics(tab);
+});
+document.getElementById('analyticsContent').addEventListener('click', e => {
+  if(e.target.id === 'stagesDateApplyBtn'){
+    stagesDateFrom = document.getElementById('stagesDateFrom').value || '';
+    stagesDateTo = document.getElementById('stagesDateTo').value || '';
+    openAnalytics('stages');
+  }
+  if(e.target.id === 'stagesDateResetBtn'){
+    stagesDateFrom = '';
+    stagesDateTo = '';
+    openAnalytics('stages');
+  }
 });
 
 // ===== Навигация по сайдбару =====
@@ -8061,8 +8113,9 @@ document.addEventListener('click', (e) => {
   // фильтр-чипсы внутри модалки звонков или раздела «Звонки»
   const callsChip = e.target.closest('[data-calls-filter]');
   if(callsChip){
-    if(callsChip.closest('#detailModal')) openCallsDetail(callsChip.dataset.callsFilter);
-    else renderCallsSection(callsChip.dataset.callsFilter);
+    callFilterType = callsChip.dataset.callsFilter;
+    if(callsChip.closest('#detailModal')) openCallsDetail(callFilterType);
+    else renderCallsSection(callFilterType);
     return;
   }
 
@@ -8087,6 +8140,11 @@ document.addEventListener('change', (e) => {
   if(e.target.id === 'taskManagerFilter'){
     taskFilterManagerId = e.target.value;
     rerenderCached();
+  }
+  if(e.target.id === 'callManagerFilter'){
+    callFilterManagerId = e.target.value;
+    if(e.target.closest('#detailModal')) openCallsDetail(callFilterType);
+    else renderCallsSection(callFilterType);
   }
 });
 
