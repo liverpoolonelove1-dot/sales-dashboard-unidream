@@ -2268,7 +2268,7 @@ let lastFunnels = [];
 // раньше при каждой смене периода (Сегодня/Неделя/...) они запрашивались заново вместе со сделками.
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
 let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
-let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {} }; // сделки за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
+let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null }; // сделки, звонки, лиды, задачи за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
 let lastDailyEntries = [];
@@ -3352,7 +3352,7 @@ async function loadDashboard(forceRefresh){
       structureCache = { connKey, funnels: null, stagesByFunnelId: {} };
     }
     if(forceRefresh){
-      monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {} };
+      monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
     }
     const rawFunnels = structureCache.funnels || await adapter.fetchFunnels(conn);
     structureCache.funnels = rawFunnels;
@@ -3371,23 +3371,52 @@ async function loadDashboard(forceRefresh){
       ? allFunnels.filter(f => selectedFunnelIds.has(String(f.id)))
       : allFunnels;
 
+    // Периоды "Сегодня"/"Эта неделя"/"Этот месяц" — все являются подмножеством текущего месяца.
+    // Чтобы переключение между ними было мгновенным (без нового похода на сервер), при любом
+    // из этих трёх периодов запрашиваем сразу ВЕСЬ месяц один раз (сделки, звонки, лиды, задачи)
+    // и кэшируем — а сам показываемый период потом просто фильтруем на клиенте.
+    const thisMonthRange = computePeriod('month');
+    const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
+    const monthKey = `${thisMonthRange.from}_${thisMonthRange.to}`;
+    const canUseMonthCache = ['today','week','month'].includes(currentPeriod.type);
+    const monthCacheValid = monthDealsCache.connKey === connKey && monthDealsCache.monthKey === monthKey;
+    if(canUseMonthCache && !monthCacheValid){
+      monthDealsCache = { connKey, monthKey, byFunnelId: {}, calls: null, leads: null, tasks: null };
+    }
+    // Помощник: фильтрует уже загруженный за месяц список записей до нужного под-периода по дате
+    function filterToPeriod(records, dateField){
+      if(periodIsMonth) return records; // 'month' — это и есть весь загруженный диапазон, фильтровать нечего
+      return records.filter(r => {
+        const raw = r[dateField];
+        if(!raw) return false;
+        const d = raw.slice(0,10);
+        return d >= currentPeriod.from && d <= currentPeriod.to;
+      });
+    }
+    const periodIsMonth = currentPeriod.type === 'month';
+
     // статистика звонков запрашивается параллельно, независимо от воронок —
     // если у вебхука нет права telephony, просто покажем заметку вместо падения всего дашборда
-    const callStatsPromise = (typeof adapter.fetchCalls === 'function')
-      ? adapter.fetchCalls(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
-      : Promise.resolve(null);
+    const callStatsPromise = (typeof adapter.fetchCalls !== 'function') ? Promise.resolve(null)
+      : canUseMonthCache
+        ? (monthDealsCache.calls ? Promise.resolve(monthDealsCache.calls) : adapter.fetchCalls(conn, thisMonthPeriod).then(r => { monthDealsCache.calls = r; return r; }))
+            .then(r => (r && r.__error) ? r : filterToPeriod(r, 'CALL_START_DATE')).catch(e => ({__error: e.message || String(e)}))
+        : adapter.fetchCalls(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}));
 
-    const taskStatsPromise = (typeof adapter.fetchTasks === 'function')
-      ? adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
-      : Promise.resolve(null);
+    const taskStatsPromise = (typeof adapter.fetchTasks !== 'function') ? Promise.resolve(null)
+      : canUseMonthCache
+        ? (monthDealsCache.tasks ? Promise.resolve(monthDealsCache.tasks) : adapter.fetchTasks(conn, thisMonthPeriod).then(r => { monthDealsCache.tasks = r; return r; }))
+            .then(r => (r && r.__error) ? r : filterToPeriod(r, 'CREATED_DATE')).catch(e => ({__error: e.message || String(e)}))
+        : adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}));
 
     // лиды — отдельная от сделок сущность в Bitrix24, запрашивается параллельно
-    const leadStatsPromise = (typeof adapter.fetchLeads === 'function')
-      ? adapter.fetchLeads(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}))
-      : Promise.resolve(null);
+    const leadStatsPromise = (typeof adapter.fetchLeads !== 'function') ? Promise.resolve(null)
+      : canUseMonthCache
+        ? (monthDealsCache.leads ? Promise.resolve(monthDealsCache.leads) : adapter.fetchLeads(conn, thisMonthPeriod).then(r => { monthDealsCache.leads = r; return r; }))
+            .then(r => (r && r.__error) ? r : {rawLeads: filterToPeriod(r.rawLeads, 'DATE_CREATE'), statusMap: r.statusMap}).catch(e => ({__error: e.message || String(e)}))
+        : adapter.fetchLeads(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}));
 
     // Новые клиенты — теперь за выбранный период (было жёстко "текущий месяц")
-    const thisMonthRange = computePeriod('month');
     const prevPeriod = computePrevPeriod(currentPeriod);
     const newClientsPromise = callMethod(conn.webhook, 'crm.contact.list', {
       filter: {'>=DATE_CREATE': `${currentPeriod.from} 00:00:00`, '<=DATE_CREATE': `${currentPeriod.to} 23:59:59`},
@@ -3400,7 +3429,6 @@ async function loadDashboard(forceRefresh){
       select: ['ID'], start: 0
     }).then(d => d.total || (Array.isArray(d.result) ? d.result.length : 0))
       .catch(() => null) : Promise.resolve(null);
-    const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
     const prevMonthRange = computePrevPeriod(thisMonthPeriod);
     const managerMap = {};   // id -> {dealsCount, wonSum, wonCount, lostCount}
     const lostReasonMap = {}; // stageName -> {count, sum} — причины отказов
@@ -3420,18 +3448,7 @@ async function loadDashboard(forceRefresh){
     // "сделки за период" и "сделки за этот месяц" — буквально один и тот же запрос. Раньше
     // они всё равно запрашивались дважды. То же самое с прошлым периодом/прошлым месяцем.
     // Теперь такие дубли не отправляются вообще — экономит до 40% запросов в самом частом случае.
-    const periodIsMonth = currentPeriod.type === 'month';
     const prevIsSameAsPrevMonth = periodIsMonth; // при periodIsMonth prevPeriod всегда совпадает с prevMonthRange
-    // Периоды "Сегодня"/"Эта неделя"/"Этот месяц" — все являются подмножеством текущего месяца.
-    // Чтобы переключение между ними было мгновенным (без нового похода на сервер), при любом
-    // из этих трёх периодов запрашиваем сразу ВЕСЬ месяц один раз и кэшируем — а сам показываемый
-    // период потом просто фильтруем на клиенте из уже полученных данных.
-    const monthKey = `${thisMonthRange.from}_${thisMonthRange.to}`;
-    const canUseMonthCache = ['today','week','month'].includes(currentPeriod.type);
-    const monthCacheValid = monthDealsCache.connKey === connKey && monthDealsCache.monthKey === monthKey;
-    if(canUseMonthCache && !monthCacheValid){
-      monthDealsCache = { connKey, monthKey, byFunnelId: {} };
-    }
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${funnelsToLoad.length === 1 ? 'воронка' : 'воронок'}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const stagesPromise = structureCache.stagesByFunnelId[fn.id]
@@ -5911,7 +5928,7 @@ disconnectBtn.addEventListener('click', () => {
   currentAdapter = null;
   currentConn = null;
   structureCache = { connKey: null, funnels: null, stagesByFunnelId: {} };
-  monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {} };
+  monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
   goalAmount = null;
   selectedFunnelIds = null;
   availableFunnels = [];
