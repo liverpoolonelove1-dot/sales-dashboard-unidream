@@ -6208,8 +6208,8 @@ async function analyzeCallRecording(fileId, btnEl){
     const transcriptHtml = data.transcript
       ? `<div class="help" style="max-height:220px;overflow-y:auto;white-space:pre-wrap;font-size:12.5px;">${escapeHtml(data.transcript)}</div>`
       : '<div class="modal-note">Речь не распознана.</div>';
-    // Убираем строку "ОЦЕНКА: X/10" из текста разбора — она уже показана отдельным значком ниже
-    const analysisText = (data.analysis || 'Нет ответа').replace(/^\s*ОЦЕНКА:\s*\d{1,2}\s*\/\s*10\s*\n?/i, '').trim();
+    const analysisRu = (data.analysisRu || 'Нет ответа').trim();
+    const analysisUz = (data.analysisUz || '').trim();
     const score = data.score;
     const scoreColor = score === null ? 'var(--ink-soft)' : score >= 8 ? 'var(--accent-strong)' : score >= 5 ? '#F59E0B' : 'var(--red-bad)';
     const scoreBadge = score !== null ? `
@@ -6217,17 +6217,36 @@ async function analyzeCallRecording(fileId, btnEl){
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:26px;color:${scoreColor};">${score}<span style="font-size:14px;color:var(--ink-soft);font-weight:600;">/10</span></div>
         <div style="font-size:12px;color:var(--ink-soft);">${t('callScoreLabel')}</div>
       </div>` : '';
+    const langToggleHtml = analysisUz ? `
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <button type="button" class="modal-filter-chip active" id="callAnalysisLangRu">RU</button>
+        <button type="button" class="modal-filter-chip" id="callAnalysisLangUz">UZ</button>
+      </div>` : '';
     openModal('Анализ звонка', `
       ${scoreBadge}
       <div class="analytics-section" style="margin-bottom:16px;">
         <div class="analytics-title" style="font-size:14px;">Разбор</div>
-        <div style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(analysisText)}</div>
+        ${langToggleHtml}
+        <div id="callAnalysisTextBox" style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(analysisRu)}</div>
       </div>
       <div class="analytics-section">
         <div class="analytics-title" style="font-size:14px;">Расшифровка</div>
         ${transcriptHtml}
       </div>
     `);
+    if(analysisUz){
+      const box = document.getElementById('callAnalysisTextBox');
+      const ruBtn = document.getElementById('callAnalysisLangRu');
+      const uzBtn = document.getElementById('callAnalysisLangUz');
+      ruBtn.addEventListener('click', () => {
+        box.textContent = analysisRu;
+        ruBtn.classList.add('active'); uzBtn.classList.remove('active');
+      });
+      uzBtn.addEventListener('click', () => {
+        box.textContent = analysisUz;
+        uzBtn.classList.add('active'); ruBtn.classList.remove('active');
+      });
+    }
   }catch(e){
     btnEl.disabled = false;
     btnEl.innerHTML = originalHtml;
