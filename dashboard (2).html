@@ -1065,7 +1065,6 @@
       <button class="atab active" data-tab="sources" data-i18n="tabSources">Источники</button>
       <button class="atab" data-tab="daily" data-i18n="tabDaily">По дням</button>
       <button class="atab" data-tab="stages" data-i18n="tabStages">По стадиям</button>
-      <button class="atab" data-tab="managers" data-i18n="tabManagers">Менеджеры</button>
       <button class="atab" data-tab="closed" data-i18n="tabClosed">Закрытые</button>
       <button class="atab" data-tab="clients" data-i18n="tabClients">Клиенты</button>
       <button class="atab" data-tab="roi" data-i18n="tabRoi">LTV / ROI</button>
@@ -1609,6 +1608,7 @@ const TRANSLATIONS = {
     loadingRecording: 'Загрузка…',
     recordingNotFound: 'Запись недоступна.',
     unsuccessfulLabel: 'Не успешные',
+    callsByManagerTitle: 'Звонки по менеджерам',
     analyzeBtnLabel: 'Анализ',
     callScoreLabel: 'Оценка звонка ИИ',
     stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
@@ -2061,6 +2061,7 @@ const TRANSLATIONS = {
     loadingRecording: 'Yuklanmoqda…',
     recordingNotFound: 'Yozuv mavjud emas.',
     unsuccessfulLabel: 'Muvaffaqiyatsiz',
+    callsByManagerTitle: 'Menejerlar bo\'yicha qo\'ng\'iroqlar',
     analyzeBtnLabel: 'Tahlil',
     callScoreLabel: 'AI qo\'ng\'iroq bahosi',
     stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
@@ -4857,8 +4858,31 @@ function openBestDealDetail(){
 
 function buildCallsHtml(filterType, standalone){
   if(!lastCallStats && lastRawCalls.length === 0) return null;
-  const c = lastCallStats || {total:0, incoming:0, outgoing:0, successful:0, missed:0, totalDuration:0};
   filterType = filterType || 'all';
+
+  // Фильтр по менеджеру — по всем звонкам, которые реально есть в загруженных данных
+  const uniqueCallManagers = [...new Set(lastRawCalls.map(c => String(c.PORTAL_USER_ID || '')))].filter(Boolean);
+  const callManagerOptions = uniqueCallManagers.map(id => {
+    const found = lastManagers.find(m => String(m.id) === id);
+    const name = found ? found.name : `${t('employeeIdPrefix')} ${id}`;
+    return `<option value="${id}" ${callFilterManagerId === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+  }).join('');
+  const managerFilterHtml = uniqueCallManagers.length > 0 ? `
+    <div style="margin-bottom:12px;">
+      <select id="callManagerFilter" class="tasks-manager-select">
+        <option value="all" ${callFilterManagerId === 'all' ? 'selected' : ''}>${t('allManagers')}</option>
+        ${callManagerOptions}
+      </select>
+    </div>` : '';
+
+  // Сводка — если выбран конкретный менеджер, пересчитываем именно по его звонкам,
+  // а не показываем общие цифры по всем менеджерам сразу
+  const callsByManager = callFilterManagerId !== 'all'
+    ? lastRawCalls.filter(c => String(c.PORTAL_USER_ID) === callFilterManagerId)
+    : lastRawCalls;
+  const c = callFilterManagerId !== 'all'
+    ? aggregateCallStats(callsByManager)
+    : (lastCallStats || {total:0, incoming:0, outgoing:0, successful:0, missed:0, noAnswer:0, totalDuration:0});
 
   // Итоговая строка
   const summary = `
@@ -4879,20 +4903,30 @@ function buildCallsHtml(filterType, standalone){
 
   const analysisSettingsLink = `<div style="margin-bottom:12px;"><a href="#" id="callAnalysisSettingsLink" style="font-size:12px;color:var(--ink-soft);text-decoration:none;border-bottom:1px dashed var(--line);">${t('customAnalysisLink')}</a></div>`;
 
-  // Фильтр по менеджеру — по всем звонкам, которые реально есть в загруженных данных
-  const uniqueCallManagers = [...new Set(lastRawCalls.map(c => String(c.PORTAL_USER_ID || '')))].filter(Boolean);
-  const callManagerOptions = uniqueCallManagers.map(id => {
-    const found = lastManagers.find(m => String(m.id) === id);
-    const name = found ? found.name : `${t('employeeIdPrefix')} ${id}`;
-    return `<option value="${id}" ${callFilterManagerId === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
-  }).join('');
-  const managerFilterHtml = uniqueCallManagers.length > 0 ? `
-    <div style="margin-bottom:12px;">
-      <select id="callManagerFilter" class="tasks-manager-select">
-        <option value="all" ${callFilterManagerId === 'all' ? 'selected' : ''}>${t('allManagers')}</option>
-        ${callManagerOptions}
-      </select>
-    </div>` : '';
+  // Таблица «звонки по менеджерам» — сколько звонков и сколько времени у каждого,
+  // чтобы видеть распределение нагрузки одним взглядом, не переключая фильтр по одному
+  const byManagerMap = {};
+  lastRawCalls.forEach(call => {
+    const id = String(call.PORTAL_USER_ID || 'unknown');
+    if(!byManagerMap[id]) byManagerMap[id] = {total: 0, successful: 0, duration: 0};
+    byManagerMap[id].total += 1;
+    const dur = parseInt(call.CALL_DURATION, 10) || 0;
+    if(dur > 0) byManagerMap[id].successful += 1;
+    byManagerMap[id].duration += dur;
+  });
+  const managerRows = Object.entries(byManagerMap)
+    .sort((a,b) => b[1].total - a[1].total)
+    .map(([id, s]) => {
+      const found = lastManagers.find(m => String(m.id) === id);
+      const name = found ? found.name : (id === 'unknown' ? '—' : `${t('employeeIdPrefix')} ${id}`);
+      const rate = s.total > 0 ? Math.round(100 * s.successful / s.total) : 0;
+      return `<tr><td>${escapeHtml(name)}</td><td>${s.total}</td><td>${s.successful} (${rate}%)</td><td>${fmtDuration(s.duration)}</td></tr>`;
+    }).join('');
+  const managerTableHtml = managerRows ? `
+    <div class="modal-subtitle" style="margin-top:16px;">${t('callsByManagerTitle')}</div>
+    <table class="modal-table"><thead><tr><th>${t('managerCol')}</th><th>${t('totalShort')}</th><th>${t('successful')}</th><th>${t('durationLbl')}</th></tr></thead>
+    <tbody>${managerRows}</tbody></table>
+  ` : '';
 
   // Фильтр-чипсы
   const chips = [
@@ -4904,8 +4938,7 @@ function buildCallsHtml(filterType, standalone){
   ].map(ch => `<span class="modal-filter-chip ${filterType===ch.key?'active':''}" data-calls-filter="${ch.key}">${ch.label}</span>`).join('');
 
   // Список звонков с фильтром
-  let calls = [...lastRawCalls];
-  if(callFilterManagerId !== 'all') calls = calls.filter(c => String(c.PORTAL_USER_ID) === callFilterManagerId);
+  let calls = [...callsByManager];
   if(filterType === 'in') calls = calls.filter(c => String(c.CALL_TYPE) === '2');
   else if(filterType === 'out') calls = calls.filter(c => String(c.CALL_TYPE) !== '2');
   else if(filterType === 'ok') calls = calls.filter(c => (parseInt(c.CALL_DURATION,10)||0) > 0);
@@ -4963,7 +4996,7 @@ function buildCallsHtml(filterType, standalone){
 
   const html = analysisSettingsLink + managerFilterHtml + summary
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
-    + table + note;
+    + table + note + managerTableHtml;
 
   return {title: `${t('calls')} (${c.total})`, html};
 }
