@@ -1611,6 +1611,9 @@ const TRANSLATIONS = {
     callsByManagerTitle: 'Звонки по менеджерам',
     avgDurationLbl: 'Ср. время',
     totalDurationLbl: 'Общее время',
+    outgoingShort: 'исх.',
+    incomingShort: 'вх.',
+    callsListTitle: 'Список звонков',
     analyzeBtnLabel: 'Анализ',
     callScoreLabel: 'Оценка звонка ИИ',
     stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
@@ -2066,6 +2069,9 @@ const TRANSLATIONS = {
     callsByManagerTitle: 'Menejerlar bo\'yicha qo\'ng\'iroqlar',
     avgDurationLbl: 'O\'rtacha vaqt',
     totalDurationLbl: 'Umumiy vaqt',
+    outgoingShort: 'chiq.',
+    incomingShort: 'kir.',
+    callsListTitle: 'Qo\'ng\'iroqlar ro\'yxati',
     analyzeBtnLabel: 'Tahlil',
     callScoreLabel: 'AI qo\'ng\'iroq bahosi',
     stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
@@ -2318,6 +2324,8 @@ let callFilterManagerId = 'all'; // выбранный менеджер для �
 let callFilterType = 'all'; // текущий чипс-фильтр звонков (все/входящие/...), чтобы не сбрасывался при смене менеджера
 let stagesDateFrom = ''; // свой диапазон дат для вкладки «По стадиям» в Аналитике — независим от общего фильтра периода
 let stagesDateTo = '';
+let managersDateFrom = ''; // свой диапазон дат для отдельного раздела «Менеджеры»
+let managersDateTo = '';
 let leadFilterManagerId = 'all'; // выбранный менеджер для фильтра лидов
 let leadFilterType = 'all'; // текущий чипс-фильтр лидов, чтобы не сбрасывался при смене менеджера
 
@@ -3845,7 +3853,8 @@ async function loadDashboard(forceRefresh){
     if(currentSection === 'calls') renderCallsSection(callFilterType);
     else if(currentSection === 'leads') renderLeadsSection(leadFilterType);
     else if(currentSection === 'tasks') renderTasksSection();
-    else if(['funnels','managers','analytics'].includes(currentSection)) openAnalytics(currentAnalyticsTab);
+    else if(currentSection === 'managers') renderManagersSection();
+    else if(['funnels','analytics'].includes(currentSection)) openAnalytics(currentAnalyticsTab);
 
     if(dupPairs.length > 0){
       dupWarning.style.display = 'block';
@@ -4919,8 +4928,9 @@ function buildCallsHtml(filterType, standalone){
   const byManagerMap = {};
   lastRawCalls.forEach(call => {
     const id = String(call.PORTAL_USER_ID || 'unknown');
-    if(!byManagerMap[id]) byManagerMap[id] = {total: 0, successful: 0, duration: 0};
+    if(!byManagerMap[id]) byManagerMap[id] = {total: 0, outgoing: 0, incoming: 0, successful: 0, duration: 0};
     byManagerMap[id].total += 1;
+    if(String(call.CALL_TYPE) === '2') byManagerMap[id].incoming += 1; else byManagerMap[id].outgoing += 1;
     const dur = parseInt(call.CALL_DURATION, 10) || 0;
     if(dur > 0) byManagerMap[id].successful += 1;
     byManagerMap[id].duration += dur;
@@ -4934,12 +4944,13 @@ function buildCallsHtml(filterType, standalone){
       // Средняя длительность считаем только по дозвонившимся звонкам — иначе
       // куча "не дозвонились" (0 секунд) искусственно занижает среднее
       const avgDuration = s.successful > 0 ? Math.round(s.duration / s.successful) : 0;
-      return `<tr><td>${escapeHtml(name)}</td><td>${s.total}</td><td>${s.successful} (${rate}%)</td><td>${fmtDuration(avgDuration)}</td><td>${fmtDuration(s.duration)}</td></tr>`;
+      return `<tr><td>${escapeHtml(name)}</td><td>${s.total} <span style="color:var(--ink-soft);font-size:11px;">(${t('outgoingShort')} ${s.outgoing} / ${t('incomingShort')} ${s.incoming})</span></td><td>${s.successful} (${rate}%)</td><td>${fmtDuration(avgDuration)}</td><td>${fmtDuration(s.duration)}</td></tr>`;
     }).join('');
   const managerTableHtml = managerRows ? `
-    <div class="modal-subtitle" style="margin-top:16px;">${t('callsByManagerTitle')}</div>
+    <div class="modal-subtitle">${t('callsByManagerTitle')}</div>
     <table class="modal-table"><thead><tr><th>${t('managerCol')}</th><th>${t('totalShort')}</th><th>${t('successful')}</th><th>${t('avgDurationLbl')}</th><th>${t('totalDurationLbl')}</th></tr></thead>
     <tbody>${managerRows}</tbody></table>
+    <div class="modal-subtitle" style="margin-top:20px;">${t('callsListTitle')}</div>
   ` : '';
 
   // Фильтр-чипсы
@@ -5008,9 +5019,9 @@ function buildCallsHtml(filterType, standalone){
 
   const note = calls.length > 100 ? `<div class="modal-note">${t('last100shown')} ${calls.length} ${t('callsWord')}.</div>` : '';
 
-  const html = analysisSettingsLink + managerFilterHtml + summary
+  const html = managerTableHtml + analysisSettingsLink + managerFilterHtml + summary
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
-    + table + note + managerTableHtml;
+    + table + note;
 
   return {title: `${t('calls')} (${c.total})`, html};
 }
@@ -6852,9 +6863,26 @@ function buildStagesTab(){
 }
 
 function buildManagersLoadTab(){
-  const deals = lastDealsFlat;
+  let deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
+
+  // Свой диапазон дат — можно смотреть отчёт по менеджерам за прошлые дни,
+  // независимо от общего фильтра периода наверху дашборда
+  if(managersDateFrom) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) >= managersDateFrom);
+  if(managersDateTo) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) <= managersDateTo);
+
+  const dateRangeHtml = `
+    <div class="analytics-section" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--ink-soft);">${t('stagesDateRangeLabel')}</span>
+      <input type="date" id="managersDateFrom" value="${managersDateFrom}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
+      <span style="color:var(--ink-soft);">—</span>
+      <input type="date" id="managersDateTo" value="${managersDateTo}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
+      <button class="btn btn-primary" id="managersDateApplyBtn" style="font-size:12px;padding:7px 14px;">${t('applyBtn')}</button>
+      ${(managersDateFrom || managersDateTo) ? `<button class="btn btn-ghost" id="managersDateResetBtn" style="font-size:12px;padding:7px 14px;">${t('customAnalysisReset')}</button>` : ''}
+    </div>`;
+
+  if(!deals.length) return dateRangeHtml + `<div class="analytics-empty">${t("noData")}</div>`;
 
   // По каждому менеджеру — нагрузка по дням
   const sections = lastManagers.filter(m => m.id !== 'unknown').map(m => {
@@ -6905,7 +6933,12 @@ function buildManagersLoadTab(){
       </div>
     </div>`;
 
-  return sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`;
+  return dateRangeHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`);
+}
+
+function renderManagersSection(){
+  const html = buildManagersLoadTab();
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('navManagers')}</h2></div>${html}</div>`;
 }
 
 function buildClosedTab(){
@@ -7577,6 +7610,18 @@ document.getElementById('analyticsContent').addEventListener('click', e => {
     openAnalytics('stages');
   }
 });
+content.addEventListener('click', e => {
+  if(e.target.id === 'managersDateApplyBtn'){
+    managersDateFrom = document.getElementById('managersDateFrom').value || '';
+    managersDateTo = document.getElementById('managersDateTo').value || '';
+    renderManagersSection();
+  }
+  if(e.target.id === 'managersDateResetBtn'){
+    managersDateFrom = '';
+    managersDateTo = '';
+    renderManagersSection();
+  }
+});
 
 // ===== Навигация по сайдбару =====
 function setSidebarActive(key){
@@ -7595,8 +7640,7 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
     setSidebarActive('funnels');
     openAnalytics('stages');
   } else if(nav === 'managers'){
-    setSidebarActive('managers');
-    openAnalytics('managers');
+    renderManagersSection();
   } else if(nav === 'analytics'){
     setSidebarActive('analytics');
     openAnalytics('sources');
