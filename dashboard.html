@@ -1609,6 +1609,8 @@ const TRANSLATIONS = {
     recordingNotFound: 'Запись недоступна.',
     unsuccessfulLabel: 'Не успешные',
     callsByManagerTitle: 'Звонки по менеджерам',
+    avgDurationLbl: 'Ср. время',
+    totalDurationLbl: 'Общее время',
     analyzeBtnLabel: 'Анализ',
     callScoreLabel: 'Оценка звонка ИИ',
     stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
@@ -2062,6 +2064,8 @@ const TRANSLATIONS = {
     recordingNotFound: 'Yozuv mavjud emas.',
     unsuccessfulLabel: 'Muvaffaqiyatsiz',
     callsByManagerTitle: 'Menejerlar bo\'yicha qo\'ng\'iroqlar',
+    avgDurationLbl: 'O\'rtacha vaqt',
+    totalDurationLbl: 'Umumiy vaqt',
     analyzeBtnLabel: 'Tahlil',
     callScoreLabel: 'AI qo\'ng\'iroq bahosi',
     stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
@@ -4920,11 +4924,14 @@ function buildCallsHtml(filterType, standalone){
       const found = lastManagers.find(m => String(m.id) === id);
       const name = found ? found.name : (id === 'unknown' ? '—' : `${t('employeeIdPrefix')} ${id}`);
       const rate = s.total > 0 ? Math.round(100 * s.successful / s.total) : 0;
-      return `<tr><td>${escapeHtml(name)}</td><td>${s.total}</td><td>${s.successful} (${rate}%)</td><td>${fmtDuration(s.duration)}</td></tr>`;
+      // Средняя длительность считаем только по дозвонившимся звонкам — иначе
+      // куча "не дозвонились" (0 секунд) искусственно занижает среднее
+      const avgDuration = s.successful > 0 ? Math.round(s.duration / s.successful) : 0;
+      return `<tr><td>${escapeHtml(name)}</td><td>${s.total}</td><td>${s.successful} (${rate}%)</td><td>${fmtDuration(avgDuration)}</td><td>${fmtDuration(s.duration)}</td></tr>`;
     }).join('');
   const managerTableHtml = managerRows ? `
     <div class="modal-subtitle" style="margin-top:16px;">${t('callsByManagerTitle')}</div>
-    <table class="modal-table"><thead><tr><th>${t('managerCol')}</th><th>${t('totalShort')}</th><th>${t('successful')}</th><th>${t('durationLbl')}</th></tr></thead>
+    <table class="modal-table"><thead><tr><th>${t('managerCol')}</th><th>${t('totalShort')}</th><th>${t('successful')}</th><th>${t('avgDurationLbl')}</th><th>${t('totalDurationLbl')}</th></tr></thead>
     <tbody>${managerRows}</tbody></table>
   ` : '';
 
