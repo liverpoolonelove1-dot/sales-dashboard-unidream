@@ -6616,7 +6616,7 @@ async function analyzeCallRecording(fileId, btnEl){
     const res = await fetch(CALL_ANALYZE_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fileId, customPrompt: localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || ''})
+      body: JSON.stringify({fileId, customPrompt: localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '', webhook: currentConn?.webhook || ''})
     });
     const data = await res.json();
     btnEl.disabled = false;
