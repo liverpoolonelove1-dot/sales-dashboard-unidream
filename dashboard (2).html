@@ -2174,6 +2174,9 @@ function periodSuffix(){
 }
 
 function applyLang(){
+  // чипсы ИИ-ассистента с готовыми вопросами и авто-инсайты — обновляем язык
+  if(typeof renderAssistantChips === 'function') renderAssistantChips();
+  if(typeof renderAssistantInsights === 'function') renderAssistantInsights();
   // кнопки периода
   const pbtns = document.querySelectorAll('.pbtn[data-period]');
   pbtns.forEach(btn => {
@@ -6140,12 +6143,13 @@ disconnectBtn.addEventListener('click', () => {
 function generateInsights(){
   const insights = [];
   if(lastFunnels.length === 0) return insights;
+  const uz = currentLang === 'uz';
 
   // 1. динамика период к периоду
   if(lastPrevMonthRevenue > 0){
     const pct = Math.round(((lastMonthRevenue - lastPrevMonthRevenue) / lastPrevMonthRevenue) * 100);
-    if(pct <= -15) insights.push({type: 'bad', text: `Продажи за этот период ниже прошлого на ${Math.abs(pct)}% — стоит проверить, в какой воронке произошло падение.`});
-    else if(pct >= 15) insights.push({type: 'good', text: `Продажи выросли на ${pct}% к прошлому периоду — посмотрите, что сработало, и повторите.`});
+    if(pct <= -15) insights.push({type: 'bad', text: uz ? `Bu davrdagi savdo o'tgan davrga nisbatan ${Math.abs(pct)}%ga past — qaysi voronkada pasayish yuz berganini tekshiring.` : `Продажи за этот период ниже прошлого на ${Math.abs(pct)}% — стоит проверить, в какой воронке произошло падение.`});
+    else if(pct >= 15) insights.push({type: 'good', text: uz ? `Savdo o'tgan davrga nisbatan ${pct}%ga o'sdi — nima ishlaganini ko'rib, takrorlang.` : `Продажи выросли на ${pct}% к прошлому периоду — посмотрите, что сработало, и повторите.`});
   }
 
   // 2. самая слабая воронка по конверсии (только там, где достаточно сделок для выводов)
@@ -6153,14 +6157,14 @@ function generateInsights(){
   if(meaningfulFunnels.length > 0){
     const withConv = meaningfulFunnels.map(f => ({f, conv: Math.round(100 * f.wonCount / (f.wonCount + f.lostCount))}));
     const worst = withConv.sort((a,b) => a.conv - b.conv)[0];
-    if(worst.conv < 20) insights.push({type: 'bad', text: `Воронка «${worst.f.name}» — низкая конверсия (${worst.conv}%). Стоит разобраться, что мешает сделкам доходить до победы.`});
+    if(worst.conv < 20) insights.push({type: 'bad', text: uz ? `«${worst.f.name}» voronkasida past konversiya (${worst.conv}%). Bitimlar g'alabaga yetib bormasligiga nima to'sqinlik qilayotganini aniqlang.` : `Воронка «${worst.f.name}» — низкая конверсия (${worst.conv}%). Стоит разобраться, что мешает сделкам доходить до победы.`});
   }
 
   // 3. самое узкое место (где сделки дольше всего зависают)
   const withBottleneck = lastFunnels.filter(f => f.bottleneck && f.bottleneck.avgAgeDays >= 14);
   if(withBottleneck.length > 0){
     const worstB = withBottleneck.sort((a,b) => b.bottleneck.avgAgeDays - a.bottleneck.avgAgeDays)[0];
-    insights.push({type: 'bad', text: `В воронке «${worstB.name}» сделки зависают на стадии «${worstB.bottleneck.name}» в среднем на ${worstB.bottleneck.avgAgeDays} дн. Возможно, туда стоит добавить внимания.`});
+    insights.push({type: 'bad', text: uz ? `«${worstB.name}» voronkasida bitimlar «${worstB.bottleneck.name}» bosqichida o'rtacha ${worstB.bottleneck.avgAgeDays} kun osilib qolmoqda. Bu yerga e'tibor qaratish kerak bo'lishi mumkin.` : `В воронке «${worstB.name}» сделки зависают на стадии «${worstB.bottleneck.name}» в среднем на ${worstB.bottleneck.avgAgeDays} дн. Возможно, туда стоит добавить внимания.`});
   }
 
   // 4. отстающий менеджер
@@ -6168,22 +6172,22 @@ function generateInsights(){
   if(activeManagers.length > 1){
     const withConv = activeManagers.map(m => ({m, conv: Math.round(100 * m.wonCount / (m.wonCount + m.lostCount))}));
     const worstMgr = withConv.sort((a,b) => a.conv - b.conv)[0];
-    if(worstMgr.conv < 20) insights.push({type: 'bad', text: `У менеджера ${worstMgr.m.name} низкая конверсия (${worstMgr.conv}%) — возможно, стоит подключиться и помочь с его сделками.`});
+    if(worstMgr.conv < 20) insights.push({type: 'bad', text: uz ? `${worstMgr.m.name} menejerida past konversiya (${worstMgr.conv}%) — uning bitimlariga yordam berish kerak bo'lishi mumkin.` : `У менеджера ${worstMgr.m.name} низкая конверсия (${worstMgr.conv}%) — возможно, стоит подключиться и помочь с его сделками.`});
   }
 
   // 5. просроченные задачи
   if(lastTasksFetched){
     const stats = aggregateTaskStats(lastRawTasks, 'all');
-    if(stats.overdue > 0) insights.push({type: 'bad', text: `Просроченных задач: ${stats.overdue}. Стоит разгрести — они могут тормозить сделки.`});
+    if(stats.overdue > 0) insights.push({type: 'bad', text: uz ? `Muddati o'tgan vazifalar: ${stats.overdue}. Ularni tozalash kerak — bitimlarni sekinlashtirishi mumkin.` : `Просроченных задач: ${stats.overdue}. Стоит разгрести — они могут тормозить сделки.`});
   }
 
   // 6. пропущенные звонки
   if(lastCallStats && lastCallStats.total > 0){
     const missedPct = Math.round(100 * lastCallStats.missed / lastCallStats.total);
-    if(missedPct >= 30) insights.push({type: 'bad', text: `${missedPct}% звонков за период пропущены (${lastCallStats.missed} из ${lastCallStats.total}) — это потенциально упущенные клиенты.`});
+    if(missedPct >= 30) insights.push({type: 'bad', text: uz ? `Davr uchun qo'ng'iroqlarning ${missedPct}%i o'tkazib yuborilgan (${lastCallStats.total} tadan ${lastCallStats.missed} ta) — bu potentsial yo'qotilgan mijozlar.` : `${missedPct}% звонков за период пропущены (${lastCallStats.missed} из ${lastCallStats.total}) — это потенциально упущенные клиенты.`});
   }
 
-  if(insights.length === 0) insights.push({type: 'good', text: 'Явных проблем не видно — показатели в пределах обычных колебаний.'});
+  if(insights.length === 0) insights.push({type: 'good', text: uz ? 'Aniq muammolar ko\'rinmayapti — ko\'rsatkichlar odatiy chegarada.' : 'Явных проблем не видно — показатели в пределах обычных колебаний.'});
   return insights;
 }
 
@@ -6202,77 +6206,95 @@ function renderAssistantInsights(){
 
 function answerWeakFunnels(){
   const meaningfulFunnels = lastFunnels.filter(f => (f.wonCount + f.lostCount) >= 1);
-  if(meaningfulFunnels.length === 0) return 'Пока недостаточно данных по воронкам за этот период.';
+  if(meaningfulFunnels.length === 0) return currentLang === 'uz' ? 'Bu davr uchun voronkalar bo\'yicha hali yetarli ma\'lumot yo\'q.' : 'Пока недостаточно данных по воронкам за этот период.';
   const withConv = meaningfulFunnels.map(f => ({name: f.name, conv: (f.wonCount+f.lostCount)>0 ? Math.round(100*f.wonCount/(f.wonCount+f.lostCount)) : 0, sum: f.wonSum}));
   const sorted = [...withConv].sort((a,b) => a.conv - b.conv);
+  if(currentLang === 'uz'){
+    const weakest = sorted.slice(0, 3).map(x => `«${x.name}» — konversiya ${x.conv}%`).join('\n');
+    return `Davr uchun konversiya bo'yicha eng zaif voronkalar:\n${weakest}`;
+  }
   const weakest = sorted.slice(0, 3).map(x => `«${x.name}» — конверсия ${x.conv}%`).join('\n');
   return `Самые слабые по конверсии воронки за период:\n${weakest}`;
 }
 
 function answerManagers(){
-  if(lastManagers.length === 0) return 'Данных по менеджерам пока нет.';
+  if(lastManagers.length === 0) return currentLang === 'uz' ? 'Menejerlar bo\'yicha hali ma\'lumot yo\'q.' : 'Данных по менеджерам пока нет.';
   const active = lastManagers.filter(m => m.id !== 'unknown');
-  if(active.length === 0) return 'Нет менеджеров с назначенными сделками за период.';
+  if(active.length === 0) return currentLang === 'uz' ? 'Davr uchun bitim biriktirilgan menejerlar yo\'q.' : 'Нет менеджеров с назначенными сделками за период.';
   const best = active[0]; // lastManagers уже отсортирован по wonSum убыв.
   const withConv = active.map(m => ({m, conv: (m.wonCount+m.lostCount)>0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0}));
   const worst = [...withConv].sort((a,b) => a.conv - b.conv)[0];
+  if(currentLang === 'uz') return `Savdo summasi bo'yicha eng yaxshi: ${best.name} (${fmtMoney(best.wonSum, lastFunnels.find(f=>f.currency)?.currency||'')}).\nEng past konversiya: ${worst.m.name} (${worst.conv}%).`;
   return `Лучший по сумме продаж: ${best.name} (${fmtMoney(best.wonSum, lastFunnels.find(f=>f.currency)?.currency||'')}).\nСамая низкая конверсия: ${worst.m.name} (${worst.conv}%).`;
 }
 
 function answerBottlenecks(){
   const withBottleneck = lastFunnels.filter(f => f.bottleneck);
-  if(withBottleneck.length === 0) return 'Явных зависаний по стадиям сейчас не вижу.';
+  if(withBottleneck.length === 0) return currentLang === 'uz' ? 'Hozircha bosqichlarda aniq to\'xtalishlar ko\'rinmayapti.' : 'Явных зависаний по стадиям сейчас не вижу.';
+  if(currentLang === 'uz'){
+    const rows = withBottleneck.sort((a,b) => b.bottleneck.avgAgeDays - a.bottleneck.avgAgeDays).slice(0,3)
+      .map(f => `«${f.name}» — «${f.bottleneck.name}» bosqichi, o'rtacha ${f.bottleneck.avgAgeDays} kun.`).join('\n');
+    return `Bitimlar eng ko'p qayerda osilib qolgan:\n${rows}`;
+  }
   const rows = withBottleneck.sort((a,b) => b.bottleneck.avgAgeDays - a.bottleneck.avgAgeDays).slice(0,3)
     .map(f => `«${f.name}» — стадия «${f.bottleneck.name}», в среднем ${f.bottleneck.avgAgeDays} дн.`).join('\n');
   return `Где дольше всего висят сделки:\n${rows}`;
 }
 
 function answerGoal(){
-  if(!goalAmount) return 'План продаж пока не задан — можно установить в баннере цели наверху.';
+  if(!goalAmount) return currentLang === 'uz' ? 'Savdo rejasi hali belgilanmagan — yuqoridagi maqsad bannerida o\'rnatishingiz mumkin.' : 'План продаж пока не задан — можно установить в баннере цели наверху.';
   const currency = lastFunnels.find(f=>f.currency)?.currency || '';
   const totalNow = lastFunnels.reduce((a,f) => a + f.wonSum, 0);
   const pct = Math.min(100, Math.round(100 * totalNow / goalAmount));
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
   const daysLeft = daysInMonth - now.getDate();
+  if(currentLang === 'uz') return `Reja ${pct}% bajarildi (${fmtMoney(totalNow, currency)} / ${fmtMoney(goalAmount, currency)}).\nQoldi ${fmtMoney(Math.max(0, goalAmount - totalNow), currency)}, oyda ${daysLeft} kun qoldi.`;
   return `Выполнено ${pct}% плана (${fmtMoney(totalNow, currency)} из ${fmtMoney(goalAmount, currency)}).\nОсталось ${fmtMoney(Math.max(0, goalAmount - totalNow), currency)}, дней в месяце осталось: ${daysLeft}.`;
 }
 
 function answerTasks(){
-  if(!lastTasksFetched) return lastTaskStatsError ? `Не удалось получить задачи: ${lastTaskStatsError}` : 'Данных по задачам пока нет.';
+  if(!lastTasksFetched) return lastTaskStatsError
+    ? (currentLang === 'uz' ? `Vazifalarni olib bo'lmadi: ${lastTaskStatsError}` : `Не удалось получить задачи: ${lastTaskStatsError}`)
+    : (currentLang === 'uz' ? 'Vazifalar bo\'yicha ma\'lumot hali yo\'q.' : 'Данных по задачам пока нет.');
   const s = aggregateTaskStats(lastRawTasks, 'all');
+  if(currentLang === 'uz') return `Jami vazifalar: ${s.total}. Yangi: ${s.neW}. Ishda: ${s.inProgress}. Tugallangan: ${s.completed}. Muddati o'tgan: ${s.overdue}.`;
   return `Всего задач: ${s.total}. Новые: ${s.neW}. В работе: ${s.inProgress}. Завершено: ${s.completed}. Просрочено: ${s.overdue}.`;
 }
 
 function answerCalls(){
-  if(!lastCallStats) return lastCallStatsError ? `Не удалось получить звонки: ${lastCallStatsError}` : 'Данных по звонкам пока нет.';
+  if(!lastCallStats) return lastCallStatsError
+    ? (currentLang === 'uz' ? `Qo'ng'iroqlarni olib bo'lmadi: ${lastCallStatsError}` : `Не удалось получить звонки: ${lastCallStatsError}`)
+    : (currentLang === 'uz' ? 'Qo\'ng\'iroqlar bo\'yicha ma\'lumot hali yo\'q.' : 'Данных по звонкам пока нет.');
   const c = lastCallStats;
+  if(currentLang === 'uz') return `Kiruvchi: ${c.incoming}. Chiquvchi: ${c.outgoing}. Muvaffaqiyatli: ${c.successful}. O'tkazib yuborilgan: ${c.missed}. Jami suhbat vaqti: ${fmtDuration(c.totalDuration)}.`;
   return `Входящие: ${c.incoming}. Исходящие: ${c.outgoing}. Успешные: ${c.successful}. Пропущенные: ${c.missed}. Общее время разговоров: ${fmtDuration(c.totalDuration)}.`;
 }
 
 function answerQuestion(query){
   const q = query.toLowerCase();
-  // воронки и конверсия
-  if(q.includes('ворон') || q.includes('слаб') || q.includes('конверс') || q.includes('лучш') || q.includes('худш')) return answerWeakFunnels();
-  // менеджеры
-  if(q.includes('менеджер') || q.includes('сотрудник') || q.includes('оператор') || q.includes('продавец')) return answerManagers();
-  // зависшие сделки — добавлено «зависш», «висят», «тормоз», «долго»
-  if(q.includes('зависа') || q.includes('зависш') || q.includes('висят') || q.includes('стади') || q.includes('узк') || q.includes('тормоз') || q.includes('долго') || q.includes('бутылоч')) return answerBottlenecks();
-  // план
-  if(q.includes('план') || q.includes('цел') || q.includes('выполн')) return answerGoal();
-  // задачи
-  if(q.includes('задач') || q.includes('просроч') || q.includes('дедлайн')) return answerTasks();
-  // звонки
-  if(q.includes('звон') || q.includes('пропущ') || q.includes('входящ') || q.includes('исходящ')) return answerCalls();
-  // средний чек
-  if(q.includes('средн') || q.includes('чек') || q.includes('average')) return answerAvgDeal();
-  // упущенные / потери
-  if(q.includes('упущ') || q.includes('потер') || q.includes('проваль') || q.includes('провал') || q.includes('отказ')) return answerLost();
-  // pipeline / в работе
-  if(q.includes('работ') || q.includes('pipeline') || q.includes('актив') || q.includes('открыт')) return answerPipeline();
-  if(q.includes('velocity') || q.includes('скорост') || q.includes('день')) return answerVelocity();
-  if(q.includes('прогноз') || q.includes('forecast') || q.includes('конец месяца')) return answerForecast();
-  if(q.includes('горяч') || q.includes('тёпл') || q.includes('холодн') || q.includes('скоринг')) return answerScoring();
+  // воронки и конверсия (+ узбекские ключевые слова: voronka, kuchsiz, konversiya, yaxshi, yomon)
+  if(q.includes('ворон') || q.includes('слаб') || q.includes('конверс') || q.includes('лучш') || q.includes('худш') || q.includes('voronka') || q.includes('kuchsiz') || q.includes('konversiya')) return answerWeakFunnels();
+  // менеджеры (+ menejer, xodim, sotuvchi)
+  if(q.includes('менеджер') || q.includes('сотрудник') || q.includes('оператор') || q.includes('продавец') || q.includes('menejer') || q.includes('xodim') || q.includes('sotuvchi')) return answerManagers();
+  // зависшие сделки (+ osilib, to'xtal)
+  if(q.includes('зависа') || q.includes('зависш') || q.includes('висят') || q.includes('стади') || q.includes('узк') || q.includes('тормоз') || q.includes('долго') || q.includes('бутылоч') || q.includes('osilib') || q.includes('to\'xtal') || q.includes('bosqich')) return answerBottlenecks();
+  // план (+ reja, maqsad)
+  if(q.includes('план') || q.includes('цел') || q.includes('выполн') || q.includes('reja') || q.includes('maqsad')) return answerGoal();
+  // задачи (+ vazifa, muddat)
+  if(q.includes('задач') || q.includes('просроч') || q.includes('дедлайн') || q.includes('vazifa') || q.includes('muddat')) return answerTasks();
+  // звонки (+ qo'ng'iroq, kiruvchi, chiquvchi)
+  if(q.includes('звон') || q.includes('пропущ') || q.includes('входящ') || q.includes('исходящ') || q.includes('qo\'ng\'iroq') || q.includes('kiruvchi') || q.includes('chiquvchi')) return answerCalls();
+  // средний чек (+ o'rtacha, chek)
+  if(q.includes('средн') || q.includes('чек') || q.includes('average') || q.includes('o\'rtacha')) return answerAvgDeal();
+  // упущенные / потери (+ yo'qot, muvaffaqiyatsiz, rad)
+  if(q.includes('упущ') || q.includes('потер') || q.includes('проваль') || q.includes('провал') || q.includes('отказ') || q.includes('yo\'qot') || q.includes('muvaffaqiyatsiz') || q.includes('rad')) return answerLost();
+  // pipeline / в работе (+ ishda, faol)
+  if(q.includes('работ') || q.includes('pipeline') || q.includes('актив') || q.includes('открыт') || q.includes('ishda') || q.includes('faol')) return answerPipeline();
+  if(q.includes('velocity') || q.includes('скорост') || q.includes('день') || q.includes('tezlik') || q.includes('kun')) return answerVelocity();
+  if(q.includes('прогноз') || q.includes('forecast') || q.includes('конец месяца') || q.includes('bashorat') || q.includes('oy oxiri')) return answerForecast();
+  if(q.includes('горяч') || q.includes('тёпл') || q.includes('холодн') || q.includes('скоринг') || q.includes('issiq') || q.includes('iliq') || q.includes('sovuq')) return answerScoring();
+  if(currentLang === 'uz') return 'Savolni tushunmadim — pastdagi tayyor savollarni sinab ko\'ring yoki so\'rang:\n«voronkalar» · «menejerlar» · «osilib qolgan bitimlar» · «reja» · «vazifalar» · «qo\'ng\'iroqlar» · «o\'rtacha chek» · «yo\'qotilgan bitimlar» · «ishdagilar»';
   return 'Не понял вопрос — попробуйте готовые вопросы ниже или спросите про:\n«воронки» · «менеджеры» · «зависшие сделки» · «план» · «задачи» · «звонки» · «средний чек» · «упущенные сделки» · «что в работе»';
 }
 
@@ -6280,8 +6302,16 @@ function answerAvgDeal(){
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   const totalWon = lastFunnels.reduce((a,f) => a + f.wonCount, 0);
   const totalRev = lastFunnels.reduce((a,f) => a + f.wonSum, 0);
-  if(totalWon === 0) return 'За этот период нет выигранных сделок — рассчитать средний чек невозможно.';
+  if(totalWon === 0) return currentLang === 'uz' ? 'Bu davrda g\'olib bitimlar yo\'q — o\'rtacha chekni hisoblab bo\'lmaydi.' : 'За этот период нет выигранных сделок — рассчитать средний чек невозможно.';
   const avg = Math.round(totalRev / totalWon);
+  if(currentLang === 'uz'){
+    const byFunnel = lastFunnels.filter(f => f.wonCount > 0)
+      .sort((a,b) => (b.wonSum/b.wonCount) - (a.wonSum/a.wonCount))
+      .slice(0, 3)
+      .map(f => `«${f.name}» — ${fmtMoney(Math.round(f.wonSum/f.wonCount), currency)}`)
+      .join('\n');
+    return `Barcha voronkalar bo'yicha o'rtacha chek: ${fmtMoney(avg, currency)}.\n\nO'rtacha chek bo'yicha top-3:\n${byFunnel}`;
+  }
   const byFunnel = lastFunnels.filter(f => f.wonCount > 0)
     .sort((a,b) => (b.wonSum/b.wonCount) - (a.wonSum/a.wonCount))
     .slice(0, 3)
@@ -6294,7 +6324,14 @@ function answerLost(){
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   const totalLost = lastFunnels.reduce((a,f) => a + f.lostCount, 0);
   const lostVal = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0), 0);
-  if(totalLost === 0) return 'За этот период провальных сделок нет.';
+  if(totalLost === 0) return currentLang === 'uz' ? 'Bu davrda muvaffaqiyatsiz bitimlar yo\'q.' : 'За этот период провальных сделок нет.';
+  if(currentLang === 'uz'){
+    const top = lastFunnels
+      .map(f => ({name: f.name, lost: f.lostCount, sum: f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0)}))
+      .filter(x => x.lost > 0).sort((a,b) => b.lost - a.lost).slice(0, 3)
+      .map(x => `«${x.name}» — ${x.lost} bitim (${fmtMoney(x.sum, currency)})`).join('\n');
+    return `Muvaffaqiyatsiz bitimlar: ${totalLost}, yo'qotilgan summa ${fmtMoney(lostVal, currency)}.\n\nEng ko'p yo'qotishlar qayerda:\n${top}`;
+  }
   const top = lastFunnels
     .map(f => ({name: f.name, lost: f.lostCount, sum: f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0)}))
     .filter(x => x.lost > 0)
@@ -6309,7 +6346,14 @@ function answerPipeline(){
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   const total = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.count, 0), 0);
   const sum = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), 0);
-  if(total === 0) return 'Активных незакрытых сделок в данный момент нет.';
+  if(total === 0) return currentLang === 'uz' ? 'Hozirda faol yopilmagan bitimlar yo\'q.' : 'Активных незакрытых сделок в данный момент нет.';
+  if(currentLang === 'uz'){
+    const top = lastFunnels
+      .map(f => ({name: f.name, sum: f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), cnt: f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.count, 0)}))
+      .filter(x => x.cnt > 0).sort((a,b) => b.sum - a.sum).slice(0, 3)
+      .map(x => `«${x.name}» — ${x.cnt} bitim, ${fmtMoney(x.sum, currency)}`).join('\n');
+    return `Ishda: ${total} bitim, jami ${fmtMoney(sum, currency)}.\n\nVoronkalar bo'yicha:\n${top}`;
+  }
   const top = lastFunnels
     .map(f => ({name: f.name, sum: f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), cnt: f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.count, 0)}))
     .filter(x => x.cnt > 0)
@@ -6327,7 +6371,8 @@ function answerVelocity(){
   const conv = (lastMonthWonCount+lastMonthLostCount)>0 ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
   const avgD = lastMonthWonCount>0 ? Math.round(lastMonthRevenue/lastMonthWonCount) : 0;
   const vel = avgCycle>0 ? Math.round((lastMonthWonCount*avgD*conv/100)/avgCycle) : 0;
-  if(vel===0) return 'Недостаточно данных для расчёта Sales Velocity.';
+  if(vel===0) return currentLang === 'uz' ? 'Sales Velocity-ni hisoblash uchun ma\'lumot yetarli emas.' : 'Недостаточно данных для расчёта Sales Velocity.';
+  if(currentLang === 'uz') return `Sales Velocity: ${fmtMoney(vel, currency)}/kun.\n\nBu bo'lim o'rtacha bir kunda qancha pul ishlab topayotganini ko'rsatadi.\n\nTarkibiy qismlar:\n— G'olib bitimlar: ${lastMonthWonCount}\n— O'rtacha chek: ${fmtMoney(avgD, currency)}\n— Konversiya: ${conv}%\n— Bitim sikli: ~${avgCycle} kun.`;
   return `Sales Velocity: ${fmtMoney(vel, currency)}/день.\n\nЭто сколько денег отдел генерирует в среднем за один день.\n\nСоставляющие:\n— Выигранных сделок: ${lastMonthWonCount}\n— Средний чек: ${fmtMoney(avgD, currency)}\n— Конверсия: ${conv}%\n— Цикл сделки: ~${avgCycle} дн.`;
 }
 
@@ -6336,9 +6381,13 @@ function answerForecast(){
   const now = new Date();
   const daysInM = new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   const dayOfM = now.getDate();
-  if(dayOfM===0||lastMonthRevenue===0) return 'Недостаточно данных для прогноза.';
+  if(dayOfM===0||lastMonthRevenue===0) return currentLang === 'uz' ? 'Bashorat uchun ma\'lumot yetarli emas.' : 'Недостаточно данных для прогноза.';
   const rate = Math.round(lastMonthRevenue/dayOfM);
   const fc = Math.round(lastMonthRevenue+(daysInM-dayOfM)*rate);
+  if(currentLang === 'uz'){
+    const pct = goalAmount>0 ? ` (rejaning ${Math.round(100*fc/goalAmount)}%)` : '';
+    return `Oy oxirigacha daromad bashorati: ${fmtMoney(fc, currency)}${pct}.\n\nJoriy sur'at: ${fmtMoney(rate, currency)}/kun.\nO'tgan kunlar: ${dayOfM} / ${daysInM}.`;
+  }
   const pct = goalAmount>0 ? ` (${Math.round(100*fc/goalAmount)}% от плана)` : '';
   return `Прогноз выручки на конец месяца: ${fmtMoney(fc, currency)}${pct}.\n\nТекущий темп: ${fmtMoney(rate, currency)}/день.\nПрошло дней: ${dayOfM} из ${daysInM}.`;
 }
@@ -6346,32 +6395,33 @@ function answerForecast(){
 function answerScoring(){
   const now = new Date();
   const active = lastDealsFlat.filter(d=>d.semantic==='P');
-  if(!active.length) return 'Активных сделок в работе нет.';
+  if(!active.length) return currentLang === 'uz' ? 'Ishda faol bitimlar yo\'q.' : 'Активных сделок в работе нет.';
   const hot = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)<=3).length;
   const warm = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>3&&Math.floor((now-new Date(d.createdAt))/86400000)<=14).length;
   const cold = active.filter(d=>d.createdAt&&Math.floor((now-new Date(d.createdAt))/86400000)>14).length;
+  if(currentLang === 'uz') return `Faol lidlar skoringi (jami ${active.length}):\n\nIssiq (0–3 kun): ${hot}\nIliq (4–14 kun): ${warm}\nSovuq (14+ kun): ${cold}\n\n${cold>0?`Sovuq lidlarga shoshilinch e'tibor kerak — ${cold} ta bitimni yo'qotish xavfi bor.`:'Sovuq lidlar yo\'q — yaxshi!'}`;
   return `Скоринг активных лидов (${active.length} всего):\n\nГорячие (0–3 дня): ${hot}\nТёплые (4–14 дней): ${warm}\nХолодные (14+ дней): ${cold}\n\n${cold>0?`Холодные требуют срочного внимания — риск потерять ${cold} сделок.`:'Холодных лидов нет — хорошо!'}`;
 }
 
 const ASSISTANT_CHIPS = [
-  {label: 'Слабые воронки',    query: 'слабые воронки'},
-  {label: 'Менеджеры',         query: 'менеджеры'},
-  {label: 'Зависшие сделки',   query: 'зависшие сделки'},
-  {label: 'План продаж',       query: 'план'},
-  {label: 'Средний чек',       query: 'средний чек'},
-  {label: 'Что в работе',      query: 'что в работе'},
-  {label: 'Упущенные сделки',  query: 'упущенные сделки'},
-  {label: 'Задачи',            query: 'задачи'},
-  {label: 'Звонки',            query: 'звонки'},
-  {label: 'Sales Velocity',    query: 'sales velocity'},
-  {label: 'Прогноз месяца',    query: 'прогноз месяца'},
-  {label: 'Скоринг лидов',     query: 'скоринг лидов'},
+  {label: 'Слабые воронки',    labelUz: 'Kuchsiz voronkalar',    query: 'слабые воронки'},
+  {label: 'Менеджеры',         labelUz: 'Menejerlar',            query: 'менеджеры'},
+  {label: 'Зависшие сделки',   labelUz: 'Osilib qolgan bitimlar', query: 'зависшие сделки'},
+  {label: 'План продаж',       labelUz: 'Savdo rejasi',          query: 'план'},
+  {label: 'Средний чек',       labelUz: 'O\'rtacha chek',        query: 'средний чек'},
+  {label: 'Что в работе',      labelUz: 'Ishdagilar',            query: 'что в работе'},
+  {label: 'Упущенные сделки',  labelUz: 'Yo\'qotilgan bitimlar', query: 'упущенные сделки'},
+  {label: 'Задачи',            labelUz: 'Vazifalar',             query: 'задачи'},
+  {label: 'Звонки',            labelUz: 'Qo\'ng\'iroqlar',       query: 'звонки'},
+  {label: 'Sales Velocity',    labelUz: 'Sales Velocity',        query: 'sales velocity'},
+  {label: 'Прогноз месяца',    labelUz: 'Oy bashorati',          query: 'прогноз месяца'},
+  {label: 'Скоринг лидов',     labelUz: 'Lidlar skoringi',       query: 'скоринг лидов'},
 ];
 
 function renderAssistantChips(){
   const box = document.getElementById('assistantChips');
   if(!box) return;
-  box.innerHTML = ASSISTANT_CHIPS.map(c => `<button type="button" class="assistant-chip" data-ask="${escapeHtml(c.query)}">${escapeHtml(c.label)}</button>`).join('');
+  box.innerHTML = ASSISTANT_CHIPS.map(c => `<button type="button" class="assistant-chip" data-ask="${escapeHtml(c.query)}">${escapeHtml(currentLang === 'uz' ? c.labelUz : c.label)}</button>`).join('');
 }
 
 // ===== GEMINI AI ИНТЕГРАЦИЯ =====
@@ -6584,7 +6634,10 @@ document.addEventListener('click', (e) => {
 
 async function askGeminiAI(query){
   const context = buildDashboardContext();
-  const prompt = `${context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ: ${query}\n\nОтвечай кратко (3-4 предложения), конкретно, на русском языке.`;
+  const langInstruction = currentLang === 'uz'
+    ? 'Javobni qisqa (3-4 gap), aniq, o\'zbek tilida yoz.'
+    : 'Отвечай кратко (3-4 предложения), конкретно, на русском языке.';
+  const prompt = `${context}\n\nВОПРОС ПОЛЬЗОВАТЕЛЯ: ${query}\n\n${langInstruction}`;
   try{
     const res = await fetch(AI_PROXY_URL, {
       method: 'POST',
