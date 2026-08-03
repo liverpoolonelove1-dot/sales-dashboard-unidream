@@ -888,6 +888,9 @@
 <button id="langToggleBtn" class="theme-toggle" title="Язык / Til" aria-label="Язык / Til">
   <span id="langLabel" style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;">RU</span>
 </button>
+<button id="accountBtn" class="theme-toggle" title="Личный кабинет" aria-label="Личный кабинет">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+</button>
 </div>
 
 <!-- Панель уведомлений -->
@@ -911,6 +914,35 @@
     </div>
   </div>
   <div id="notifList" style="padding:12px 14px;overflow-y:auto;flex:1;"></div>
+</div>
+
+<!-- Панель личного кабинета -->
+<div id="accountPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--surface);border-left:1px solid var(--line);z-index:300;flex-direction:column;box-shadow:-8px 0 32px var(--shadow-color);">
+  <div style="padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex:none;">
+    <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;" data-i18n="accountPanelTitle">Личный кабинет</span>
+    <button id="accountCloseBtn" style="background:var(--overlay-1);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;color:var(--ink-soft);">✕</button>
+  </div>
+  <div style="padding:18px;overflow-y:auto;flex:1;">
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;" data-i18n="accountLoginLabel">Логин</div>
+      <div id="accountLoginValue" style="font-size:14px;font-weight:600;">—</div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;" data-i18n="accountPlanLabel">Тариф</div>
+      <div id="accountPlanValue" style="font-size:14px;font-weight:600;">—</div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;" data-i18n="accountWebhookLabel">Подключённая CRM</div>
+      <div id="accountWebhookValue" style="font-size:13px;word-break:break-all;color:var(--ink-soft);">—</div>
+    </div>
+    <div id="accountExpiresBox" style="margin-bottom:16px;display:none;">
+      <div style="font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;" data-i18n="accountExpiresLabel">Подписка активна до</div>
+      <div id="accountExpiresValue" style="font-size:14px;font-weight:600;">—</div>
+    </div>
+    <div style="margin-top:28px;padding-top:18px;border-top:1px solid var(--line);">
+      <button id="accountLogoutBtn" class="btn btn-ghost" style="width:100%;color:var(--red-bad);border-color:var(--red-bad);" data-i18n="accountLogoutBtn">Выйти из аккаунта</button>
+    </div>
+  </div>
 </div>
 
 <!-- Панель журнала ошибок -->
@@ -1604,6 +1636,14 @@ const TRANSLATIONS = {
     missedBadge: 'Пропущен',
     noAnswerBadge: 'Не дозвонились',
     listenBtnLabel: 'Прослушать',
+    accountPanelTitle: 'Личный кабинет',
+    accountLoginLabel: 'Логин',
+    accountPlanLabel: 'Тариф',
+    accountWebhookLabel: 'Подключённая CRM',
+    accountExpiresLabel: 'Подписка активна до',
+    accountLogoutBtn: 'Выйти из аккаунта',
+    accountNoWebhook: 'Не подключена',
+    confirmLogout: 'Выйти из аккаунта? Понадобится снова ввести логин и пароль.',
     loadingRecording: 'Загрузка…',
     recordingNotFound: 'Запись недоступна.',
     unsuccessfulLabel: 'Не успешные',
@@ -2062,6 +2102,14 @@ const TRANSLATIONS = {
     missedBadge: 'O\'tkazib yuborilgan',
     noAnswerBadge: 'Javob bermadi',
     listenBtnLabel: 'Tinglash',
+    accountPanelTitle: 'Shaxsiy kabinet',
+    accountLoginLabel: 'Login',
+    accountPlanLabel: 'Tarif',
+    accountWebhookLabel: 'Ulangan CRM',
+    accountExpiresLabel: 'Obuna faol muddati',
+    accountLogoutBtn: 'Akkauntdan chiqish',
+    accountNoWebhook: 'Ulanmagan',
+    confirmLogout: 'Akkauntdan chiqasizmi? Qayta login va parol kiritish kerak bo\'ladi.',
     loadingRecording: 'Yuklanmoqda…',
     recordingNotFound: 'Yozuv mavjud emas.',
     unsuccessfulLabel: 'Muvaffaqiyatsiz',
@@ -8455,6 +8503,49 @@ document.addEventListener('click', e => {
      e.target.id !== 'errorLogBtn' &&
      !document.getElementById('errorLogBtn').contains(e.target)){
     closeErrorLog();
+  }
+});
+
+// ===== Личный кабинет =====
+function openAccountPanel(){
+  const session = getSessionAccount();
+  const planKey = session?.plan || currentPlan;
+  document.getElementById('accountLoginValue').textContent = session?.login || '—';
+  document.getElementById('accountPlanValue').textContent = (PLANS[planKey] || PLANS['pro']).name;
+  document.getElementById('accountWebhookValue').textContent = session?.webhook || currentConn?.webhook || t('accountNoWebhook');
+  const expiresBox = document.getElementById('accountExpiresBox');
+  if(session?.expires){
+    expiresBox.style.display = 'block';
+    document.getElementById('accountExpiresValue').textContent = new Date(session.expires).toLocaleDateString('ru-RU');
+  } else {
+    expiresBox.style.display = 'none';
+  }
+  document.getElementById('accountPanel').style.display = 'flex';
+}
+function closeAccountPanel(){
+  document.getElementById('accountPanel').style.display = 'none';
+}
+function performLogout(){
+  closeAccountPanel();
+  clearSessionAccount();
+  currentAdapter = null;
+  currentConn = null;
+  isDemoMode = false;
+  document.body.classList.remove('cine-active');
+  showLoginView();
+}
+document.getElementById('accountBtn').addEventListener('click', openAccountPanel);
+document.getElementById('accountCloseBtn').addEventListener('click', closeAccountPanel);
+document.getElementById('accountLogoutBtn').addEventListener('click', () => {
+  if(confirm(t('confirmLogout'))) performLogout();
+});
+document.addEventListener('click', e => {
+  const panel = document.getElementById('accountPanel');
+  if(panel && panel.style.display !== 'none' &&
+     !panel.contains(e.target) &&
+     e.target.id !== 'accountBtn' &&
+     !document.getElementById('accountBtn').contains(e.target)){
+    closeAccountPanel();
   }
 });
 
