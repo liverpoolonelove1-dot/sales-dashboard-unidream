@@ -3839,6 +3839,13 @@ async function loadDashboard(forceRefresh){
     }
 
     renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
+    // renderDashboard всегда рисует Обзор и заодно обновляет нужные глобальные переменные —
+    // но если пользователь на самом деле смотрел другой раздел (Звонки/Лиды/Задачи/Аналитику),
+    // возвращаем его туда же, просто с уже обновлёнными данными под новый период.
+    if(currentSection === 'calls') renderCallsSection(callFilterType);
+    else if(currentSection === 'leads') renderLeadsSection(leadFilterType);
+    else if(currentSection === 'tasks') renderTasksSection();
+    else if(['funnels','managers','analytics'].includes(currentSection)) openAnalytics(currentAnalyticsTab);
 
     if(dupPairs.length > 0){
       dupWarning.style.display = 'block';
@@ -7540,6 +7547,7 @@ const ANALYTICS_BUILDERS = {
 };
 
 let currentAnalyticsTab = 'sources';
+let currentSection = 'overview'; // где сейчас находится пользователь — чтобы смена периода не выкидывала обратно на Обзор
 
 function openAnalytics(tab){
   currentAnalyticsTab = tab || currentAnalyticsTab;
@@ -7579,6 +7587,7 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
   if(!btn) return;
   const nav = btn.dataset.nav;
   setSidebarActive(nav);
+  currentSection = nav; // запоминаем, куда перешли — используется при смене периода, чтобы не выкидывало на Обзор
   document.getElementById('analyticsView').style.display = 'none';
   if(nav === 'overview'){
     rerenderCached();
@@ -7599,6 +7608,7 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
     renderTasksSection();
   } else if(nav === 'settings'){
     setSidebarActive('overview');
+    currentSection = 'overview';
     settingsBtn.click();
   }
 });
