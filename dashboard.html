@@ -191,7 +191,7 @@
   .chart-granularity button{background:var(--overlay-1);border:1px solid transparent;color:var(--ink-soft);font-size:12px;font-family:'Inter',sans-serif;font-weight:600;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .15s ease;}
   .chart-granularity button:hover{color:var(--ink);}
   .chart-granularity button.active{background:var(--ink-solid);color:#fff;}
-  .tile-managers{}
+  .tile-managers{grid-column:1/-1;}
   .tile .managers-wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;overflow-y:auto;background:none;border:none;padding:0 8px 0 0;scrollbar-width:thin;}
   .tile .managers-wrap::-webkit-scrollbar{width:4px;}
   .tile .managers-wrap::-webkit-scrollbar-track{background:transparent;}
@@ -4333,9 +4333,9 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="dash-section">
           <div class="dash-section-head"><span class="dot" style="background:#60A5FA"></span><h3>${t('sectionPeople')}</h3></div>
           <div class="dash-tiles">
-            ${showManagers ? managersHtml : ''}
             ${showReports ? peopleReportTiles : ''}
             ${showLoss ? lossHtml : ''}
+            ${showManagers ? managersHtml : ''}
           </div>
         </div>` : '';
 
