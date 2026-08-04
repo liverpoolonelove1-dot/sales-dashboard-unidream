@@ -4249,20 +4249,22 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     const rows = managers.map((m, idx) => {
       const conv = (m.wonCount + m.lostCount) > 0 ? Math.round(100*m.wonCount/(m.wonCount+m.lostCount)) : 0;
       return `
-        <div class="manager-row" data-detail="manager" data-idx="${idx}">
-          <div class="manager-row-top">
-            <span class="manager-name">${m.name}</span>
-            <span class="manager-sum">${fmtMoney(m.wonSum, currency)}</span>
-          </div>
-          <div class="manager-row-bottom">${m.dealsCount} ${t('dealsConvSep')} ${conv}%</div>
-        </div>
+        <tr class="manager-row" data-detail="manager" data-idx="${idx}">
+          <td>${escapeHtml(m.name)}</td>
+          <td style="text-align:right;white-space:nowrap;">${fmtMoney(m.wonSum, currency)}</td>
+          <td style="text-align:right;white-space:nowrap;">${m.dealsCount}</td>
+          <td style="text-align:right;white-space:nowrap;">${conv}%</td>
+        </tr>
       `;
     }).join('');
     managersHtml = `
       <div class="fcard tile tile-managers">
         <p class="section-title">${t('byManagers')}</p>
-        <div class="managers-wrap tile-body-scroll">
-          ${rows}
+        <div class="tile-body-scroll">
+          <table class="modal-list-table" style="width:100%;">
+            <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;">${t('convLabel')}</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
           ${namesResolved ? '' : `<div class="managers-note">Не удалось получить имена сотрудников${lastNamesErrorMsg ? ': ' + lastNamesErrorMsg : ''} — показаны ID.</div>`}
         </div>
       </div>
