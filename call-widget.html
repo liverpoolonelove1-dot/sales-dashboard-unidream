@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseCRM — анализ звонка</title>
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;padding:14px;background:#14151A;color:#F7F8F8;font-family:-apple-system,Arial,sans-serif;font-size:13px;}
+  .btn{background:#C6F135;color:#0F1014;border:none;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;width:100%;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn-secondary{background:transparent;border:1px solid #23252A;color:#F7F8F8;margin-top:8px;}
+  .score{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:#1B1C22;border-radius:10px;}
+  .score-num{font-weight:800;font-size:22px;}
+  .lbl{color:#8A8F98;font-size:11px;}
+  .analysis-text{white-space:pre-wrap;line-height:1.5;font-size:12.5px;max-height:220px;overflow-y:auto;}
+  .lang-toggle{display:flex;gap:6px;margin-bottom:8px;}
+  .lang-btn{background:#1B1C22;border:1px solid #23252A;color:#8A8F98;padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;}
+  .lang-btn.active{background:#C6F135;color:#0F1014;border-color:#C6F135;}
+  .error{color:#EF4444;font-size:12.5px;}
+  .hint{color:#8A8F98;font-size:11.5px;margin-top:8px;}
+  #loader{display:flex;align-items:center;gap:8px;color:#8A8F98;font-size:12.5px;}
+  .dot{width:5px;height:5px;border-radius:50%;background:#C6F135;animation:pulse 1s infinite ease-in-out;}
+  .dot:nth-child(2){animation-delay:.15s;} .dot:nth-child(3){animation-delay:.3s;}
+  @keyframes pulse{0%,100%{opacity:.3;}50%{opacity:1;}}
+</style>
+</head>
+<body>
+  <div id="root">
+    <button class="btn" id="analyzeBtn">Анализировать звонок</button>
+    <div class="hint" id="hintText">Расшифровка и разбор звонка займут 10-30 секунд</div>
+  </div>
+
+<script src="https://api.bitrix24.com/api/v1/"></script>
+<script>
+const WORKER_BASE = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev';
+const root = document.getElementById('root');
+let currentResult = null;
+
+function render(html){ root.innerHTML = html; }
+
+function renderLoading(){
+  render(`<div id="loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Анализирую звонок…</div>`);
+}
+
+function renderError(msg){
+  render(`
+    <div class="error">Не удалось проанализировать: ${escapeHtml(msg)}</div>
+    <button class="btn btn-secondary" id="retryBtn" style="margin-top:10px;">Попробовать снова</button>
+  `);
+  document.getElementById('retryBtn').addEventListener('click', startAnalysis);
+}
+
+function renderResult(data){
+  currentResult = data;
+  const score = data.score;
+  const color = score === null ? '#8A8F98' : score >= 8 ? '#C6F135' : score >= 5 ? '#F59E0B' : '#EF4444';
+  const scoreHtml = score !== null ? `
+    <div class="score">
+      <div class="score-num" style="color:${color}">${score}<span style="font-size:13px;color:#8A8F98;">/10</span></div>
+      <div class="lbl">Оценка звонка ИИ</div>
+    </div>` : '';
+  const hasUz = !!(data.analysisUz && data.analysisUz.trim());
+  const toggleHtml = hasUz ? `
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="langRuBtn">RU</button>
+      <button class="lang-btn" id="langUzBtn">UZ</button>
+    </div>` : '';
+  render(`
+    ${scoreHtml}
+    ${toggleHtml}
+    <div class="analysis-text" id="analysisTextBox">${escapeHtml(data.analysisRu || 'Нет ответа')}</div>
+    <button class="btn btn-secondary" id="reanalyzeBtn" style="margin-top:10px;">Проанализировать заново</button>
+  `);
+  document.getElementById('reanalyzeBtn').addEventListener('click', startAnalysis);
+  if(hasUz){
+    const box = document.getElementById('analysisTextBox');
+    const ruBtn = document.getElementById('langRuBtn');
+    const uzBtn = document.getElementById('langUzBtn');
+    ruBtn.addEventListener('click', () => { box.textContent = data.analysisRu; ruBtn.classList.add('active'); uzBtn.classList.remove('active'); });
+    uzBtn.addEventListener('click', () => { box.textContent = data.analysisUz; uzBtn.classList.add('active'); ruBtn.classList.remove('active'); });
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function startAnalysis(){
+  renderLoading();
+  try{
+    const authInfo = BX24.getAuth();
+    const placementInfo = BX24.placement.info();
+    const callId = placementInfo?.options?.CALL_ID || placementInfo?.options?.callID || null;
+    if(!callId) throw new Error('Не удалось определить ID звонка — виджет открыт не в карточке звонка');
+
+    const res = await fetch(`${WORKER_BASE}/widget-analyze`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        memberId: authInfo.member_id,
+        callId: callId
+      })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    renderResult(data);
+  }catch(e){
+    renderError(e.message || String(e));
+  }
+}
+
+BX24.init(function(){
+  document.getElementById('analyzeBtn').addEventListener('click', startAnalysis);
+  // Подгоняем высоту виджета под контент внутри карточки звонка
+  try{ BX24.fitWindow(); }catch(e){}
+});
+</script>
+</body>
+</html>
