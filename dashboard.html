@@ -1096,7 +1096,6 @@
     <div class="analytics-tabs" id="analyticsTabs">
       <button class="atab active" data-tab="sources" data-i18n="tabSources">Источники</button>
       <button class="atab" data-tab="daily" data-i18n="tabDaily">По дням</button>
-      <button class="atab" data-tab="stages" data-i18n="tabStages">По стадиям</button>
       <button class="atab" data-tab="closed" data-i18n="tabClosed">Закрытые</button>
       <button class="atab" data-tab="clients" data-i18n="tabClients">Клиенты</button>
       <button class="atab" data-tab="roi" data-i18n="tabRoi">LTV / ROI</button>
@@ -3908,7 +3907,8 @@ async function loadDashboard(forceRefresh){
     else if(currentSection === 'leads') renderLeadsSection(leadFilterType);
     else if(currentSection === 'tasks') renderTasksSection();
     else if(currentSection === 'managers') renderManagersSection();
-    else if(['funnels','analytics'].includes(currentSection)) openAnalytics(currentAnalyticsTab);
+    else if(currentSection === 'funnels') renderStagesSection();
+    else if(currentSection === 'analytics') openAnalytics(currentAnalyticsTab);
 
     if(dupPairs.length > 0){
       dupWarning.style.display = 'block';
@@ -6968,6 +6968,11 @@ function buildStagesTab(){
   return dateRangeHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noData")}</div>`);
 }
 
+function renderStagesSection(){
+  const html = buildStagesTab();
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('navFunnels')}</h2></div>${html}</div>`;
+}
+
 function buildManagersLoadTab(){
   let deals = lastDealsFlat;
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
@@ -7721,17 +7726,17 @@ function applyCustomDateRangeAndReload(from, to, section){
   loadDashboard();
 }
 
-document.getElementById('analyticsContent').addEventListener('click', e => {
+content.addEventListener('click', e => {
   if(e.target.id === 'stagesDateApplyBtn'){
     stagesDateFrom = document.getElementById('stagesDateFrom').value || '';
     stagesDateTo = document.getElementById('stagesDateTo').value || '';
     if(stagesDateFrom && stagesDateTo) applyCustomDateRangeAndReload(stagesDateFrom, stagesDateTo, 'funnels');
-    else openAnalytics('stages');
+    else renderStagesSection();
   }
   if(e.target.id === 'stagesDateResetBtn'){
     stagesDateFrom = '';
     stagesDateTo = '';
-    openAnalytics('stages');
+    renderStagesSection();
   }
   if(e.target.id === 'stagesSingleDayApplyBtn'){
     const day = document.getElementById('stagesSingleDay').value;
@@ -7741,8 +7746,6 @@ document.getElementById('analyticsContent').addEventListener('click', e => {
       applyCustomDateRangeAndReload(day, day, 'funnels');
     }
   }
-});
-content.addEventListener('click', e => {
   if(e.target.id === 'managersDateApplyBtn'){
     managersDateFrom = document.getElementById('managersDateFrom').value || '';
     managersDateTo = document.getElementById('managersDateTo').value || '';
@@ -7778,8 +7781,7 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
   if(nav === 'overview'){
     rerenderCached();
   } else if(nav === 'funnels'){
-    setSidebarActive('funnels');
-    openAnalytics('stages');
+    renderStagesSection();
   } else if(nav === 'managers'){
     renderManagersSection();
   } else if(nav === 'analytics'){
