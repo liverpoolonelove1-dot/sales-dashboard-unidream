@@ -1656,6 +1656,7 @@ const TRANSLATIONS = {
     analyzeBtnLabel: 'Анализ',
     callScoreLabel: 'Оценка звонка ИИ',
     stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
+    singleDayLabel: 'Или конкретный день:',
     customAnalysisLink: 'Настроить критерии анализа звонков',
     customAnalysisTitle: 'Критерии анализа звонков',
     customAnalysisDesc: 'Опишите своими словами, на что ИИ должен обращать внимание при разборе звонков — на русском или на узбекском языке, как удобнее. Например: проверять упоминание конкретной акции, следовать вашему скрипту продаж. Оценка звонка по 10-балльной шкале добавляется автоматически при любом разборе, задавать её отдельно не нужно. Если оставить поле пустым — используется стандартный разбор.',
@@ -2122,6 +2123,7 @@ const TRANSLATIONS = {
     analyzeBtnLabel: 'Tahlil',
     callScoreLabel: 'AI qo\'ng\'iroq bahosi',
     stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
+    singleDayLabel: 'Yoki aniq bir kun:',
     customAnalysisLink: 'Qo\'ng\'iroq tahlili mezonlarini sozlash',
     customAnalysisTitle: 'Qo\'ng\'iroq tahlili mezonlari',
     customAnalysisDesc: 'AI qo\'ng\'iroqlarni tahlil qilishda nimalarga e\'tibor berishi kerakligini o\'z so\'zlaringiz bilan yozing — ruscha yoki o\'zbekcha, qulay bo\'lgan tilda. Masalan: aniq aksiya aytilganini tekshirish, savdo skriptingizga amal qilish. 10 balllik shkala bo\'yicha baho har doim avtomatik qo\'shiladi, uni alohida so\'rash shart emas. Bo\'sh qoldirsangiz — standart tahlil ishlatiladi.',
@@ -6977,6 +6979,11 @@ function buildManagersLoadTab(){
       <input type="date" id="managersDateTo" value="${managersDateTo}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
       <button class="btn btn-primary" id="managersDateApplyBtn" style="font-size:12px;padding:7px 14px;">${t('applyBtn')}</button>
       ${(managersDateFrom || managersDateTo) ? `<button class="btn btn-ghost" id="managersDateResetBtn" style="font-size:12px;padding:7px 14px;">${t('customAnalysisReset')}</button>` : ''}
+    </div>
+    <div class="analytics-section" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-8px;">
+      <span style="font-size:12px;color:var(--ink-soft);">${t('singleDayLabel')}</span>
+      <input type="date" id="managersSingleDay" value="${managersDateFrom && managersDateFrom === managersDateTo ? managersDateFrom : ''}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
+      <button class="btn btn-ghost" id="managersSingleDayApplyBtn" style="font-size:12px;padding:7px 14px;">${t('applyBtn')}</button>
     </div>`;
 
   if(!deals.length) return dateRangeHtml + `<div class="analytics-empty">${t("noData")}</div>`;
@@ -7716,6 +7723,14 @@ content.addEventListener('click', e => {
     managersDateFrom = '';
     managersDateTo = '';
     renderManagersSection();
+  }
+  if(e.target.id === 'managersSingleDayApplyBtn'){
+    const day = document.getElementById('managersSingleDay').value;
+    if(day){
+      managersDateFrom = day;
+      managersDateTo = day;
+      renderManagersSection();
+    }
   }
 });
 
