@@ -6908,6 +6908,11 @@ function buildStagesTab(){
       <input type="date" id="stagesDateTo" value="${stagesDateTo}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
       <button class="btn btn-primary" id="stagesDateApplyBtn" style="font-size:12px;padding:7px 14px;">${t('applyBtn')}</button>
       ${(stagesDateFrom || stagesDateTo) ? `<button class="btn btn-ghost" id="stagesDateResetBtn" style="font-size:12px;padding:7px 14px;">${t('customAnalysisReset')}</button>` : ''}
+    </div>
+    <div class="analytics-section" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-8px;">
+      <span style="font-size:12px;color:var(--ink-soft);">${t('singleDayLabel')}</span>
+      <input type="date" id="stagesSingleDay" value="${stagesDateFrom && stagesDateFrom === stagesDateTo ? stagesDateFrom : ''}" style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:12.5px;">
+      <button class="btn btn-ghost" id="stagesSingleDayApplyBtn" style="font-size:12px;padding:7px 14px;">${t('applyBtn')}</button>
     </div>`;
 
   if(!deals.length) return dateRangeHtml + `<div class="analytics-empty">${t("noData")}</div>`;
@@ -7711,6 +7716,14 @@ document.getElementById('analyticsContent').addEventListener('click', e => {
     stagesDateFrom = '';
     stagesDateTo = '';
     openAnalytics('stages');
+  }
+  if(e.target.id === 'stagesSingleDayApplyBtn'){
+    const day = document.getElementById('stagesSingleDay').value;
+    if(day){
+      stagesDateFrom = day;
+      stagesDateTo = day;
+      openAnalytics('stages');
+    }
   }
 });
 content.addEventListener('click', e => {
