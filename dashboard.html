@@ -4333,8 +4333,10 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="dash-section">
           <div class="dash-section-head"><span class="dot" style="background:#60A5FA"></span><h3>${t('sectionPeople')}</h3></div>
           <div class="dash-tiles">
-            ${showReports ? peopleReportTiles : ''}
-            ${showLoss ? lossHtml : ''}
+            ${(showReports || showLoss) ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+              ${showReports ? peopleReportTiles : ''}
+              ${showLoss ? lossHtml : ''}
+            </div>` : ''}
             ${showManagers ? managersHtml : ''}
           </div>
         </div>` : '';
