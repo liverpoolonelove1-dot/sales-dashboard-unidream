@@ -7708,11 +7708,25 @@ document.getElementById('analyticsTabs').addEventListener('click', e => {
   const tab = e.target.closest('.atab')?.dataset.tab;
   if(tab) openAnalytics(tab);
 });
+// Применяем произвольный диапазон дат во вкладках "По стадиям"/"Менеджеры":
+// раньше эти фильтры просто пересчитывали уже загруженные данные (под текущий период
+// наверху дашборда) — если попросить диапазон шире того, что реально загружено (например,
+// период наверху "Этот месяц", а тут просят с мая по август), сделки за незагруженные месяцы
+// физически отсутствовали в данных, и цифры получались сильно заниженными. Теперь такой запрос
+// сам подгружает нужные данные за указанный диапазон, как обычная смена периода.
+function applyCustomDateRangeAndReload(from, to, section){
+  currentPeriod = {type: 'custom', from, to};
+  currentSection = section;
+  document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('active', 'expanded'));
+  loadDashboard();
+}
+
 document.getElementById('analyticsContent').addEventListener('click', e => {
   if(e.target.id === 'stagesDateApplyBtn'){
     stagesDateFrom = document.getElementById('stagesDateFrom').value || '';
     stagesDateTo = document.getElementById('stagesDateTo').value || '';
-    openAnalytics('stages');
+    if(stagesDateFrom && stagesDateTo) applyCustomDateRangeAndReload(stagesDateFrom, stagesDateTo, 'funnels');
+    else openAnalytics('stages');
   }
   if(e.target.id === 'stagesDateResetBtn'){
     stagesDateFrom = '';
@@ -7724,7 +7738,7 @@ document.getElementById('analyticsContent').addEventListener('click', e => {
     if(day){
       stagesDateFrom = day;
       stagesDateTo = day;
-      openAnalytics('stages');
+      applyCustomDateRangeAndReload(day, day, 'funnels');
     }
   }
 });
@@ -7732,7 +7746,8 @@ content.addEventListener('click', e => {
   if(e.target.id === 'managersDateApplyBtn'){
     managersDateFrom = document.getElementById('managersDateFrom').value || '';
     managersDateTo = document.getElementById('managersDateTo').value || '';
-    renderManagersSection();
+    if(managersDateFrom && managersDateTo) applyCustomDateRangeAndReload(managersDateFrom, managersDateTo, 'managers');
+    else renderManagersSection();
   }
   if(e.target.id === 'managersDateResetBtn'){
     managersDateFrom = '';
@@ -7744,7 +7759,7 @@ content.addEventListener('click', e => {
     if(day){
       managersDateFrom = day;
       managersDateTo = day;
-      renderManagersSection();
+      applyCustomDateRangeAndReload(day, day, 'managers');
     }
   }
 });
