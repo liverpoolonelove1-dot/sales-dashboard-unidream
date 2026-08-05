@@ -3154,7 +3154,18 @@ const CRM_ADAPTERS = {
       if(!structureCache.semanticsByFunnelId[funnelId]){
         structureCache.semanticsByFunnelId[funnelId] = fetchSemantics(conn.webhook, funnelId);
       }
-      const semMap = await structureCache.semanticsByFunnelId[funnelId];
+      let semMap = await structureCache.semanticsByFunnelId[funnelId];
+      // Если запрос семантики стадий не удался (пустая карта), НЕ запоминаем это навсегда —
+      // иначе сделки на кастомно названных "выигранных"/"проваленных" стадиях (например,
+      // "To'lov qildi" вместо стандартного WON) молча считались бы "в работе" до конца сессии,
+      // даже после успешного повторного запроса. Пробуем получить ещё раз прямо сейчас.
+      if(!semMap || Object.keys(semMap).length === 0){
+        structureCache.semanticsByFunnelId[funnelId] = fetchSemantics(conn.webhook, funnelId);
+        semMap = await structureCache.semanticsByFunnelId[funnelId];
+        if(!semMap || Object.keys(semMap).length === 0){
+          delete structureCache.semanticsByFunnelId[funnelId]; // и вторая попытка пустая — не кэшируем, попробуем заново в следующий раз
+        }
+      }
       const raw = await fetchDealsForCategory(conn.webhook, funnelId, period);
       const mapped = raw.map(d => ({
         id: d.ID,
