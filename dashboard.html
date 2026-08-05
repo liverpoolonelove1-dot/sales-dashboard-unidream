@@ -3008,7 +3008,6 @@ async function fetchDealsForCategory(webhook, categoryId, period){
   // без этого доп. запроса основной путь работает точно как раньше.
   if(!period || !period.from || !period.to) return createdInPeriod;
   try{
-    const alreadyHaveIds = new Set(createdInPeriod.map(d => String(d.ID)));
     const historyEntries = await fetchStageHistoryAll(webhook, {
       entityTypeId: 2, // сделки
       filter: {
@@ -3017,21 +3016,38 @@ async function fetchDealsForCategory(webhook, categoryId, period){
         '>=CREATED_TIME': `${period.from} 00:00:00`,
         '<=CREATED_TIME': `${period.to} 23:59:59`
       },
-      select: ['OWNER_ID']
+      select: ['OWNER_ID', 'CREATED_TIME']
     });
-    const missingIds = [...new Set(historyEntries.map(h => String(h.OWNER_ID)).filter(id => !alreadyHaveIds.has(id)))];
-    if(missingIds.length === 0) return createdInPeriod;
+    // Момент реального перехода в финальную стадию — пригодится, когда потом сузим этот же
+    // набор данных до более узкого под-периода (например, весь месяц загружен один раз для
+    // кэша, а показываем только "Сегодня") — без этой метки сужение смотрело бы только на
+    // дату СОЗДАНИЯ и снова теряло бы сделки, закрытые сегодня, но созданные в другой день.
+    const closeTimeByDealId = {};
+    historyEntries.forEach(h => {
+      // Если у сделки несколько переходов в финал за период (редко) — берём самый поздний
+      const existing = closeTimeByDealId[h.OWNER_ID];
+      if(!existing || new Date(h.CREATED_TIME) > new Date(existing)) closeTimeByDealId[h.OWNER_ID] = h.CREATED_TIME;
+    });
 
-    // Забираем недостающие сделки по списку ID — крупными пачками по 200, чтобы не упереться
-    // в ограничение длины фильтра на один запрос
-    const CHUNK = 200;
-    const chunks = [];
-    for(let i = 0; i < missingIds.length; i += CHUNK) chunks.push(missingIds.slice(i, i + CHUNK));
-    const chunkResults = await Promise.all(chunks.map(idsChunk =>
-      fetchAllPaged(webhook, 'crm.deal.list', { filter: {CATEGORY_ID: categoryId, '@ID': idsChunk}, select: DEAL_SELECT })
-    ));
-    const closedInPeriod = chunkResults.flat();
+    const alreadyHaveIds = new Set(createdInPeriod.map(d => String(d.ID)));
+    const missingIds = [...new Set(Object.keys(closeTimeByDealId).filter(id => !alreadyHaveIds.has(String(id))))];
+
+    let closedInPeriod = [];
+    if(missingIds.length > 0){
+      // Забираем недостающие сделки по списку ID — крупными пачками по 200, чтобы не упереться
+      // в ограничение длины фильтра на один запрос
+      const CHUNK = 200;
+      const chunks = [];
+      for(let i = 0; i < missingIds.length; i += CHUNK) chunks.push(missingIds.slice(i, i + CHUNK));
+      const chunkResults = await Promise.all(chunks.map(idsChunk =>
+        fetchAllPaged(webhook, 'crm.deal.list', { filter: {CATEGORY_ID: categoryId, '@ID': idsChunk}, select: DEAL_SELECT })
+      ));
+      closedInPeriod = chunkResults.flat();
+    }
+
     const combined = createdInPeriod.concat(closedInPeriod);
+    // Проставляем точное время реального перехода в финал каждой сделке, у которой оно есть
+    combined.forEach(d => { if(closeTimeByDealId[d.ID]) d.__actualCloseTime = closeTimeByDealId[d.ID]; });
     // .concat() создаёт новый массив и теряет __truncated/__total, проставленные в fetchAllPaged — переносим их
     if(createdInPeriod.__truncated) combined.__truncated = true;
     if(createdInPeriod.__total !== undefined) combined.__total = createdInPeriod.__total;
@@ -3233,6 +3249,7 @@ const CRM_ADAPTERS = {
         createdAt: d.DATE_CREATE,
         closedAt: d.CLOSEDATE,
         updatedAt: d.DATE_MODIFY,
+        actualCloseTime: d.__actualCloseTime || null, // точный момент реального перехода в выиграна/провалена (из истории стадий), в отличие от closedAt — плановой даты
         source: d.SOURCE_ID || '',
         semantic: guessSemantic(d.STAGE_ID, semMap)
       }));
@@ -3710,8 +3727,15 @@ async function loadDashboard(forceRefresh){
         // под конкретный период (сегодня/неделя) просто фильтруем на клиенте, без сети.
         monthDeals = results[1];
         if(monthDeals.__truncated) dataMayBeTruncated = true;
-        deals = periodIsMonth ? monthDeals : monthDeals.filter(d =>
-          d.createdAt && d.createdAt.slice(0,10) >= currentPeriod.from && d.createdAt.slice(0,10) <= currentPeriod.to);
+        // Сужаем месяц до конкретного под-периода (Сегодня/Неделя): сделка попадает, если она
+        // СОЗДАНА в этом под-периоде, ИЛИ реально перешла в финальную стадию (выиграна/провалена)
+        // именно в эти дни — не только по дате создания, иначе теряем закрытые сегодня сделки,
+        // созданные в другой день месяца.
+        deals = periodIsMonth ? monthDeals : monthDeals.filter(d => {
+          const createdInRange = d.createdAt && d.createdAt.slice(0,10) >= currentPeriod.from && d.createdAt.slice(0,10) <= currentPeriod.to;
+          const closedInRange = d.actualCloseTime && d.actualCloseTime.slice(0,10) >= currentPeriod.from && d.actualCloseTime.slice(0,10) <= currentPeriod.to;
+          return createdInRange || closedInRange;
+        });
         prevDeals = prevPeriod ? results[2] : [];
         prevMonthDeals = prevDeals; // отдельный запрос "прошлый месяц" в этой ветке не делаем — прошлые KPI и так считаются от prevDeals
       } else {
@@ -6969,9 +6993,18 @@ function buildStagesTab(){
   const currency = lastFunnels.find(f => f.currency)?.currency || '';
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
-  // Свой диапазон дат для этой вкладки — не зависит от общего фильтра периода наверху
-  if(stagesDateFrom) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) >= stagesDateFrom);
-  if(stagesDateTo) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) <= stagesDateTo);
+  // Свой диапазон дат для этой вкладки — не зависит от общего фильтра периода наверху.
+  // Сделка попадает, если создана в диапазоне ИЛИ реально закрыта (выиграна/провалена) в
+  // диапазоне — иначе теряем сделки, закрытые в эти дни, но созданные раньше.
+  if(stagesDateFrom || stagesDateTo){
+    deals = deals.filter(d => {
+      const c = d.createdAt ? d.createdAt.slice(0,10) : null;
+      const x = d.actualCloseTime ? d.actualCloseTime.slice(0,10) : null;
+      const createdOk = c && (!stagesDateFrom || c >= stagesDateFrom) && (!stagesDateTo || c <= stagesDateTo);
+      const closedOk = x && (!stagesDateFrom || x >= stagesDateFrom) && (!stagesDateTo || x <= stagesDateTo);
+      return createdOk || closedOk;
+    });
+  }
 
   const dateRangeHtml = `
     <div class="analytics-section" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -7050,9 +7083,17 @@ function buildManagersLoadTab(){
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   // Свой диапазон дат — можно смотреть отчёт по менеджерам за прошлые дни,
-  // независимо от общего фильтра периода наверху дашборда
-  if(managersDateFrom) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) >= managersDateFrom);
-  if(managersDateTo) deals = deals.filter(d => d.createdAt && d.createdAt.slice(0,10) <= managersDateTo);
+  // независимо от общего фильтра периода наверху дашборда.
+  // Сделка попадает, если создана в диапазоне ИЛИ реально закрыта в диапазоне.
+  if(managersDateFrom || managersDateTo){
+    deals = deals.filter(d => {
+      const c = d.createdAt ? d.createdAt.slice(0,10) : null;
+      const x = d.actualCloseTime ? d.actualCloseTime.slice(0,10) : null;
+      const createdOk = c && (!managersDateFrom || c >= managersDateFrom) && (!managersDateTo || c <= managersDateTo);
+      const closedOk = x && (!managersDateFrom || x >= managersDateFrom) && (!managersDateTo || x <= managersDateTo);
+      return createdOk || closedOk;
+    });
+  }
 
   const dateRangeHtml = `
     <div class="analytics-section" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
