@@ -3003,10 +3003,11 @@ async function fetchDealsForCategory(webhook, categoryId, period){
   const createdInPeriod = await fetchAllPaged(webhook, 'crm.deal.list', { filter, select: DEAL_SELECT });
 
   // Раньше на этом всё заканчивалось — и сделка, СОЗДАННАЯ в прошлом периоде, но ЗАКРЫТАЯ
-  // (выиграна/провалена) в текущем, полностью пропадала из статистики. Теперь отдельным,
-  // лёгким запросом ищем именно такие "пропущенные" сделки через историю смены стадий —
-  // без этого доп. запроса основной путь работает точно как раньше.
-  if(!period || !period.from || !period.to) return createdInPeriod;
+  // (выиграна/провалена) в текущем, полностью пропадала из статистики. Отдельным, лёгким
+  // запросом можно "досчитать" такие сделки через историю смены стадий — но это доп. нагрузка
+  // на каждую загрузку, поэтому включаем только для клиентов с addon "preciseAccounting"
+  // (сейчас — Tift). Для всех остальных клиентов поведение и скорость не меняются вообще.
+  if(!period || !period.from || !period.to || !addonEnabled('preciseAccounting')) return createdInPeriod;
   try{
     const historyEntries = await fetchStageHistoryAll(webhook, {
       entityTypeId: 2, // сделки
@@ -5822,6 +5823,11 @@ const PLANS = {
 };
 
 let currentPlan = 'pro'; // по умолчанию — полный доступ (для разработки без CLIENT_ACCOUNTS)
+let currentAddons = {}; // доп. функции конкретного клиента (не завязаны на тариф) — по умолчанию всё выключено
+
+function addonEnabled(name){
+  return !!(currentAddons && currentAddons[name]);
+}
 
 function planHas(feature){
   const plan = PLANS[currentPlan] || PLANS['pro'];
@@ -5867,8 +5873,12 @@ const CLIENT_ACCOUNTS = [
   // { login: 'client1', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'starter',  expires: '2026-12-31' },
   // { login: 'client2', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'business', expires: '2026-09-01' },
   // { login: 'client3', hash: 'SHA256(пароль)', webhook: 'https://...', plan: 'pro'       }, // без ограничения
+  // addons — доп. функции по конкретному клиенту (не завязаны на тариф), можно продавать отдельно:
+  //   preciseAccounting — точный учёт закрытых сделок через историю стадий Bitrix24 (чуть дольше грузится,
+  //                        зато 100% точность для сделок с длинным циклом продажи)
+  //   advancedMetrics    — расширенные метрики (Contact Rate, Revenue per Lead и т.д. из отдельного ТЗ)
   { login: 'Unidream', hash: '93115a15604b001f826bf0f18ce93ba0e2699ddbfa573c87b01487cf4fbe969c', webhook: 'https://unidream.bitrix24.uz/rest/163/42ohi3v7a5smqvi2/', plan: 'pro' },
-  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business' },
+  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true} },
   { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'pro' },
   { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro' },
 ];
@@ -6081,9 +6091,10 @@ async function attemptLogin(){
   loginBtn.textContent = t('loginBtn');
   if(account){
     loginError.style.display = 'none';
-    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro', hash});
+    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro', addons: account.addons || {}, hash});
     hideLoginView();
     currentPlan = account.plan || 'pro';
+    currentAddons = account.addons || {};
     // Проверяем срок подписки
     if(account.expires){
       const expDate = new Date(account.expires);
@@ -8878,6 +8889,7 @@ applyLang(); // применяем язык сразу
     document.getElementById('mainWrap').style.display = 'block';
     // Восстанавливаем план и брендинг из сессии
     currentPlan = session.plan || 'pro';
+    currentAddons = session.addons || {};
     if(session.brand) applyClientBranding({brand: session.brand});
     applyPlanRestrictions();
     // Если у клиента зашит вебхук — подключаемся автоматически
