@@ -2977,22 +2977,70 @@ function guessSemantic(statusId, map){
   return 'P';
 }
 
+// crm.stagehistory.list отвечает НЕ так, как обычные list-методы Bitrix24 — у него
+// result.items (объект с полем items), а не сразу массив, поэтому общий fetchAllPaged
+// сюда не подходит, нужен свой загрузчик с постраничной навигацией
+async function fetchStageHistoryAll(webhook, params){
+  let all = [];
+  let start = 0;
+  for(let page = 0; page < 200; page++){ // жёсткий предохранитель от бесконечного цикла
+    const data = await callMethod(webhook, 'crm.stagehistory.list', {...params, start});
+    const items = (data.result && Array.isArray(data.result.items)) ? data.result.items : [];
+    all = all.concat(items);
+    if(!data.next) break;
+    start = data.next;
+  }
+  return all;
+}
+
 async function fetchDealsForCategory(webhook, categoryId, period){
+  const DEAL_SELECT = ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID'];
   const filter = {CATEGORY_ID: categoryId};
-  // ВАЖНО: пробовали расширить этот фильтр (учитывать ещё и дату закрытия/изменения сделки,
-  // не только создания) — чтобы сделки, начатые в одном периоде, но выигранные в другом,
-  // не пропадали из статистики. Два варианта (DATE_MODIFY у всех сделок, потом только у
-  // закрытых) дали неверные раздутые цифры на реальных данных клиента — оба отката.
-  // Возвращено к простому и проверенному варианту: фильтр по дате СОЗДАНИЯ сделки.
-  // ИЗВЕСТНОЕ ОГРАНИЧЕНИЕ: сделка, созданная в одном периоде, но выигранная в другом,
-  // не попадёт в статистику текущего периода — доработка этого требует более аккуратного
-  // подхода (отдельного запроса и точной сверки), это отдельная задача на будущее.
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
-  return fetchAllPaged(webhook, 'crm.deal.list', {
-    filter,
-    select: ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID']
-  });
+  // Основной, проверенный путь — сделки, СОЗДАННЫЕ в периоде. Не трогаем эту часть вообще,
+  // чтобы не рисковать уже стабильно работающим поведением.
+  const createdInPeriod = await fetchAllPaged(webhook, 'crm.deal.list', { filter, select: DEAL_SELECT });
+
+  // Раньше на этом всё заканчивалось — и сделка, СОЗДАННАЯ в прошлом периоде, но ЗАКРЫТАЯ
+  // (выиграна/провалена) в текущем, полностью пропадала из статистики. Теперь отдельным,
+  // лёгким запросом ищем именно такие "пропущенные" сделки через историю смены стадий —
+  // без этого доп. запроса основной путь работает точно как раньше.
+  if(!period || !period.from || !period.to) return createdInPeriod;
+  try{
+    const alreadyHaveIds = new Set(createdInPeriod.map(d => String(d.ID)));
+    const historyEntries = await fetchStageHistoryAll(webhook, {
+      entityTypeId: 2, // сделки
+      filter: {
+        'CATEGORY_ID': categoryId,
+        '@STAGE_SEMANTIC_ID': ['S', 'F'], // только переходы в финальные стадии — выиграна/провалена
+        '>=CREATED_TIME': `${period.from} 00:00:00`,
+        '<=CREATED_TIME': `${period.to} 23:59:59`
+      },
+      select: ['OWNER_ID']
+    });
+    const missingIds = [...new Set(historyEntries.map(h => String(h.OWNER_ID)).filter(id => !alreadyHaveIds.has(id)))];
+    if(missingIds.length === 0) return createdInPeriod;
+
+    // Забираем недостающие сделки по списку ID — крупными пачками по 200, чтобы не упереться
+    // в ограничение длины фильтра на один запрос
+    const CHUNK = 200;
+    const chunks = [];
+    for(let i = 0; i < missingIds.length; i += CHUNK) chunks.push(missingIds.slice(i, i + CHUNK));
+    const chunkResults = await Promise.all(chunks.map(idsChunk =>
+      fetchAllPaged(webhook, 'crm.deal.list', { filter: {CATEGORY_ID: categoryId, '@ID': idsChunk}, select: DEAL_SELECT })
+    ));
+    const closedInPeriod = chunkResults.flat();
+    const combined = createdInPeriod.concat(closedInPeriod);
+    // .concat() создаёт новый массив и теряет __truncated/__total, проставленные в fetchAllPaged — переносим их
+    if(createdInPeriod.__truncated) combined.__truncated = true;
+    if(createdInPeriod.__total !== undefined) combined.__total = createdInPeriod.__total;
+    return combined;
+  }catch(e){
+    // crm.stagehistory.list может быть недоступен на тарифе клиента или из-за прав вебхука —
+    // в этом случае просто тихо остаёмся на основном пути (как было раньше), не роняем загрузку
+    return createdInPeriod;
+  }
 }
 
 async function fetchUserNames(webhook, ids){
