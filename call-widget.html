@@ -35,14 +35,11 @@
 <script>
 const WORKER_BASE = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev';
 const root = document.getElementById('root');
-let currentResult = null;
 
 function render(html){ root.innerHTML = html; }
-
 function renderLoading(){
   render(`<div id="loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Анализирую звонок…</div>`);
 }
-
 function renderError(msg){
   render(`
     <div class="error">Не удалось проанализировать: ${escapeHtml(msg)}</div>
@@ -50,9 +47,7 @@ function renderError(msg){
   `);
   document.getElementById('retryBtn').addEventListener('click', startAnalysis);
 }
-
 function renderResult(data){
-  currentResult = data;
   const score = data.score;
   const color = score === null ? '#8A8F98' : score >= 8 ? '#C6F135' : score >= 5 ? '#F59E0B' : '#EF4444';
   const scoreHtml = score !== null ? `
@@ -81,26 +76,42 @@ function renderResult(data){
     uzBtn.addEventListener('click', () => { box.textContent = data.analysisUz; uzBtn.classList.add('active'); ruBtn.classList.remove('active'); });
   }
 }
-
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Обёртка над BX24.callMethod в виде промиса — сам SDK берёт авторизацию
+// текущего пользователя Bitrix24, никакой отдельный вебхук/токен тут не нужен
+function bx24Call(method, params){
+  return new Promise((resolve, reject) => {
+    BX24.callMethod(method, params, (result) => {
+      if(result.error()){
+        reject(new Error(result.error().ex ? result.error().ex.error_description : result.error()));
+      } else {
+        resolve(result.data());
+      }
+    });
+  });
 }
 
 async function startAnalysis(){
   renderLoading();
   try{
-    const authInfo = BX24.getAuth();
     const placementInfo = BX24.placement.info();
     const callId = placementInfo?.options?.CALL_ID || placementInfo?.options?.callID || null;
     if(!callId) throw new Error('Не удалось определить ID звонка — виджет открыт не в карточке звонка');
 
-    const res = await fetch(`${WORKER_BASE}/widget-analyze`, {
+    const calls = await bx24Call('voximplant.statistic.get', {filter: {CALL_ID: callId}});
+    const call = Array.isArray(calls) ? calls[0] : null;
+    if(!call || !call.RECORD_FILE_ID) throw new Error('У этого звонка нет записи (RECORD_FILE_ID)');
+
+    const file = await bx24Call('disk.file.get', {id: call.RECORD_FILE_ID});
+    if(!file || !file.DOWNLOAD_URL) throw new Error('Запись недоступна — проверьте право "Диск" у приложения');
+
+    const res = await fetch(`${WORKER_BASE}/analyze-recording-url`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        memberId: authInfo.member_id,
-        callId: callId
-      })
+      body: JSON.stringify({downloadUrl: file.DOWNLOAD_URL, fileName: file.NAME || ''})
     });
     const data = await res.json();
     if(data.error) throw new Error(data.error);
@@ -112,7 +123,6 @@ async function startAnalysis(){
 
 BX24.init(function(){
   document.getElementById('analyzeBtn').addEventListener('click', startAnalysis);
-  // Подгоняем высоту виджета под контент внутри карточки звонка
   try{ BX24.fitWindow(); }catch(e){}
 });
 </script>
