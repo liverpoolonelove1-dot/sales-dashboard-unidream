@@ -3,13 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PulseCRM — анализ звонка</title>
+<title>PulseCRM — анализ звонков</title>
 <style>
   *{box-sizing:border-box;}
   body{margin:0;padding:14px;background:#14151A;color:#F7F8F8;font-family:-apple-system,Arial,sans-serif;font-size:13px;}
   .btn{background:#C6F135;color:#0F1014;border:none;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;width:100%;}
   .btn:disabled{opacity:.5;cursor:default;}
   .btn-secondary{background:transparent;border:1px solid #23252A;color:#F7F8F8;margin-top:8px;}
+  .call-item{background:#1B1C22;border:1px solid #23252A;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;}
+  .call-item:hover{border-color:#C6F135;}
+  .call-date{color:#8A8F98;font-size:11px;}
+  .call-dur{font-weight:600;font-size:12.5px;margin-top:2px;}
   .score{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:#1B1C22;border-radius:10px;}
   .score-num{font-weight:800;font-size:22px;}
   .lbl{color:#8A8F98;font-size:11px;}
@@ -23,29 +27,66 @@
   .dot{width:5px;height:5px;border-radius:50%;background:#C6F135;animation:pulse 1s infinite ease-in-out;}
   .dot:nth-child(2){animation-delay:.15s;} .dot:nth-child(3){animation-delay:.3s;}
   @keyframes pulse{0%,100%{opacity:.3;}50%{opacity:1;}}
+  .title{font-weight:700;font-size:13px;margin-bottom:10px;}
 </style>
 </head>
 <body>
-  <div id="root">
-    <button class="btn" id="analyzeBtn">Анализировать звонок</button>
-    <div class="hint" id="hintText">Расшифровка и разбор звонка займут 10-30 секунд</div>
-  </div>
+  <div id="root"><div class="hint">Загрузка…</div></div>
 
 <script src="https://api.bitrix24.com/api/v1/"></script>
 <script>
 const WORKER_BASE = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev';
 const root = document.getElementById('root');
+let calls = [];
 
-function render(html){ root.innerHTML = html; }
+function render(html){ root.innerHTML = html; try{ BX24.fitWindow(); }catch(e){} }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDur(sec){
+  sec = parseInt(sec, 10) || 0;
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function bx24Call(method, params){
+  return new Promise((resolve, reject) => {
+    BX24.callMethod(method, params, (result) => {
+      if(result.error()){
+        reject(new Error(result.error().ex ? result.error().ex.error_description : String(result.error())));
+      } else {
+        resolve(result.data());
+      }
+    });
+  });
+}
+
+function renderCallList(){
+  if(!calls.length){
+    render(`<div class="hint">По этой сделке пока нет звонков с записью.</div>`);
+    return;
+  }
+  const items = calls.map((c, i) => `
+    <div class="call-item" data-idx="${i}">
+      <div class="call-date">${new Date(c.CALL_START_DATE).toLocaleString('ru-RU')}</div>
+      <div class="call-dur">${c.CALL_TYPE == 2 ? 'Входящий' : 'Исходящий'} · ${fmtDur(c.CALL_DURATION)}</div>
+    </div>
+  `).join('');
+  render(`<div class="title">Звонки по этой сделке</div>${items}`);
+  document.querySelectorAll('.call-item').forEach(el => {
+    el.addEventListener('click', () => startAnalysis(calls[parseInt(el.dataset.idx, 10)]));
+  });
+}
+
 function renderLoading(){
   render(`<div id="loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Анализирую звонок…</div>`);
 }
 function renderError(msg){
   render(`
     <div class="error">Не удалось проанализировать: ${escapeHtml(msg)}</div>
-    <button class="btn btn-secondary" id="retryBtn" style="margin-top:10px;">Попробовать снова</button>
+    <button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад к списку звонков</button>
   `);
-  document.getElementById('retryBtn').addEventListener('click', startAnalysis);
+  document.getElementById('backBtn').addEventListener('click', renderCallList);
 }
 function renderResult(data){
   const score = data.score;
@@ -65,9 +106,9 @@ function renderResult(data){
     ${scoreHtml}
     ${toggleHtml}
     <div class="analysis-text" id="analysisTextBox">${escapeHtml(data.analysisRu || 'Нет ответа')}</div>
-    <button class="btn btn-secondary" id="reanalyzeBtn" style="margin-top:10px;">Проанализировать заново</button>
+    <button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад к списку звонков</button>
   `);
-  document.getElementById('reanalyzeBtn').addEventListener('click', startAnalysis);
+  document.getElementById('backBtn').addEventListener('click', renderCallList);
   if(hasUz){
     const box = document.getElementById('analysisTextBox');
     const ruBtn = document.getElementById('langRuBtn');
@@ -76,38 +117,13 @@ function renderResult(data){
     uzBtn.addEventListener('click', () => { box.textContent = data.analysisUz; uzBtn.classList.add('active'); ruBtn.classList.remove('active'); });
   }
 }
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
 
-// Обёртка над BX24.callMethod в виде промиса — сам SDK берёт авторизацию
-// текущего пользователя Bitrix24, никакой отдельный вебхук/токен тут не нужен
-function bx24Call(method, params){
-  return new Promise((resolve, reject) => {
-    BX24.callMethod(method, params, (result) => {
-      if(result.error()){
-        reject(new Error(result.error().ex ? result.error().ex.error_description : result.error()));
-      } else {
-        resolve(result.data());
-      }
-    });
-  });
-}
-
-async function startAnalysis(){
+async function startAnalysis(call){
   renderLoading();
   try{
-    const placementInfo = BX24.placement.info();
-    const callId = placementInfo?.options?.CALL_ID || placementInfo?.options?.callID || null;
-    if(!callId) throw new Error('Не удалось определить ID звонка — виджет открыт не в карточке звонка');
-
-    const calls = await bx24Call('voximplant.statistic.get', {filter: {CALL_ID: callId}});
-    const call = Array.isArray(calls) ? calls[0] : null;
-    if(!call || !call.RECORD_FILE_ID) throw new Error('У этого звонка нет записи (RECORD_FILE_ID)');
-
+    if(!call.RECORD_FILE_ID) throw new Error('У этого звонка нет записи');
     const file = await bx24Call('disk.file.get', {id: call.RECORD_FILE_ID});
     if(!file || !file.DOWNLOAD_URL) throw new Error('Запись недоступна — проверьте право "Диск" у приложения');
-
     const res = await fetch(`${WORKER_BASE}/analyze-recording-url`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -121,9 +137,26 @@ async function startAnalysis(){
   }
 }
 
+async function loadCallsForDeal(){
+  try{
+    const placementInfo = BX24.placement.info();
+    // Внутри карточки сделки контекст обычно называется ENTITY_ID (сама сделка)
+    const dealId = placementInfo?.options?.ENTITY_ID || placementInfo?.options?.ID || null;
+    if(!dealId) throw new Error('Не удалось определить сделку — виджет открыт не в карточке сделки');
+
+    const rawCalls = await bx24Call('voximplant.statistic.get', {
+      filter: {'CRM_ENTITY_TYPE': 'DEAL', 'CRM_ENTITY_ID': dealId},
+      order: {'CALL_START_DATE': 'DESC'}
+    });
+    calls = (Array.isArray(rawCalls) ? rawCalls : []).filter(c => c.RECORD_FILE_ID);
+    renderCallList();
+  }catch(e){
+    render(`<div class="error">${escapeHtml(e.message || String(e))}</div>`);
+  }
+}
+
 BX24.init(function(){
-  document.getElementById('analyzeBtn').addEventListener('click', startAnalysis);
-  try{ BX24.fitWindow(); }catch(e){}
+  loadCallsForDeal();
 });
 </script>
 </body>
