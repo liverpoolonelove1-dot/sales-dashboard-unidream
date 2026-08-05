@@ -2979,8 +2979,18 @@ function guessSemantic(statusId, map){
 
 async function fetchDealsForCategory(webhook, categoryId, period){
   const filter = {CATEGORY_ID: categoryId};
-  if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
-  if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
+  // Раньше фильтровали только по дате СОЗДАНИЯ сделки — из-за этого сделка, созданная в
+  // прошлом месяце, но выигранная в этом, вообще не попадала в выборку текущего периода,
+  // хотя деньги реально пришли именно сейчас. Теперь берём сделку, если ЛИБО она создана
+  // в периоде, ЛИБО закрыта (CLOSEDATE) в периоде — то есть учитываем весь цикл сделки,
+  // а не только момент её появления.
+  if(period && period.from && period.to){
+    filter['0'] = {
+      LOGIC: 'OR',
+      '0': {'>=DATE_CREATE': `${period.from} 00:00:00`, '<=DATE_CREATE': `${period.to} 23:59:59`},
+      '1': {'>=CLOSEDATE': `${period.from} 00:00:00`, '<=CLOSEDATE': `${period.to} 23:59:59`}
+    };
+  }
   return fetchAllPaged(webhook, 'crm.deal.list', {
     filter,
     select: ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID']
