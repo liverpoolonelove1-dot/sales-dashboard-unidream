@@ -23,6 +23,9 @@
   .lang-btn.active{background:#C6F135;color:#0F1014;border-color:#C6F135;}
   .error{color:#EF4444;font-size:12.5px;}
   .hint{color:#8A8F98;font-size:11.5px;margin-top:8px;}
+  audio{width:100%;margin-bottom:12px;height:32px;}
+  .transcript-toggle{background:transparent;border:none;color:#8A8F98;font-size:11.5px;cursor:pointer;padding:8px 0 0;text-decoration:underline;}
+  .transcript-box{white-space:pre-wrap;line-height:1.5;font-size:12px;color:#8A8F98;max-height:180px;overflow-y:auto;margin-top:8px;padding:10px 12px;background:#1B1C22;border-radius:10px;}
   #loader{display:flex;align-items:center;gap:8px;color:#8A8F98;font-size:12.5px;}
   .dot{width:5px;height:5px;border-radius:50%;background:#C6F135;animation:pulse 1s infinite ease-in-out;}
   .dot:nth-child(2){animation-delay:.15s;} .dot:nth-child(3){animation-delay:.3s;}
@@ -88,7 +91,7 @@ function renderError(msg){
   `);
   document.getElementById('backBtn').addEventListener('click', renderCallList);
 }
-function renderResult(data){
+function renderResult(data, downloadUrl){
   const score = data.score;
   const color = score === null ? '#8A8F98' : score >= 8 ? '#C6F135' : score >= 5 ? '#F59E0B' : '#EF4444';
   const scoreHtml = score !== null ? `
@@ -96,16 +99,24 @@ function renderResult(data){
       <div class="score-num" style="color:${color}">${score}<span style="font-size:13px;color:#8A8F98;">/10</span></div>
       <div class="lbl">Оценка звонка ИИ</div>
     </div>` : '';
+  const audioHtml = downloadUrl ? `<audio controls src="${downloadUrl}" preload="none"></audio>` : '';
   const hasUz = !!(data.analysisUz && data.analysisUz.trim());
   const toggleHtml = hasUz ? `
     <div class="lang-toggle">
       <button class="lang-btn active" id="langRuBtn">RU</button>
       <button class="lang-btn" id="langUzBtn">UZ</button>
     </div>` : '';
+  const hasTranscript = !!(data.transcript && data.transcript.trim());
+  const transcriptHtml = hasTranscript ? `
+    <button class="transcript-toggle" id="transcriptToggleBtn">Показать расшифровку</button>
+    <div class="transcript-box" id="transcriptBox" style="display:none;">${escapeHtml(data.transcript)}</div>
+  ` : '';
   render(`
+    ${audioHtml}
     ${scoreHtml}
     ${toggleHtml}
     <div class="analysis-text" id="analysisTextBox">${escapeHtml(data.analysisRu || 'Нет ответа')}</div>
+    ${transcriptHtml}
     <button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад к списку звонков</button>
   `);
   document.getElementById('backBtn').addEventListener('click', renderCallList);
@@ -115,6 +126,16 @@ function renderResult(data){
     const uzBtn = document.getElementById('langUzBtn');
     ruBtn.addEventListener('click', () => { box.textContent = data.analysisRu; ruBtn.classList.add('active'); uzBtn.classList.remove('active'); });
     uzBtn.addEventListener('click', () => { box.textContent = data.analysisUz; uzBtn.classList.add('active'); ruBtn.classList.remove('active'); });
+  }
+  if(hasTranscript){
+    const toggleBtn = document.getElementById('transcriptToggleBtn');
+    const box = document.getElementById('transcriptBox');
+    toggleBtn.addEventListener('click', () => {
+      const isHidden = box.style.display === 'none';
+      box.style.display = isHidden ? 'block' : 'none';
+      toggleBtn.textContent = isHidden ? 'Скрыть расшифровку' : 'Показать расшифровку';
+      try{ BX24.fitWindow(); }catch(e){}
+    });
   }
 }
 
@@ -131,7 +152,7 @@ async function startAnalysis(call){
     });
     const data = await res.json();
     if(data.error) throw new Error(data.error);
-    renderResult(data);
+    renderResult(data, file.DOWNLOAD_URL);
   }catch(e){
     renderError(e.message || String(e));
   }
