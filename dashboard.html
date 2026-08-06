@@ -5263,7 +5263,7 @@ function buildLeadsHtml(filterType, standalone){
       </td>
       <td>${badge}</td>
       <td>${date}</td>
-      <td>${lead.OPPORTUNITY ? fmtMoney(parseFloat(lead.OPPORTUNITY), lead.CURRENCY_ID || currency) : '—'}</td>
+      <td>${lead.OPPORTUNITY ? fmtMoney(parseFloat(lead.OPPORTUNITY), currency) : '—'}</td>
     </tr>`;
   }).join('');
 
