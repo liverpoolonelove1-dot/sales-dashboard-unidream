@@ -7,27 +7,32 @@
 // в самой карточке сделки — Bitrix24 не может загрузить страницу, а не "виджет сломан".
 //
 // РЕШЕНИЕ: этот воркер принимает запрос ЛЮБЫМ методом (GET и POST) и просто отдаёт содержимое
-// call-widget.html с pulsecrm.uz как обычную HTML-страницу с кодом 200 — Cloudflare Workers
-// прекрасно работают с POST, в отличие от GitHub Pages. Сам виджет внутри использует BX24.js
-// (постоянную связь с родительским окном через postMessage), поэтому ему не нужно ничего
-// вытаскивать из тела POST-запроса — авторизация всё равно происходит через сам Bitrix24 JS SDK
-// после загрузки страницы.
+// call-widget.html как обычную HTML-страницу с кодом 200 — Cloudflare Workers прекрасно
+// работают с POST, в отличие от GitHub Pages. Сам виджет внутри использует BX24.js (постоянную
+// связь с родительским окном через postMessage), поэтому ему не нужно ничего вытаскивать из
+// тела POST-запроса — авторизация всё равно происходит через сам Bitrix24 JS SDK после загрузки.
 //
-// КАК РАЗВЕРНУТЬ (Cloudflare Dashboard, 2 минуты):
-// 1. dash.cloudflare.com → Workers & Pages → Create → Create Worker
-// 2. Дать имя, например "pulsecrm-call-widget" → Deploy (создастся болванка)
-// 3. Edit code → стереть всё, вставить содержимое этого файла → Deploy
-// 4. Скопировать итоговый адрес воркера, например:
-//      https://pulsecrm-call-widget.<твой-поддомен>.workers.dev
-// 5. В Bitrix24 (там, где регистрировал виджет "Анализ звонка ИИ" — Разработчикам/Local
-//    application или Приложение с плейсментом CRM_DEAL_DETAIL_TAB) заменить URL обработчика
-//    со старого https://pulsecrm.uz/call-widget.html на новый адрес воркера из шага 4.
-// 6. Обновить страницу карточки сделки в Bitrix24 — вкладка "Анализ звонка ИИ" должна открыться.
+// ИСТОЧНИК КОДА: raw.githubusercontent.com, а НЕ pulsecrm.uz (6 августа 2026 обнаружено, что
+// GitHub Pages deploy для этого репозитория несколько раз подряд падал по таймауту на стороне
+// GitHub — "Timeout reached, aborting!", из-за чего pulsecrm.uz зависал на старой версии файлов
+// на неопределённое время). raw.githubusercontent.com отдаёт файл прямо из git-репозитория,
+// без отдельного шага деплоя — обновляется сразу после git push, независимо от того, работает
+// сейчас Pages или нет. Раздаёт с content-type: text/plain, но это не важно — воркер ниже всё
+// равно принудительно выставляет text/html в ответе.
+// Если Pages-деплой на pulsecrm.uz снова станет надёжным — можно вернуть SOURCE_URL обратно на
+// https://pulsecrm.uz/call-widget.html, тогда правки будут видны сразу через обычный дашборд тоже.
 //
-// Если позже поменяется сам call-widget.html — редеплоить этот воркер не нужно, он всегда
-// подтягивает свежую версию с pulsecrm.uz на лету.
+// КАК РАЗВЕРНУТЬ/ОБНОВИТЬ (Cloudflare Dashboard):
+// 1. dash.cloudflare.com → Workers & Pages → воркер pulsecrm-call-widget → Edit code
+// 2. Стереть всё, вставить содержимое этого файла целиком → Deploy
+// 3. В Bitrix24 (там, где регистрировал виджет "Анализ звонка ИИ") URL обработчика должен
+//    указывать на адрес этого воркера (не на pulsecrm.uz/call-widget.html напрямую).
+//
+// Если позже поменяется сам call-widget.html в репозитории — редеплоить этот воркер не нужно,
+// он всегда подтягивает свежую версию из git на лету (raw.githubusercontent.com кэширует у себя
+// недолго, обычно секунды).
 
-const SOURCE_URL = 'https://pulsecrm.uz/call-widget.html';
+const SOURCE_URL = 'https://raw.githubusercontent.com/liverpoolonelove1-dot/sales-dashboard-unidream/main/call-widget.html';
 
 export default {
   async fetch(request) {
