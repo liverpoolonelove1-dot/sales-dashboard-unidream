@@ -1316,6 +1316,12 @@ const TRANSLATIONS = {
     // Карточки
     byManagers: 'По менеджерам',
     refusalReasons: 'Причины отказов',
+    callRatingTitle: 'Рейтинг по звонкам (ИИ)',
+    callRatingManagerCol: 'Менеджер',
+    callRatingCountCol: 'Звонков',
+    callRatingScoreCol: 'Средняя оценка',
+    callRatingEmpty: 'Пока нет проанализированных звонков',
+    callRatingLoadError: 'Не удалось загрузить рейтинг',
     calls: 'Звонки',
     tasks: 'Задачи',
     avgDeal: 'Средний чек',
@@ -1785,6 +1791,12 @@ const TRANSLATIONS = {
     daysWithSales5: 'kun savdo bilan',
     byManagers: 'Menejerlar bo\'yicha',
     refusalReasons: 'Rad etish sabablari',
+    callRatingTitle: 'Qo\'ng\'iroqlar reytingi (AI)',
+    callRatingManagerCol: 'Menejer',
+    callRatingCountCol: 'Qo\'ng\'iroqlar',
+    callRatingScoreCol: 'O\'rtacha baho',
+    callRatingEmpty: 'Hali tahlil qilingan qo\'ng\'iroqlar yo\'q',
+    callRatingLoadError: 'Reytingni yuklab bo\'lmadi',
     calls: 'Qo\'ng\'iroqlar',
     tasks: 'Vazifalar',
     avgDeal: 'O\'rtacha chek',
@@ -5181,7 +5193,7 @@ function buildCallsHtml(filterType, standalone){
       : (isIn ? `<span class="badge-miss">${t('missedBadge')}</span>` : `<span class="badge-noanswer">${t('noAnswerBadge')}</span>`);
     const recordFileId = call.RECORD_FILE_ID;
     const analyzeBtn = recordFileId
-      ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">${t('analyzeBtnLabel')}</button>`
+      ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" data-call-id="${escapeHtml(String(call.ID || ''))}" data-manager-id="${escapeHtml(String(call.PORTAL_USER_ID || ''))}" data-deal-id="${escapeHtml(String(call.CRM_ENTITY_ID || ''))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">${t('analyzeBtnLabel')}</button>`
       : '';
     const playBtn = recordFileId
       ? `<button class="btn btn-ghost call-play-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">▶ ${t('listenBtnLabel')}</button>`
@@ -5931,7 +5943,7 @@ const CLIENT_ACCOUNTS = [
   { login: 'Unidream', hash: '93115a15604b001f826bf0f18ce93ba0e2699ddbfa573c87b01487cf4fbe969c', webhook: 'https://unidream.bitrix24.uz/rest/163/42ohi3v7a5smqvi2/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
   { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true, customLossReasonField: 'UF_CRM_1757586704285'}, currency: 'UZS' }, // customLossReasonField — код кастомного поля "Bekor qilish sababi" в Bitrix24 Tift, используется вместо названия стадии в "Причинах отказов"
   { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
-  { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', currency: 'UZS' },
+  { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', addons: {callRating: true}, currency: 'UZS' }, // callRating — платный рейтинг менеджеров по ИИ-оценкам звонков, включается по тарифу/оплате отдельно от остальных addon'ов
   { login: 'TestBor', hash: '9e7e971dab5cf1496af9762430b6cc6e4d93d8b9965d765316a38b7749c5c114', webhook: '', plan: 'business', addons: {advancedMetrics: true}, currency: 'UZS' }, // ВЕБХУК ЕЩЁ НЕ ДОБАВЛЕН — ждём от пользователя. preciseAccounting сознательно выключен: у клиента ожидается 100k+ сделок, сначала проверим скорость базовой загрузки, потом решим включать ли
 ];
 
@@ -6701,6 +6713,7 @@ function buildDashboardContext(){
 // AI через Cloudflare Workers прокси — ключ скрыт от клиентов
 const AI_PROXY_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/ai';
 const CALL_ANALYZE_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/analyze-call';
+const CALL_RATINGS_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/call-ratings';
 const REGISTER_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/register';
 const LOGIN_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/login';
 const SAVE_WEBHOOK_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-webhook';
@@ -6771,7 +6784,7 @@ async function playCallRecording(fileId, btnEl){
   }
 }
 
-async function analyzeCallRecording(fileId, btnEl){
+async function analyzeCallRecording(fileId, btnEl, callId, managerId, dealId, forceReanalyze){
   const originalHtml = btnEl.innerHTML;
   btnEl.disabled = true;
   btnEl.innerHTML = '<span class="loader-bars"><span></span><span></span><span></span><span></span><span></span></span>Анализирую…';
@@ -6779,7 +6792,10 @@ async function analyzeCallRecording(fileId, btnEl){
     const res = await fetch(CALL_ANALYZE_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fileId, customPrompt: localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '', webhook: currentConn?.webhook || ''})
+      body: JSON.stringify({
+        fileId, customPrompt: localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '', webhook: currentConn?.webhook || '',
+        callId: callId || '', managerId: managerId || '', dealId: dealId || '', forceReanalyze: !!forceReanalyze
+      })
     });
     const data = await res.json();
     btnEl.disabled = false;
@@ -6800,12 +6816,15 @@ async function analyzeCallRecording(fileId, btnEl){
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:26px;color:${scoreColor};">${score}<span style="font-size:14px;color:var(--ink-soft);font-weight:600;">/10</span></div>
         <div style="font-size:12px;color:var(--ink-soft);">${t('callScoreLabel')}</div>
       </div>` : '';
+    // Результат уже сохранён с прошлого раза — платная транскрипция не гонялась заново
+    const cachedHtml = data.cached ? `<div class="modal-note" style="margin-bottom:12px;">Звонок уже анализировался ранее — показан сохранённый результат. <button type="button" class="modal-filter-chip" id="callReanalyzeBtn" style="display:inline-flex;">Переанализировать</button></div>` : '';
     const langToggleHtml = analysisUz ? `
       <div style="display:flex;gap:6px;margin-bottom:10px;">
         <button type="button" class="modal-filter-chip active" id="callAnalysisLangRu">RU</button>
         <button type="button" class="modal-filter-chip" id="callAnalysisLangUz">UZ</button>
       </div>` : '';
     openModal('Анализ звонка', `
+      ${cachedHtml}
       ${scoreBadge}
       <div class="analytics-section" style="margin-bottom:16px;">
         <div class="analytics-title" style="font-size:14px;">Разбор</div>
@@ -6817,6 +6836,12 @@ async function analyzeCallRecording(fileId, btnEl){
         ${transcriptHtml}
       </div>
     `);
+    if(data.cached){
+      document.getElementById('callReanalyzeBtn').addEventListener('click', () => {
+        closeModal();
+        analyzeCallRecording(fileId, btnEl, callId, managerId, dealId, true);
+      });
+    }
     if(analysisUz){
       const box = document.getElementById('callAnalysisTextBox');
       const ruBtn = document.getElementById('callAnalysisLangRu');
@@ -6838,7 +6863,7 @@ async function analyzeCallRecording(fileId, btnEl){
 }
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.call-analyze-btn');
-  if(btn) analyzeCallRecording(btn.dataset.fileId, btn);
+  if(btn) analyzeCallRecording(btn.dataset.fileId, btn, btn.dataset.callId, btn.dataset.managerId, btn.dataset.dealId);
   const playBtn = e.target.closest('.call-play-btn');
   if(playBtn) playCallRecording(playBtn.dataset.fileId, playBtn);
 });
@@ -7225,12 +7250,61 @@ function buildManagersLoadTab(){
       </div>
     </div>`;
 
-  return dateRangeHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`);
+  // Рейтинг по звонкам (ИИ) — платная функция (addon callRating), тело подгружается
+  // асинхронно после рендера (см. loadCallRatingCard), тут только заглушка-контейнер
+  const callRatingHtml = addonEnabled('callRating') ? `
+    <div class="analytics-section">
+      <div class="analytics-title">${t('callRatingTitle')}</div>
+      <div id="callRatingBody" class="analytics-empty">…</div>
+    </div>` : '';
+
+  return dateRangeHtml + callRatingHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`);
+}
+
+async function loadCallRatingCard(){
+  const box = document.getElementById('callRatingBody');
+  if(!box || !currentConn?.webhook) return;
+  let portal;
+  try{ portal = new URL(currentConn.webhook).hostname; }catch(e){ return; }
+  try{
+    const res = await fetch(CALL_RATINGS_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({portal})
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const ratings = (data.ratings || []).filter(r => r.managerId !== 'unknown');
+    if(!ratings.length){
+      box.className = 'analytics-empty';
+      box.textContent = t('callRatingEmpty');
+      return;
+    }
+    const rows = ratings.map(r => {
+      const mgr = lastManagers.find(m => String(m.id) === String(r.managerId));
+      const name = mgr ? mgr.name : `ID ${r.managerId}`;
+      const scoreStr = r.avgScore !== null ? `${r.avgScore}/10` : '—';
+      const color = r.avgScore === null ? 'var(--ink-soft)' : r.avgScore >= 8 ? 'var(--accent-strong)' : r.avgScore >= 5 ? '#F59E0B' : 'var(--red-bad)';
+      return `<tr>
+        <td>${escapeHtml(name)}</td>
+        <td style="text-align:right;">${r.count}</td>
+        <td style="text-align:right;font-weight:700;color:${color}">${scoreStr}</td>
+      </tr>`;
+    }).join('');
+    box.outerHTML = `<table class="analytics-table" id="callRatingBody">
+      <thead><tr><th>${t('callRatingManagerCol')}</th><th style="text-align:right;">${t('callRatingCountCol')}</th><th style="text-align:right;">${t('callRatingScoreCol')}</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }catch(e){
+    box.className = 'analytics-empty';
+    box.textContent = `${t('callRatingLoadError')}: ${e.message || e}`;
+  }
 }
 
 function renderManagersSection(){
   const html = buildManagersLoadTab();
   content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('navManagers')}</h2></div>${html}</div>`;
+  if(addonEnabled('callRating')) loadCallRatingCard();
 }
 
 function buildClosedTab(){
