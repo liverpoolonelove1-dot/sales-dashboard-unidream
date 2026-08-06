@@ -155,7 +155,7 @@ function renderResult(data, downloadUrl, call){
       <button class="lang-btn active" id="langRuBtn">RU</button>
       <button class="lang-btn" id="langUzBtn">UZ</button>
     </div>` : '';
-  // Диалог по репликам (Менеджер/Клиент) — приоритетнее плоской расшифровки, когда есть
+  // Диалог по репликам (Менеджер/Клиент) — вместо плоской расшифровки
   const hasDialogue = !!(data.dialogue && data.dialogue.trim());
   const dialogueLinesHtml = hasDialogue ? data.dialogue.split('\n').map(line => {
     const m = line.match(/^(Менеджер|Клиент)\s*:\s*(.*)$/i);
@@ -167,11 +167,6 @@ function renderResult(data, downloadUrl, call){
     <button class="transcript-toggle" id="dialogueToggleBtn">Показать диалог (кто что говорил)</button>
     <div class="transcript-box" id="dialogueBox" style="display:none;">${dialogueLinesHtml}</div>
   ` : '';
-  const hasTranscript = !!(data.transcript && data.transcript.trim());
-  const transcriptHtml = hasTranscript ? `
-    <button class="transcript-toggle" id="transcriptToggleBtn">Показать расшифровку</button>
-    <div class="transcript-box" id="transcriptBox" style="display:none;">${escapeHtml(data.transcript)}</div>
-  ` : '';
   render(`
     ${cachedHtml}
     ${audioHtml}
@@ -179,7 +174,6 @@ function renderResult(data, downloadUrl, call){
     ${toggleHtml}
     <div class="analysis-text" id="analysisTextBox">${escapeHtml(data.analysisRu || 'Нет ответа')}</div>
     ${dialogueHtml}
-    ${transcriptHtml}
     <button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад к списку звонков</button>
   `);
   document.getElementById('backBtn').addEventListener('click', renderCallList);
@@ -200,16 +194,6 @@ function renderResult(data, downloadUrl, call){
       const isHidden = box.style.display === 'none';
       box.style.display = isHidden ? 'block' : 'none';
       toggleBtn.textContent = isHidden ? 'Скрыть диалог' : 'Показать диалог (кто что говорил)';
-      try{ BX24.fitWindow(); }catch(e){}
-    });
-  }
-  if(hasTranscript){
-    const toggleBtn = document.getElementById('transcriptToggleBtn');
-    const box = document.getElementById('transcriptBox');
-    toggleBtn.addEventListener('click', () => {
-      const isHidden = box.style.display === 'none';
-      box.style.display = isHidden ? 'block' : 'none';
-      toggleBtn.textContent = isHidden ? 'Скрыть расшифровку' : 'Показать расшифровку';
       try{ BX24.fitWindow(); }catch(e){}
     });
   }
