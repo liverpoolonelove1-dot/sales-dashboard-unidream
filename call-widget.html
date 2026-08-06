@@ -155,6 +155,18 @@ function renderResult(data, downloadUrl, call){
       <button class="lang-btn active" id="langRuBtn">RU</button>
       <button class="lang-btn" id="langUzBtn">UZ</button>
     </div>` : '';
+  // Диалог по репликам (Менеджер/Клиент) — приоритетнее плоской расшифровки, когда есть
+  const hasDialogue = !!(data.dialogue && data.dialogue.trim());
+  const dialogueLinesHtml = hasDialogue ? data.dialogue.split('\n').map(line => {
+    const m = line.match(/^(Менеджер|Клиент)\s*:\s*(.*)$/i);
+    if(!m) return `<div>${escapeHtml(line)}</div>`;
+    const isManager = /менеджер/i.test(m[1]);
+    return `<div style="margin-bottom:6px;"><span style="font-weight:700;color:${isManager ? '#C6F135' : '#8A8F98'};">${escapeHtml(m[1])}:</span> ${escapeHtml(m[2])}</div>`;
+  }).join('') : '';
+  const dialogueHtml = hasDialogue ? `
+    <button class="transcript-toggle" id="dialogueToggleBtn">Показать диалог (кто что говорил)</button>
+    <div class="transcript-box" id="dialogueBox" style="display:none;">${dialogueLinesHtml}</div>
+  ` : '';
   const hasTranscript = !!(data.transcript && data.transcript.trim());
   const transcriptHtml = hasTranscript ? `
     <button class="transcript-toggle" id="transcriptToggleBtn">Показать расшифровку</button>
@@ -166,6 +178,7 @@ function renderResult(data, downloadUrl, call){
     ${scoreHtml}
     ${toggleHtml}
     <div class="analysis-text" id="analysisTextBox">${escapeHtml(data.analysisRu || 'Нет ответа')}</div>
+    ${dialogueHtml}
     ${transcriptHtml}
     <button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад к списку звонков</button>
   `);
@@ -179,6 +192,16 @@ function renderResult(data, downloadUrl, call){
     const uzBtn = document.getElementById('langUzBtn');
     ruBtn.addEventListener('click', () => { box.textContent = data.analysisRu; ruBtn.classList.add('active'); uzBtn.classList.remove('active'); });
     uzBtn.addEventListener('click', () => { box.textContent = data.analysisUz; uzBtn.classList.add('active'); ruBtn.classList.remove('active'); });
+  }
+  if(hasDialogue){
+    const toggleBtn = document.getElementById('dialogueToggleBtn');
+    const box = document.getElementById('dialogueBox');
+    toggleBtn.addEventListener('click', () => {
+      const isHidden = box.style.display === 'none';
+      box.style.display = isHidden ? 'block' : 'none';
+      toggleBtn.textContent = isHidden ? 'Скрыть диалог' : 'Показать диалог (кто что говорил)';
+      try{ BX24.fitWindow(); }catch(e){}
+    });
   }
   if(hasTranscript){
     const toggleBtn = document.getElementById('transcriptToggleBtn');

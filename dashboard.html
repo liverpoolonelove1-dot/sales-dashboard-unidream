@@ -6807,6 +6807,15 @@ async function analyzeCallRecording(fileId, btnEl, callId, managerId, dealId, fo
     const transcriptHtml = data.transcript
       ? `<div class="help" style="max-height:220px;overflow-y:auto;white-space:pre-wrap;font-size:12.5px;">${escapeHtml(data.transcript)}</div>`
       : '<div class="modal-note">Речь не распознана.</div>';
+    // Диалог по репликам (Менеджер/Клиент) — показываем вместо плоской расшифровки, когда он есть
+    const dialogueHtml = (data.dialogue && data.dialogue.trim())
+      ? data.dialogue.split('\n').map(line => {
+          const m = line.match(/^(Менеджер|Клиент)\s*:\s*(.*)$/i);
+          if(!m) return `<div>${escapeHtml(line)}</div>`;
+          const isManager = /менеджер/i.test(m[1]);
+          return `<div style="margin-bottom:6px;"><span style="font-weight:700;color:${isManager ? 'var(--accent-strong)' : 'var(--ink-soft)'};">${escapeHtml(m[1])}:</span> ${escapeHtml(m[2])}</div>`;
+        }).join('')
+      : '';
     const analysisRu = (data.analysisRu || 'Нет ответа').trim();
     const analysisUz = (data.analysisUz || '').trim();
     const score = data.score;
@@ -6831,6 +6840,11 @@ async function analyzeCallRecording(fileId, btnEl, callId, managerId, dealId, fo
         ${langToggleHtml}
         <div id="callAnalysisTextBox" style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(analysisRu)}</div>
       </div>
+      ${dialogueHtml ? `
+      <div class="analytics-section" style="margin-bottom:16px;">
+        <div class="analytics-title" style="font-size:14px;">Кто что говорил</div>
+        <div class="help" style="max-height:220px;overflow-y:auto;font-size:12.5px;">${dialogueHtml}</div>
+      </div>` : ''}
       <div class="analytics-section">
         <div class="analytics-title" style="font-size:14px;">Расшифровка</div>
         ${transcriptHtml}
