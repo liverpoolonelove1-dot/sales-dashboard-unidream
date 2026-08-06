@@ -3753,7 +3753,7 @@ async function loadDashboard(forceRefresh){
       monthDeals.forEach(d => {
         if(d.semantic === 'S'){
           monthRevenue += (d.amount || 0);
-          monthCurrency = d.currency || monthCurrency;
+          monthCurrency = currentClientCurrency || d.currency || monthCurrency;
           monthWonCount += 1;
           // динамика продаж всегда строится по текущему месяцу, независимо от выбранного периода
           const rawDate = d.closedAt || d.createdAt;
@@ -3774,7 +3774,7 @@ async function loadDashboard(forceRefresh){
       deals.forEach(d => {
         dealIds.add(d.id);
         const amount = d.amount || 0;
-        currency = d.currency || currency;
+        currency = currentClientCurrency || d.currency || currency;
         if(!stageMap[d.stageId]) stageMap[d.stageId] = {name: d.stageId, count: 0, sum: 0, semantic: 'P', ageSum: 0, ageCount: 0};
         stageMap[d.stageId].count += 1;
         stageMap[d.stageId].sum += amount;
@@ -3791,7 +3791,7 @@ async function loadDashboard(forceRefresh){
           managerMap[mgr].wonSum += amount;
           managerMap[mgr].wonCount += 1;
           if(!bestDeal || amount > bestDeal.amount){
-            bestDeal = {amount, funnelName: fn.name, currency: d.currency || currency};
+            bestDeal = {amount, funnelName: fn.name, currency: currentClientCurrency || d.currency || currency};
           }
         }
         if(d.semantic === 'F'){
@@ -3834,7 +3834,7 @@ async function loadDashboard(forceRefresh){
             stageId: d.stageId,
             stageName: (stageMap[d.stageId] && stageMap[d.stageId].name) || d.stageId,
             amount: d.amount || 0,
-            currency: d.currency || currency,
+            currency: currentClientCurrency || d.currency || currency,
             assignedTo: d.assignedTo,
             createdAt: d.createdAt,
             closedAt: d.closedAt,
@@ -3848,7 +3848,7 @@ async function loadDashboard(forceRefresh){
             stageId: d.stageId,
             stageName: (stageMap[d.stageId] && stageMap[d.stageId].name) || d.stageId,
             amount: d.amount || 0,
-            currency: d.currency || currency,
+            currency: currentClientCurrency || d.currency || currency,
             assignedTo: d.assignedTo,
             createdAt: d.createdAt,
             closedAt: d.closedAt,
@@ -4124,7 +4124,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   lastMonthLostCount = totalLost;
   lastPrevMonthRevenue = hasPrev ? totalPrevRevenue : null;
   const winRate = (totalWon + totalLost) > 0 ? Math.round(100 * totalWon / (totalWon + totalLost)) : 0;
-  const currency = funnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
 
   // renderGoalBanner теперь вызывается ниже, после renderChartHero — план продаж
   // рендерится внутрь карточки графика, а её ещё не существует в DOM на этом шаге.
@@ -4569,7 +4569,7 @@ function renderDealHistoryHtml(history, stageMap){
 async function openDealDetail(flatIdx, src){
   const d = (src === 'month' ? lastMonthDealsFlat : lastDealsFlat)[flatIdx];
   if(!d) return;
-  const currency = d.currency || '';
+  const currency = currentClientCurrency || d.currency || '';
   const respName = lastManagers.find(m => String(m.id) === String(d.assignedTo))?.name
     || (d.assignedTo ? `${t('employeeIdPrefix')}${d.assignedTo}` : t('sourceNotSet'));
 
@@ -5511,7 +5511,7 @@ exportBtn.addEventListener('click', () => openReportBuilder());
 
 function openReportBuilder(){
   if(!lastFunnels.length) return;
-  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const now = new Date();
   const period = currentPeriod.type === 'month' ? 'Этот месяц' :
     currentPeriod.type === 'today' ? 'Сегодня' :
@@ -6411,7 +6411,7 @@ function answerBottlenecks(){
 
 function answerGoal(){
   if(!goalAmount) return currentLang === 'uz' ? 'Savdo rejasi hali belgilanmagan — yuqoridagi maqsad bannerida o\'rnatishingiz mumkin.' : 'План продаж пока не задан — можно установить в баннере цели наверху.';
-  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const totalNow = lastFunnels.reduce((a,f) => a + f.wonSum, 0);
   const pct = Math.min(100, Math.round(100 * totalNow / goalAmount));
   const now = new Date();
@@ -6598,7 +6598,7 @@ function renderAssistantChips(){
 const aiEnabled = true;
 
 function buildDashboardContext(){
-  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const fmt = n => fmtMoney(n, currency);
   const conv = (lastMonthWonCount+lastMonthLostCount)>0
     ? Math.round(100*lastMonthWonCount/(lastMonthWonCount+lastMonthLostCount)) : 0;
@@ -7656,7 +7656,7 @@ function buildRoiTab(){
 }
 
 function buildFinanceTab(){
-  const currency = lastFunnels.find(f=>f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const fmt = n => fmtMoney(n, currency);
   const wonDeals = lastDealsFlat.filter(d=>d.semantic==='S');
   const lostDeals = lastDealsFlat.filter(d=>d.semantic==='F');
