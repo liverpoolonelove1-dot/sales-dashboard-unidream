@@ -3612,21 +3612,33 @@ async function loadDashboard(forceRefresh){
       ? allFunnels.filter(f => selectedFunnelIds.has(String(f.id)))
       : allFunnels;
 
-    // Периоды "Сегодня"/"Эта неделя"/"Этот месяц" — все являются подмножеством текущего месяца.
-    // Чтобы переключение между ними было мгновенным (без нового похода на сервер), при любом
-    // из этих трёх периодов запрашиваем сразу ВЕСЬ месяц один раз (сделки, звонки, лиды, задачи)
-    // и кэшируем — а сам показываемый период потом просто фильтруем на клиенте.
+    // Периоды "Сегодня"/"Эта неделя"/"Этот месяц" — все являются подмножеством текущего месяца
+    // В БОЛЬШИНСТВЕ случаев. НО "Эта неделя" может выходить за границы календарного месяца
+    // (например, неделя началась в конце июля, а сейчас август) — раньше в этом случае часть
+    // данных недели просто не подгружалась, и цифры выглядели нелогично. Теперь кэшируемый
+    // диапазон — это ОБЪЕДИНЕНИЕ месяца и недели, чтобы неделя была покрыта целиком всегда.
     const thisMonthRange = computePeriod('month');
+    const thisWeekRange = computePeriod('week');
+    const cacheFrom = thisWeekRange.from < thisMonthRange.from ? thisWeekRange.from : thisMonthRange.from;
+    const cacheTo = thisWeekRange.to > thisMonthRange.to ? thisWeekRange.to : thisMonthRange.to;
+    // ВАЖНО: два разных периода с разным назначением, легко перепутать —
+    // cacheFetchPeriod — расширенный диапазон (месяц ∪ неделя), используется ТОЛЬКО как
+    //   параметр самого запроса к серверу (звонки/лиды/задачи/сделки) при кэшировании.
+    // thisMonthPeriod — ИСТИННЫЙ календарный месяц, используется для статистики "за этот
+    //   месяц" (сравнения план/факт, "Динамика продаж" и т.д.) — всегда узкий, без недели.
+    const cacheFetchPeriod = {type: 'month', from: cacheFrom, to: cacheTo};
     const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
-    const monthKey = `${thisMonthRange.from}_${thisMonthRange.to}`;
+    const monthKey = `${cacheFrom}_${cacheTo}`;
     const canUseMonthCache = ['today','week','month'].includes(currentPeriod.type);
     const monthCacheValid = monthDealsCache.connKey === connKey && monthDealsCache.monthKey === monthKey;
     if(canUseMonthCache && !monthCacheValid){
       monthDealsCache = { connKey, monthKey, byFunnelId: {}, calls: null, leads: null, tasks: null };
     }
-    // Помощник: фильтрует уже загруженный за месяц список записей до нужного под-периода по дате
+    // Помощник: фильтрует уже загруженный (расширенный) диапазон до нужного под-периода по дате.
+    // Раньше для периода "месяц" фильтрация пропускалась (весь загруженный диапазон и так был
+    // ровно месяцем) — теперь загруженный диапазон может быть ШИРЕ месяца (из-за недели), поэтому
+    // фильтруем всегда, без исключений, чтобы "Этот месяц" не захватывал лишние дни соседнего месяца.
     function filterToPeriod(records, dateField){
-      if(periodIsMonth) return records; // 'month' — это и есть весь загруженный диапазон, фильтровать нечего
       return records.filter(r => {
         const raw = r[dateField];
         if(!raw) return false;
@@ -3640,20 +3652,20 @@ async function loadDashboard(forceRefresh){
     // если у вебхука нет права telephony, просто покажем заметку вместо падения всего дашборда
     const callStatsPromise = (typeof adapter.fetchCalls !== 'function') ? Promise.resolve(null)
       : canUseMonthCache
-        ? (monthDealsCache.calls ? Promise.resolve(monthDealsCache.calls) : adapter.fetchCalls(conn, thisMonthPeriod).then(r => { monthDealsCache.calls = r; return r; }))
+        ? (monthDealsCache.calls ? Promise.resolve(monthDealsCache.calls) : adapter.fetchCalls(conn, cacheFetchPeriod).then(r => { monthDealsCache.calls = r; return r; }))
             .then(r => (r && r.__error) ? r : filterToPeriod(r, 'CALL_START_DATE')).catch(e => ({__error: e.message || String(e)}))
         : adapter.fetchCalls(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}));
 
     const taskStatsPromise = (typeof adapter.fetchTasks !== 'function') ? Promise.resolve(null)
       : canUseMonthCache
-        ? (monthDealsCache.tasks ? Promise.resolve(monthDealsCache.tasks) : adapter.fetchTasks(conn, thisMonthPeriod).then(r => { monthDealsCache.tasks = r; return r; }))
+        ? (monthDealsCache.tasks ? Promise.resolve(monthDealsCache.tasks) : adapter.fetchTasks(conn, cacheFetchPeriod).then(r => { monthDealsCache.tasks = r; return r; }))
             .then(r => (r && r.__error) ? r : filterToPeriod(r, 'CREATED_DATE')).catch(e => ({__error: e.message || String(e)}))
         : adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}));
 
     // лиды — отдельная от сделок сущность в Bitrix24, запрашивается параллельно
     const leadStatsPromise = (typeof adapter.fetchLeads !== 'function') ? Promise.resolve(null)
       : canUseMonthCache
-        ? (monthDealsCache.leads ? Promise.resolve(monthDealsCache.leads) : adapter.fetchLeads(conn, thisMonthPeriod).then(r => { monthDealsCache.leads = r; return r; }))
+        ? (monthDealsCache.leads ? Promise.resolve(monthDealsCache.leads) : adapter.fetchLeads(conn, cacheFetchPeriod).then(r => { monthDealsCache.leads = r; return r; }))
             .then(r => (r && r.__error) ? r : {rawLeads: filterToPeriod(r.rawLeads, 'DATE_CREATE'), statusMap: r.statusMap}).catch(e => ({__error: e.message || String(e)}))
         : adapter.fetchLeads(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}));
 
@@ -3700,7 +3712,7 @@ async function loadDashboard(forceRefresh){
         // Сделки за месяц — либо уже в кэше (мгновенно, без сети), либо запрашиваем один раз
         const monthDealsPromise = monthDealsCache.byFunnelId[fn.id]
           ? Promise.resolve(monthDealsCache.byFunnelId[fn.id])
-          : adapter.fetchDeals(conn, fn.id, thisMonthPeriod).then(d => { monthDealsCache.byFunnelId[fn.id] = d; return d; });
+          : adapter.fetchDeals(conn, fn.id, cacheFetchPeriod).then(d => { monthDealsCache.byFunnelId[fn.id] = d; return d; });
         const promises = [stagesPromise, monthDealsPromise];
         if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod));
         return Promise.all(promises);
@@ -3724,19 +3736,22 @@ async function loadDashboard(forceRefresh){
       const stageOrder = results[0];
       let deals, monthDeals, prevDeals, prevMonthDeals;
       if(canUseMonthCache){
-        // Сделки уже за весь месяц (из кэша или только что загруженные) — саму выборку
-        // под конкретный период (сегодня/неделя) просто фильтруем на клиенте, без сети.
-        monthDeals = results[1];
-        if(monthDeals.__truncated) dataMayBeTruncated = true;
-        // Сужаем месяц до конкретного под-периода (Сегодня/Неделя): сделка попадает, если она
-        // СОЗДАНА в этом под-периоде, ИЛИ реально перешла в финальную стадию (выиграна/провалена)
-        // именно в эти дни — не только по дате создания, иначе теряем закрытые сегодня сделки,
-        // созданные в другой день месяца.
-        deals = periodIsMonth ? monthDeals : monthDeals.filter(d => {
-          const createdInRange = d.createdAt && d.createdAt.slice(0,10) >= currentPeriod.from && d.createdAt.slice(0,10) <= currentPeriod.to;
-          const closedInRange = d.actualCloseTime && d.actualCloseTime.slice(0,10) >= currentPeriod.from && d.actualCloseTime.slice(0,10) <= currentPeriod.to;
+        // Сделки уже за расширенный диапазон (месяц ∪ неделя, из кэша или только что загруженные) —
+        // саму выборку под конкретный период просто фильтруем на клиенте, без сети.
+        const wideDeals = results[1];
+        if(wideDeals.__truncated) dataMayBeTruncated = true;
+        // Сужаем до конкретного под-периода (то, что реально показываем): сделка попадает, если
+        // она СОЗДАНА в этом под-периоде, ИЛИ реально перешла в финальную стадию именно в эти дни.
+        const narrowToRange = (range) => wideDeals.filter(d => {
+          const createdInRange = d.createdAt && d.createdAt.slice(0,10) >= range.from && d.createdAt.slice(0,10) <= range.to;
+          const closedInRange = d.actualCloseTime && d.actualCloseTime.slice(0,10) >= range.from && d.actualCloseTime.slice(0,10) <= range.to;
           return createdInRange || closedInRange;
         });
+        deals = narrowToRange(currentPeriod);
+        // monthDeals — ОТДЕЛЬНО сужаем до ИСТИННОГО календарного месяца (не до расширенного
+        // кэш-диапазона!) — иначе статистика "за этот месяц" (план/факт, динамика продаж)
+        // захватывала бы лишние дни соседнего месяца, попавшие в кэш из-за недели.
+        monthDeals = narrowToRange(thisMonthRange);
         prevDeals = prevPeriod ? results[2] : [];
         prevMonthDeals = prevDeals; // отдельный запрос "прошлый месяц" в этой ветке не делаем — прошлые KPI и так считаются от prevDeals
       } else {
