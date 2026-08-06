@@ -4734,7 +4734,7 @@ function getDateKey(dateStr, granularity){
 }
 
 function buildManagerAnalytics(managerId, granularity){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const deals = lastDealsFlat.filter(d => String(d.assignedTo) === String(managerId));
   const total = deals.length;
 
@@ -4848,7 +4848,7 @@ function buildManagerAnalytics(managerId, granularity){
 function openManagerDetail(idx){
   const m = lastManagers[idx];
   if(!m) return;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
 
   // базовые KPI
   let header = '';
@@ -4984,7 +4984,7 @@ function openLossDetail(idx){
   if(!r) return;
   const totalLost = lastLostReasons.reduce((a,x) => a + x.count, 0);
   const share = totalLost > 0 ? Math.round(100 * r.count / totalLost) : 0;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   // Каждая отдельная провальная сделка с этой причиной — не только агрегат, но и сам список
   const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && d.stageName === r.name);
   const html = statRow(t('dealsLabel'), r.count)
@@ -5000,14 +5000,14 @@ function openLossDetail(idx){
 function openDayDetail(idx){
   const e = lastDailyEntries[idx];
   if(!e) return;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const html = statRow(t('salesThisDay'), fmtMoney(e.sum, currency))
     + statRow(t('dealsClosedThisDay'), e.count);
   openModal(e.label, html);
 }
 
 function openAvgDealDetail(){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const rows = lastFunnels
     .filter(f => f.wonCount > 0)
     .map(f => `<tr><td>${f.name}</td><td>${fmtMoney(f.wonSum / f.wonCount, currency)}</td></tr>`)
@@ -5018,7 +5018,7 @@ function openAvgDealDetail(){
 
 function openBestDealDetail(){
   if(!lastBestDeal) return;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const html = statRow(t('dealAmountLbl'), fmtMoney(lastBestDeal.amount, lastBestDeal.currency || currency))
     + statRow(t('funnelLabel'), lastBestDeal.funnelName)
     + `<div class="modal-note">${t('biggestDealNote')}</div>`;
@@ -5178,7 +5178,7 @@ function buildCallsHtml(filterType, standalone){
 function buildLeadsHtml(filterType, standalone){
   if(!lastLeadStats && lastRawLeads.length === 0) return null;
   filterType = filterType || 'all';
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
 
   // Фильтр по менеджеру — сводка ниже пересчитывается только по его лидам
   const uniqueLeadManagers = [...new Set(lastRawLeads.map(l => String(l.ASSIGNED_BY_ID || '')))].filter(Boolean);
@@ -5321,7 +5321,7 @@ function renderCallsSection(filterType){
 }
 
 function openPipelineDetail(){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const rows = lastFunnels
     .map(f => ({name: f.name, sum: f.stages.filter(s => s.semantic === 'P').reduce((a,x) => a + x.sum, 0)}))
     .filter(x => x.sum > 0)
@@ -5332,7 +5332,7 @@ function openPipelineDetail(){
 }
 
 function openLostValueDetail(){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const rows = lastFunnels
     .map(f => ({name: f.name, sum: f.stages.filter(s => s.semantic === 'F').reduce((a,x) => a + x.sum, 0)}))
     .filter(x => x.sum > 0)
@@ -5343,7 +5343,7 @@ function openLostValueDetail(){
 }
 
 function openKpiDetail(type){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   let title = '', rows = '';
   let dealListHtml = '';
   if(type === 'kpi-revenue'){
@@ -5824,9 +5824,17 @@ const PLANS = {
 
 let currentPlan = 'pro'; // по умолчанию — полный доступ (для разработки без CLIENT_ACCOUNTS)
 let currentAddons = {}; // доп. функции конкретного клиента (не завязаны на тариф) — по умолчанию всё выключено
+let currentClientCurrency = ''; // валюта, заданная явно для клиента (переопределяет то, что приходит из Bitrix24 — оказалось ненадёжным полем)
 
 function addonEnabled(name){
   return !!(currentAddons && currentAddons[name]);
+}
+
+function getDisplayCurrency(){
+  // Явно заданная валюта клиента — приоритетнее того, что Bitrix24 возвращает в CURRENCY_ID
+  // на сделке (у некоторых клиентов там ошибочно RUB, даже если реально считают в сумах/тенге)
+  if(currentClientCurrency) return currentClientCurrency;
+  return lastFunnels.find(f => f.currency)?.currency || '';
 }
 
 function planHas(feature){
@@ -5877,10 +5885,10 @@ const CLIENT_ACCOUNTS = [
   //   preciseAccounting — точный учёт закрытых сделок через историю стадий Bitrix24 (чуть дольше грузится,
   //                        зато 100% точность для сделок с длинным циклом продажи)
   //   advancedMetrics    — расширенные метрики (Contact Rate, Revenue per Lead и т.д. из отдельного ТЗ)
-  { login: 'Unidream', hash: '93115a15604b001f826bf0f18ce93ba0e2699ddbfa573c87b01487cf4fbe969c', webhook: 'https://unidream.bitrix24.uz/rest/163/42ohi3v7a5smqvi2/', plan: 'pro', addons: {preciseAccounting: true} },
-  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true} },
-  { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'pro', addons: {preciseAccounting: true} },
-  { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro' },
+  { login: 'Unidream', hash: '93115a15604b001f826bf0f18ce93ba0e2699ddbfa573c87b01487cf4fbe969c', webhook: 'https://unidream.bitrix24.uz/rest/163/42ohi3v7a5smqvi2/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
+  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true}, currency: 'KZT' },
+  { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
+  { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', currency: 'KZT' },
   { login: 'TestBor', hash: '9e7e971dab5cf1496af9762430b6cc6e4d93d8b9965d765316a38b7749c5c114', webhook: '', plan: 'business', addons: {advancedMetrics: true} }, // ВЕБХУК ЕЩЁ НЕ ДОБАВЛЕН — ждём от пользователя. preciseAccounting сознательно выключен: у клиента ожидается 100k+ сделок, сначала проверим скорость базовой загрузки, потом решим включать ли
 ];
 
@@ -6092,10 +6100,11 @@ async function attemptLogin(){
   loginBtn.textContent = t('loginBtn');
   if(account){
     loginError.style.display = 'none';
-    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro', addons: account.addons || {}, hash});
+    setSessionAccount({login: account.login, webhook: account.webhook || null, brand: account.brand || null, plan: account.plan || 'pro', addons: account.addons || {}, currency: account.currency || '', hash});
     hideLoginView();
     currentPlan = account.plan || 'pro';
     currentAddons = account.addons || {};
+    currentClientCurrency = account.currency || '';
     // Проверяем срок подписки
     if(account.expires){
       const expDate = new Date(account.expires);
@@ -6458,7 +6467,7 @@ function answerQuestion(query){
 }
 
 function answerAvgDeal(){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const totalWon = lastFunnels.reduce((a,f) => a + f.wonCount, 0);
   const totalRev = lastFunnels.reduce((a,f) => a + f.wonSum, 0);
   if(totalWon === 0) return currentLang === 'uz' ? 'Bu davrda g\'olib bitimlar yo\'q — o\'rtacha chekni hisoblab bo\'lmaydi.' : 'За этот период нет выигранных сделок — рассчитать средний чек невозможно.';
@@ -6480,7 +6489,7 @@ function answerAvgDeal(){
 }
 
 function answerLost(){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const totalLost = lastFunnels.reduce((a,f) => a + f.lostCount, 0);
   const lostVal = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'F').reduce((s,x) => s + x.sum, 0), 0);
   if(totalLost === 0) return currentLang === 'uz' ? 'Bu davrda muvaffaqiyatsiz bitimlar yo\'q.' : 'За этот период провальных сделок нет.';
@@ -6502,7 +6511,7 @@ function answerLost(){
 }
 
 function answerPipeline(){
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   const total = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.count, 0), 0);
   const sum = lastFunnels.reduce((a,f) => a + f.stages.filter(s => s.semantic === 'P').reduce((s,x) => s + x.sum, 0), 0);
   if(total === 0) return currentLang === 'uz' ? 'Hozirda faol yopilmagan bitimlar yo\'q.' : 'Активных незакрытых сделок в данный момент нет.';
@@ -6886,7 +6895,7 @@ function sourceName(src){ return SOURCE_NAMES[src] || src || 'Не указан'
 
 function buildSourcesTab(){
   const deals = lastDealsFlat;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   const map = {};
@@ -6944,7 +6953,7 @@ function buildSourcesTab(){
 
 function buildDailyTab(){
   const deals = lastDealsFlat;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   const map = {};
@@ -7002,7 +7011,7 @@ function buildDailyTab(){
 
 function buildStagesTab(){
   let deals = lastDealsFlat;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   // Свой диапазон дат для этой вкладки — не зависит от общего фильтра периода наверху.
@@ -7091,7 +7100,7 @@ function renderStagesSection(){
 
 function buildManagersLoadTab(){
   let deals = lastDealsFlat;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   if(!deals.length) return `<div class="analytics-empty">${t("noData")}</div>`;
 
   // Свой диапазон дат — можно смотреть отчёт по менеджерам за прошлые дни,
@@ -7183,7 +7192,7 @@ function renderManagersSection(){
 
 function buildClosedTab(){
   const deals = lastDealsFlat;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
 
   const wonDeals = deals.filter(d => d.semantic === 'S').sort((a,b) => new Date(b.closedAt||b.createdAt) - new Date(a.closedAt||a.createdAt));
   const lostDeals = deals.filter(d => d.semantic === 'F').sort((a,b) => new Date(b.updatedAt||b.createdAt) - new Date(a.updatedAt||a.createdAt));
@@ -7234,7 +7243,7 @@ function buildClosedTab(){
 
 function buildClientsTab(){
   const deals = lastDealsFlat;
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
   if(!deals.length) return `<div class="analytics-empty">${t("noDealData")}</div>`;
 
   // Группируем сделки по assignedTo (как прокси клиента, т.к. прямого clientId нет в vебхуке)
@@ -8322,7 +8331,7 @@ function runSearch(query){
   const q = query.trim().toLowerCase();
   if(!q) return;
 
-  const currency = lastFunnels.find(f => f.currency)?.currency || '';
+  const currency = getDisplayCurrency();
 
   // --- Поиск по сделкам ---
   const dealResults = lastDealsFlat.filter(d => {
@@ -8891,6 +8900,7 @@ applyLang(); // применяем язык сразу
     // Восстанавливаем план и брендинг из сессии
     currentPlan = session.plan || 'pro';
     currentAddons = session.addons || {};
+    currentClientCurrency = session.currency || '';
     if(session.brand) applyClientBranding({brand: session.brand});
     applyPlanRestrictions();
     // Если у клиента зашит вебхук — подключаемся автоматически
