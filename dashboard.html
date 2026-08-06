@@ -1362,7 +1362,7 @@ const TRANSLATIONS = {
     prevMonth: 'прошлому месяцу',
     prevPeriodLabel: 'прошлому периоду',
     periodNote: 'Все показатели ниже и KPI сверху следуют за периодом, выбранным в фильтре выше. Исключение — график «Динамика продаж»: он всегда показывает календарь текущего месяца.',
-    truncatedWarning: 'У одной из воронок за этот период больше 50 000 сделок — для скорости загружена только часть, поэтому цифры на этой странице могут быть неполными. Сузьте период (например, «Эта неделя» вместо «Всё время»), чтобы увидеть точные данные.',
+    truncatedWarning: 'У одной из воронок за этот период больше 200 000 сделок — для скорости загружена только часть, поэтому цифры на этой странице могут быть неполными. Сузьте период (например, «Эта неделя» вместо «Всё время»), чтобы увидеть точные данные.',
     leadsNav: 'Лиды',
     convertedLbl: 'Конвертировано',
     junkLbl: 'Некачественные',
@@ -1836,7 +1836,7 @@ const TRANSLATIONS = {
     prevMonth: 'oldingi oyga',
     prevPeriodLabel: 'oldingi davrga',
     periodNote: 'Pastdagi barcha ko\'rsatkichlar va yuqoridagi KPI yuqoridagi filtrda tanlangan davrga amal qiladi. Istisno — "Savdo dinamikasi" grafigi: u doim joriy oy kalendarini ko\'rsatadi.',
-    truncatedWarning: 'Voronkalardan birida shu davr uchun 50 000 dan ortiq bitim bor — tezlik uchun faqat bir qismi yuklandi, shuning uchun bu sahifadagi raqamlar to\'liq bo\'lmasligi mumkin. Aniq ma\'lumotlarni ko\'rish uchun davrni torraytiring (masalan, "Bu hafta" ni "Barcha vaqt" o\'rniga tanlang).',
+    truncatedWarning: 'Voronkalardan birida shu davr uchun 200 000 dan ortiq bitim bor — tezlik uchun faqat bir qismi yuklandi, shuning uchun bu sahifadagi raqamlar to\'liq bo\'lmasligi mumkin. Aniq ma\'lumotlarni ko\'rish uchun davrni torraytiring (masalan, "Bu hafta" ni "Barcha vaqt" o\'rniga tanlang).',
     leadsNav: 'Lidlar',
     convertedLbl: 'Bitimga aylandi',
     junkLbl: 'Sifatsiz',
@@ -2929,11 +2929,13 @@ async function callMethodRaw(webhook, method, qs, attempt){
 }
 
 async function fetchAllPaged(webhook, method, params){
-  // Раньше лимит был 2500 — у клиентов с крупными объёмами (десятки/сотни тысяч сделок)
-  // это ОБРЕЗАЛО данные молча, и все расчёты (включая конверсию) шли по неполной выборке.
-  // Подняли лимит и вместо тихой обрезки — честно помечаем, что данные неполные,
-  // чтобы дашборд мог показать предупреждение пользователю.
-  const MAX_RECORDS = 50000;
+  // Раньше лимит был 2500, потом 50 000 — у клиентов с крупными объёмами (десятки/сотни тысяч
+  // записей) это ОБРЕЗАЛО данные молча, и все расчёты (включая конверсию) шли по неполной выборке.
+  // Замер на реальных данных (17 882 сделки Tift, 1 воронка): весь batch-забор занял 2.83 сек —
+  // это ~9000 записей/сек при concurrency=4, так что 200 000 записей — это ~22 сек, не минуты,
+  // как считалось раньше (та оценка была ДО перехода на batch API). Подняли лимит и вместо тихой
+  // обрезки — честно помечаем, что данные неполные, чтобы дашборд мог показать предупреждение.
+  const MAX_RECORDS = 200000;
   const first = await callMethod(webhook, method, {...params, start: 0});
   let all = Array.isArray(first.result) ? first.result.slice() : [];
   const total = typeof first.total === 'number' ? first.total : null;
@@ -3183,7 +3185,7 @@ async function fetchTaskStats(webhook, period){
   const total = typeof first.total === 'number' ? first.total : null;
   if(!first.next || !total || all.length === 0) return all;
   const pageSize = all.length;
-  const MAX_RECORDS = 50000;
+  const MAX_RECORDS = 200000; // см. обоснование цифры в комментарии у fetchAllPaged выше
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
