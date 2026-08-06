@@ -2342,7 +2342,7 @@ let lastFunnels = [];
 // Список воронок и их стадий не зависит от выбранного периода (это структура CRM, не данные) —
 // раньше при каждой смене периода (Сегодня/Неделя/...) они запрашивались заново вместе со сделками.
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
-let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} }; // + статусы лидов, имена сотрудников и семантика стадий — тоже структура, не данные, незачем перезапрашивать каждый раз
+let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null }; // + статусы лидов, имена сотрудников и семантика стадий — тоже структура, не данные, незачем перезапрашивать каждый раз. lossReasonOptions — ID→текст кастомного поля причины отказа (только у клиентов с addon customLossReasonField)
 let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null }; // сделки, звонки, лиды, задачи за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
@@ -2977,6 +2977,21 @@ function guessSemantic(statusId, map){
   return 'P';
 }
 
+// Значения полей-справочников (enumeration) Bitrix24 в сделках приходят как ID пункта,
+// а не текст — нужно один раз получить у портала список ID→текст для конкретного поля.
+// Используется addon'ом customLossReasonField (сейчас — Tift, поле "Bekor qilish sababi").
+async function fetchFieldOptions(webhook, fieldCode){
+  try{
+    const data = await callMethod(webhook, 'crm.deal.fields', {});
+    const field = data.result && data.result[fieldCode];
+    const map = {};
+    (field && field.items ? field.items : []).forEach(it => { map[it.ID] = it.VALUE; });
+    return map;
+  }catch(e){
+    return {};
+  }
+}
+
 // crm.stagehistory.list отвечает НЕ так, как обычные list-методы Bitrix24 — у него
 // result.items (объект с полем items), а не сразу массив, поэтому общий fetchAllPaged
 // сюда не подходит, нужен свой загрузчик с постраничной навигацией
@@ -2995,6 +3010,8 @@ async function fetchStageHistoryAll(webhook, params){
 
 async function fetchDealsForCategory(webhook, categoryId, period){
   const DEAL_SELECT = ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID'];
+  const lossReasonField = currentAddons.customLossReasonField || null;
+  if(lossReasonField) DEAL_SELECT.push(lossReasonField);
   const filter = {CATEGORY_ID: categoryId};
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
@@ -3239,6 +3256,10 @@ const CRM_ADAPTERS = {
           delete structureCache.semanticsByFunnelId[funnelId]; // и вторая попытка пустая — не кэшируем, попробуем заново в следующий раз
         }
       }
+      const lossReasonField = currentAddons.customLossReasonField || null;
+      if(lossReasonField && !structureCache.lossReasonOptions){
+        structureCache.lossReasonOptions = await fetchFieldOptions(conn.webhook, lossReasonField);
+      }
       const raw = await fetchDealsForCategory(conn.webhook, funnelId, period);
       const mapped = raw.map(d => ({
         id: d.ID,
@@ -3252,7 +3273,9 @@ const CRM_ADAPTERS = {
         updatedAt: d.DATE_MODIFY,
         actualCloseTime: d.__actualCloseTime || null, // точный момент реального перехода в выиграна/провалена (из истории стадий), в отличие от closedAt — плановой даты
         source: d.SOURCE_ID || '',
-        semantic: guessSemantic(d.STAGE_ID, semMap)
+        semantic: guessSemantic(d.STAGE_ID, semMap),
+        // текст причины отказа из кастомного поля клиента (Tift) вместо названия стадии — только если addon настроен и поле заполнено на сделке
+        lossReasonText: (lossReasonField && d[lossReasonField]) ? (structureCache.lossReasonOptions[d[lossReasonField]] || null) : null
       }));
       // map() создаёт новый массив и теряет __truncated/__total, проставленные в fetchAllPaged — переносим их
       if(raw.__truncated) mapped.__truncated = true;
@@ -3590,7 +3613,7 @@ async function loadDashboard(forceRefresh){
   try{
     const connKey = conn.webhook || JSON.stringify(conn);
     if(structureCache.connKey !== connKey || forceRefresh){
-      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} };
+      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
     }
     if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
@@ -3811,7 +3834,9 @@ async function loadDashboard(forceRefresh){
         }
         if(d.semantic === 'F'){
           lostCount += 1; managerMap[mgr].lostCount += 1;
-          const reasonName = stageMap[d.stageId].name;
+          // у клиентов с addon customLossReasonField (сейчас — Tift) — реальная причина отказа
+          // из кастомного поля сделки, у остальных клиентов — по-прежнему название стадии
+          const reasonName = d.lossReasonText || stageMap[d.stageId].name;
           if(!lostReasonMap[reasonName]) lostReasonMap[reasonName] = {count: 0, sum: 0};
           lostReasonMap[reasonName].count += 1;
           lostReasonMap[reasonName].sum += amount;
@@ -3855,7 +3880,8 @@ async function loadDashboard(forceRefresh){
             closedAt: d.closedAt,
             updatedAt: d.updatedAt,
             semantic: d.semantic,
-            source: d.source || ''
+            source: d.source || '',
+            lossReasonText: d.lossReasonText || null
           })),
           monthDealsList: monthDeals.map(d => ({
             id: d.id,
@@ -5000,8 +5026,10 @@ function openLossDetail(idx){
   const totalLost = lastLostReasons.reduce((a,x) => a + x.count, 0);
   const share = totalLost > 0 ? Math.round(100 * r.count / totalLost) : 0;
   const currency = getDisplayCurrency();
-  // Каждая отдельная провальная сделка с этой причиной — не только агрегат, но и сам список
-  const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && d.stageName === r.name);
+  // Каждая отдельная провальная сделка с этой причиной — не только агрегат, но и сам список.
+  // Причина — либо текст кастомного поля (Tift), либо название стадии (остальные клиенты) —
+  // должно совпадать с тем же приоритетом, что использовался при подсчёте lostReasonMap выше.
+  const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && (d.lossReasonText || d.stageName) === r.name);
   const html = statRow(t('dealsLabel'), r.count)
     + statRow(t('amountCol'), fmtMoney(r.sum, currency))
     + statRow(t('shareAmongLosses'), share + '%')
@@ -5707,7 +5735,7 @@ function generatePdfReport(currency, period, now){
       <div class="rep-section-title">Причины отказов</div>
       <table class="rep-table">
         <tr style="background:#f5f5f5;"><th>Причина (стадия)</th><th>Количество</th><th>Сумма</th></tr>
-        ${lastLostReasons.map(r=>`<tr><td>${r.stageName}</td><td>${r.count}</td><td>${fmt(r.sum)}</td></tr>`).join('')}
+        ${lastLostReasons.map(r=>`<tr><td>${r.name}</td><td>${r.count}</td><td>${fmt(r.sum)}</td></tr>`).join('')}
       </table>
     </div>` : '';
 
@@ -5901,7 +5929,7 @@ const CLIENT_ACCOUNTS = [
   //                        зато 100% точность для сделок с длинным циклом продажи)
   //   advancedMetrics    — расширенные метрики (Contact Rate, Revenue per Lead и т.д. из отдельного ТЗ)
   { login: 'Unidream', hash: '93115a15604b001f826bf0f18ce93ba0e2699ddbfa573c87b01487cf4fbe969c', webhook: 'https://unidream.bitrix24.uz/rest/163/42ohi3v7a5smqvi2/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
-  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true}, currency: 'UZS' },
+  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true, customLossReasonField: 'UF_CRM_1757586704285'}, currency: 'UZS' }, // customLossReasonField — код кастомного поля "Bekor qilish sababi" в Bitrix24 Tift, используется вместо названия стадии в "Причинах отказов"
   { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
   { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', currency: 'UZS' },
   { login: 'TestBor', hash: '9e7e971dab5cf1496af9762430b6cc6e4d93d8b9965d765316a38b7749c5c114', webhook: '', plan: 'business', addons: {advancedMetrics: true}, currency: 'UZS' }, // ВЕБХУК ЕЩЁ НЕ ДОБАВЛЕН — ждём от пользователя. preciseAccounting сознательно выключен: у клиента ожидается 100k+ сделок, сначала проверим скорость базовой загрузки, потом решим включать ли
@@ -6273,7 +6301,7 @@ disconnectBtn.addEventListener('click', () => {
   clearSettings();
   currentAdapter = null;
   currentConn = null;
-  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} };
+  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
   monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
   goalAmount = null;
   selectedFunnelIds = null;
@@ -6657,7 +6685,7 @@ function buildDashboardContext(){
 
   if(lastLostReasons.length){
     ctx += `\nПРИЧИНЫ ОТКАЗОВ:\n`;
-    lastLostReasons.slice(0,3).forEach(r=> ctx += `— ${r.stageName}: ${r.count} сделок\n`);
+    lastLostReasons.slice(0,3).forEach(r=> ctx += `— ${r.name}: ${r.count} сделок\n`);
   }
 
   // Скоринг лидов
@@ -8065,7 +8093,7 @@ function startDemoMode(){
     {id:'t3',title:'Встреча с VIP клиентом',status:'5',deadline:new Date().toISOString(),createdDate:new Date().toISOString(),responsibleId:'d1'},
   ];
   lastBestDeal = {amount:850000, funnelName:'Основная воронка', currency:'UZS'};
-  lastLostReasons = [{stageName:'Дорого', count:8, sum:1200000},{stageName:'Ушёл к конкуренту', count:4, sum:800000}];
+  lastLostReasons = [{name:'Дорого', count:8, sum:1200000},{name:'Ушёл к конкуренту', count:4, sum:800000}];
   const dailyEntries = [];
   const now = new Date();
   for(let i=0;i<new Date(now.getFullYear(),now.getMonth()+1,0).getDate();i++){
