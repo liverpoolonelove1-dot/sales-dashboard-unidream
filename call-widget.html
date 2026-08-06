@@ -41,6 +41,7 @@
 const WORKER_BASE = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev';
 const root = document.getElementById('root');
 let calls = [];
+let currentDealId = null;
 
 function render(html){ root.innerHTML = html; try{ BX24.fitWindow(); }catch(e){} }
 function escapeHtml(s){
@@ -65,8 +66,10 @@ function bx24Call(method, params){
 }
 
 function renderCallList(){
+  const ratingsBtnHtml = `<button class="transcript-toggle" id="showRatingsBtn" style="padding:0 0 10px;display:block;">📊 Рейтинг менеджеров</button>`;
   if(!calls.length){
-    render(`<div class="hint">По этой сделке пока нет звонков с записью.</div>`);
+    render(`${ratingsBtnHtml}<div class="hint">По этой сделке пока нет звонков с записью.</div>`);
+    document.getElementById('showRatingsBtn').addEventListener('click', showManagerRatings);
     return;
   }
   const items = calls.map((c, i) => `
@@ -75,10 +78,53 @@ function renderCallList(){
       <div class="call-dur">${c.CALL_TYPE == 2 ? 'Входящий' : 'Исходящий'} · ${fmtDur(c.CALL_DURATION)}</div>
     </div>
   `).join('');
-  render(`<div class="title">Звонки по этой сделке</div>${items}`);
+  render(`${ratingsBtnHtml}<div class="title">Звонки по этой сделке</div>${items}`);
+  document.getElementById('showRatingsBtn').addEventListener('click', showManagerRatings);
   document.querySelectorAll('.call-item').forEach(el => {
     el.addEventListener('click', () => startAnalysis(calls[parseInt(el.dataset.idx, 10)]));
   });
+}
+
+async function showManagerRatings(){
+  render(`<div id="loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Загружаю рейтинг…</div>`);
+  try{
+    const res = await fetch(`${WORKER_BASE}/call-ratings`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({portal: BX24.getDomain()})
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const ratings = (data.ratings || []).filter(r => r.managerId !== 'unknown');
+    if(!ratings.length){
+      render(`<div class="hint">Пока нет проанализированных звонков для рейтинга.</div><button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад</button>`);
+      document.getElementById('backBtn').addEventListener('click', renderCallList);
+      return;
+    }
+    // Имена менеджеров — рейтинг хранит только ID, подтягиваем реальные имена одним запросом
+    let names = {};
+    try{
+      const users = await bx24Call('user.get', {filter: {ID: ratings.map(r => r.managerId)}});
+      (users || []).forEach(u => { names[u.ID] = `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim() || `ID ${u.ID}`; });
+    }catch(e){ /* не получилось — просто покажем ID вместо имени */ }
+    const rows = ratings.map(r => {
+      const name = names[r.managerId] || `ID ${r.managerId}`;
+      const scoreStr = r.avgScore !== null ? `${r.avgScore}/10` : '—';
+      const color = r.avgScore === null ? '#8A8F98' : r.avgScore >= 8 ? '#C6F135' : r.avgScore >= 5 ? '#F59E0B' : '#EF4444';
+      return `<div class="call-item" style="cursor:default;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;font-size:12.5px;">${escapeHtml(name)}</div>
+          <div class="call-date">${r.count} ${r.count === 1 ? 'звонок' : 'звонков'}</div>
+        </div>
+        <div style="font-weight:800;font-size:16px;color:${color};">${scoreStr}</div>
+      </div>`;
+    }).join('');
+    render(`<div class="title">Рейтинг менеджеров по звонкам</div>${rows}<button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад</button>`);
+    document.getElementById('backBtn').addEventListener('click', renderCallList);
+  }catch(e){
+    render(`<div class="error">Не удалось загрузить рейтинг: ${escapeHtml(e.message || String(e))}</div><button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад</button>`);
+    document.getElementById('backBtn').addEventListener('click', renderCallList);
+  }
 }
 
 function renderLoading(){
@@ -91,7 +137,7 @@ function renderError(msg){
   `);
   document.getElementById('backBtn').addEventListener('click', renderCallList);
 }
-function renderResult(data, downloadUrl){
+function renderResult(data, downloadUrl, call){
   const score = data.score;
   const color = score === null ? '#8A8F98' : score >= 8 ? '#C6F135' : score >= 5 ? '#F59E0B' : '#EF4444';
   const scoreHtml = score !== null ? `
@@ -100,6 +146,9 @@ function renderResult(data, downloadUrl){
       <div class="lbl">Оценка звонка ИИ</div>
     </div>` : '';
   const audioHtml = downloadUrl ? `<audio controls src="${downloadUrl}" preload="none"></audio>` : '';
+  // Результат уже был сохранён с прошлого раза — показываем сразу, без повторной (платной)
+  // транскрипции, но даём явную возможность переанализировать, если запись перезаписали и т.п.
+  const cachedHtml = data.cached ? `<div class="hint" style="margin-bottom:10px;">Звонок уже анализировался ранее — показан сохранённый результат. <button class="transcript-toggle" id="reanalyzeBtn" style="padding:0;display:inline;">Переанализировать</button></div>` : '';
   const hasUz = !!(data.analysisUz && data.analysisUz.trim());
   const toggleHtml = hasUz ? `
     <div class="lang-toggle">
@@ -112,6 +161,7 @@ function renderResult(data, downloadUrl){
     <div class="transcript-box" id="transcriptBox" style="display:none;">${escapeHtml(data.transcript)}</div>
   ` : '';
   render(`
+    ${cachedHtml}
     ${audioHtml}
     ${scoreHtml}
     ${toggleHtml}
@@ -120,6 +170,9 @@ function renderResult(data, downloadUrl){
     <button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад к списку звонков</button>
   `);
   document.getElementById('backBtn').addEventListener('click', renderCallList);
+  if(data.cached && call){
+    document.getElementById('reanalyzeBtn').addEventListener('click', () => startAnalysis(call, true));
+  }
   if(hasUz){
     const box = document.getElementById('analysisTextBox');
     const ruBtn = document.getElementById('langRuBtn');
@@ -139,7 +192,7 @@ function renderResult(data, downloadUrl){
   }
 }
 
-async function startAnalysis(call){
+async function startAnalysis(call, forceReanalyze){
   renderLoading();
   try{
     if(!call.RECORD_FILE_ID) throw new Error('У этого звонка нет записи');
@@ -148,11 +201,19 @@ async function startAnalysis(call){
     const res = await fetch(`${WORKER_BASE}/analyze-recording-url`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({downloadUrl: file.DOWNLOAD_URL, fileName: file.NAME || ''})
+      body: JSON.stringify({
+        downloadUrl: file.DOWNLOAD_URL,
+        fileName: file.NAME || '',
+        portal: BX24.getDomain(),
+        callId: call.ID,
+        dealId: currentDealId,
+        managerId: call.PORTAL_USER_ID,
+        forceReanalyze: !!forceReanalyze
+      })
     });
     const data = await res.json();
     if(data.error) throw new Error(data.error);
-    renderResult(data, file.DOWNLOAD_URL);
+    renderResult(data, file.DOWNLOAD_URL, call);
   }catch(e){
     renderError(e.message || String(e));
   }
@@ -164,6 +225,7 @@ async function loadCallsForDeal(){
     // Внутри карточки сделки контекст обычно называется ENTITY_ID (сама сделка)
     const dealId = placementInfo?.options?.ENTITY_ID || placementInfo?.options?.ID || null;
     if(!dealId) throw new Error('Не удалось определить сделку — виджет открыт не в карточке сделки');
+    currentDealId = dealId;
 
     // Звонок клиенту в Bitrix24 почти всегда регистрируется на КОНТАКТЕ (или компании), а не
     // на самой сделке — сделка лишь показывает его в своей ленте через связь сделка→контакт.
