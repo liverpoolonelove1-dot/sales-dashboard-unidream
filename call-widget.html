@@ -144,11 +144,23 @@ async function loadCallsForDeal(){
     const dealId = placementInfo?.options?.ENTITY_ID || placementInfo?.options?.ID || null;
     if(!dealId) throw new Error('Не удалось определить сделку — виджет открыт не в карточке сделки');
 
-    const rawCalls = await bx24Call('voximplant.statistic.get', {
-      filter: {'CRM_ENTITY_TYPE': 'DEAL', 'CRM_ENTITY_ID': dealId},
-      order: {'CALL_START_DATE': 'DESC'}
-    });
-    calls = (Array.isArray(rawCalls) ? rawCalls : []).filter(c => c.RECORD_FILE_ID);
+    // Звонок клиенту в Bitrix24 почти всегда регистрируется на КОНТАКТЕ (или компании), а не
+    // на самой сделке — сделка лишь показывает его в своей ленте через связь сделка→контакт.
+    // Поэтому мало искать по CRM_ENTITY_TYPE=DEAL — нужно ещё узнать контакта/компанию сделки
+    // и подтянуть звонки по ним тоже, иначе список почти всегда будет пустым.
+    const deal = await bx24Call('crm.deal.get', {id: dealId});
+    const entityFilters = [{'CRM_ENTITY_TYPE': 'DEAL', 'CRM_ENTITY_ID': dealId}];
+    if(deal && deal.CONTACT_ID) entityFilters.push({'CRM_ENTITY_TYPE': 'CONTACT', 'CRM_ENTITY_ID': deal.CONTACT_ID});
+    if(deal && deal.COMPANY_ID) entityFilters.push({'CRM_ENTITY_TYPE': 'COMPANY', 'CRM_ENTITY_ID': deal.COMPANY_ID});
+
+    const results = await Promise.all(entityFilters.map(filter =>
+      bx24Call('voximplant.statistic.get', {filter, order: {'CALL_START_DATE': 'DESC'}}).catch(() => [])
+    ));
+    const merged = results.flat().filter(Boolean);
+    const seenIds = new Set();
+    calls = merged
+      .filter(c => c.RECORD_FILE_ID && !seenIds.has(c.ID) && seenIds.add(c.ID))
+      .sort((a, b) => new Date(b.CALL_START_DATE) - new Date(a.CALL_START_DATE));
     renderCallList();
   }catch(e){
     render(`<div class="error">${escapeHtml(e.message || String(e))}</div>`);
