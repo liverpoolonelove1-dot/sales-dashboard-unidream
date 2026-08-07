@@ -6,31 +6,31 @@
 <title>PulseCRM — анализ звонков</title>
 <style>
   *{box-sizing:border-box;}
-  body{margin:0;padding:14px;background:#14151A;color:#F7F8F8;font-family:-apple-system,Arial,sans-serif;font-size:13px;}
-  .btn{background:#C6F135;color:#0F1014;border:none;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;width:100%;}
+  body{margin:0;padding:14px;background:#FFFFFF;color:#1F2126;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;font-size:13px;}
+  .btn{background:#B9E62E;color:#14210A;border:none;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;width:100%;}
   .btn:disabled{opacity:.5;cursor:default;}
-  .btn-secondary{background:transparent;border:1px solid #23252A;color:#F7F8F8;margin-top:8px;}
-  .call-item{background:#1B1C22;border:1px solid #23252A;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;}
-  .call-item:hover{border-color:#C6F135;}
-  .call-date{color:#8A8F98;font-size:11px;}
+  .btn-secondary{background:#FFFFFF;border:1px solid #DEE1E6;color:#1F2126;margin-top:8px;}
+  .call-item{background:#F5F6F8;border:1px solid #E3E5E8;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;}
+  .call-item:hover{border-color:#8FB828;}
+  .call-date{color:#70757D;font-size:11px;}
   .call-dur{font-weight:600;font-size:12.5px;margin-top:2px;}
-  .score{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:#1B1C22;border-radius:10px;}
+  .score{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:#F5F6F8;border-radius:10px;}
   .score-num{font-weight:800;font-size:22px;}
-  .lbl{color:#8A8F98;font-size:11px;}
+  .lbl{color:#70757D;font-size:11px;}
   .analysis-text{white-space:pre-wrap;line-height:1.5;font-size:12.5px;max-height:220px;overflow-y:auto;}
   .lang-toggle{display:flex;gap:6px;margin-bottom:8px;}
-  .lang-btn{background:#1B1C22;border:1px solid #23252A;color:#8A8F98;padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;}
-  .lang-btn.active{background:#C6F135;color:#0F1014;border-color:#C6F135;}
-  .error{color:#EF4444;font-size:12.5px;}
-  .hint{color:#8A8F98;font-size:11.5px;margin-top:8px;}
+  .lang-btn{background:#F5F6F8;border:1px solid #E3E5E8;color:#70757D;padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;}
+  .lang-btn.active{background:#B9E62E;color:#14210A;border-color:#B9E62E;}
+  .error{color:#D6362B;font-size:12.5px;}
+  .hint{color:#70757D;font-size:11.5px;margin-top:8px;}
   audio{width:100%;margin-bottom:12px;height:32px;}
-  .transcript-toggle{background:transparent;border:none;color:#8A8F98;font-size:11.5px;cursor:pointer;padding:8px 0 0;text-decoration:underline;}
-  .transcript-box{white-space:pre-wrap;line-height:1.5;font-size:12px;color:#8A8F98;max-height:180px;overflow-y:auto;margin-top:8px;padding:10px 12px;background:#1B1C22;border-radius:10px;}
-  #loader{display:flex;align-items:center;gap:8px;color:#8A8F98;font-size:12.5px;}
-  .dot{width:5px;height:5px;border-radius:50%;background:#C6F135;animation:pulse 1s infinite ease-in-out;}
+  .transcript-toggle{background:transparent;border:none;color:#70757D;font-size:11.5px;cursor:pointer;padding:8px 0 0;text-decoration:underline;}
+  .transcript-box{white-space:pre-wrap;line-height:1.5;font-size:12px;color:#4A4E56;max-height:180px;overflow-y:auto;margin-top:8px;padding:10px 12px;background:#F5F6F8;border-radius:10px;}
+  #loader{display:flex;align-items:center;gap:8px;color:#70757D;font-size:12.5px;}
+  .dot{width:5px;height:5px;border-radius:50%;background:#8FB828;animation:pulse 1s infinite ease-in-out;}
   .dot:nth-child(2){animation-delay:.15s;} .dot:nth-child(3){animation-delay:.3s;}
   @keyframes pulse{0%,100%{opacity:.3;}50%{opacity:1;}}
-  .title{font-weight:700;font-size:13px;margin-bottom:10px;}
+  .title{font-weight:700;font-size:13px;margin-bottom:10px;color:#1F2126;}
 </style>
 </head>
 <body>
@@ -110,7 +110,7 @@ async function showManagerRatings(){
     const rows = ratings.map(r => {
       const name = names[r.managerId] || `ID ${r.managerId}`;
       const scoreStr = r.avgScore !== null ? `${r.avgScore}/10` : '—';
-      const color = r.avgScore === null ? '#8A8F98' : r.avgScore >= 8 ? '#C6F135' : r.avgScore >= 5 ? '#F59E0B' : '#EF4444';
+      const color = r.avgScore === null ? '#70757D' : r.avgScore >= 8 ? '#6B9600' : r.avgScore >= 5 ? '#B8790A' : '#D6362B';
       return `<div class="call-item" style="cursor:default;display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-weight:600;font-size:12.5px;">${escapeHtml(name)}</div>
@@ -139,10 +139,10 @@ function renderError(msg){
 }
 function renderResult(data, downloadUrl, call){
   const score = data.score;
-  const color = score === null ? '#8A8F98' : score >= 8 ? '#C6F135' : score >= 5 ? '#F59E0B' : '#EF4444';
+  const color = score === null ? '#70757D' : score >= 8 ? '#6B9600' : score >= 5 ? '#B8790A' : '#D6362B';
   const scoreHtml = score !== null ? `
     <div class="score">
-      <div class="score-num" style="color:${color}">${score}<span style="font-size:13px;color:#8A8F98;">/10</span></div>
+      <div class="score-num" style="color:${color}">${score}<span style="font-size:13px;color:#70757D;">/10</span></div>
       <div class="lbl">Оценка звонка ИИ</div>
     </div>` : '';
   const audioHtml = downloadUrl ? `<audio controls src="${downloadUrl}" preload="none"></audio>` : '';
@@ -161,7 +161,7 @@ function renderResult(data, downloadUrl, call){
     const m = line.match(/^(Менеджер|Клиент)\s*:\s*(.*)$/i);
     if(!m) return `<div>${escapeHtml(line)}</div>`;
     const isManager = /менеджер/i.test(m[1]);
-    return `<div style="margin-bottom:6px;"><span style="font-weight:700;color:${isManager ? '#C6F135' : '#8A8F98'};">${escapeHtml(m[1])}:</span> ${escapeHtml(m[2])}</div>`;
+    return `<div style="margin-bottom:6px;"><span style="font-weight:700;color:${isManager ? '#6B9600' : '#70757D'};">${escapeHtml(m[1])}:</span> ${escapeHtml(m[2])}</div>`;
   }).join('') : '';
   const dialogueHtml = hasDialogue ? `
     <button class="transcript-toggle" id="dialogueToggleBtn">Показать диалог (кто что говорил)</button>
