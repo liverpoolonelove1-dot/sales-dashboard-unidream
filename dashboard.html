@@ -196,7 +196,7 @@
   .tile .managers-wrap::-webkit-scrollbar{width:4px;}
   .tile .managers-wrap::-webkit-scrollbar-track{background:transparent;}
   .tile .managers-wrap::-webkit-scrollbar-thumb{background:var(--overlay-2);border-radius:4px;}
-  .tile-loss{}
+  .tile-loss{grid-column:1/-1;}
   .tile-calls{}
   .tile-funnel{}
   .funnel-footer{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;}
@@ -3430,21 +3430,28 @@ function buildGoalSection(totalRevenue, currency){
 }
 
 
-function buildLossReasonsSection(lostReasons){
-  if(!lostReasons || lostReasons.length === 0) return '';
-  const maxCount = Math.max(1, ...lostReasons.map(r => r.count));
-  const rows = lostReasons.map((r, idx) => `
-    <div class="loss-row" data-detail="loss" data-idx="${idx}">
-      <div class="loss-label">${r.name}</div>
-      <div class="loss-track"><div class="loss-fill" style="width:${Math.round(r.count/maxCount*100)}%"></div></div>
-      <div class="loss-count">${r.count}</div>
-    </div>
-  `).join('');
+// Таблица провальных сделок — какая сделка, у какого менеджера, по какой причине (не просто
+// агрегат по причинам, а построчно: сделка/менеджер/причина), в том же виде, что и "По менеджерам"
+function buildLossReasonsDealsTable(){
+  const lostDeals = lastDealsFlat.filter(d => d.semantic === 'F');
+  if(!lostDeals.length) return '';
+  const rows = lostDeals.map(d => {
+    const mgr = lastManagers.find(m => String(m.id) === String(d.assignedTo));
+    const mgrName = mgr ? mgr.name : (d.assignedTo ? `${t('employeeIdPrefix')}${d.assignedTo}` : t('sourceNotSet'));
+    const reason = d.lossReasonText || d.stageName;
+    return `<tr>
+      <td>${escapeHtml(d.title || t('dealNumberPrefix')+d.id)}</td>
+      <td>${escapeHtml(mgrName)}</td>
+      <td>${escapeHtml(reason)}</td>
+    </tr>`;
+  }).join('');
   return `
     <p class="section-title">${t('refusalReasons')}</p>
-    <div class="managers-wrap">
-      ${rows}
-      
+    <div class="tile-body-scroll">
+      <table class="modal-list-table" style="width:100%;">
+        <thead><tr><th>${t('dealCol')}</th><th>${t('managerCol')}</th><th>${t('reasonStage')}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
   `;
 }
@@ -4419,7 +4426,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   }
 
   const lossHtml = lostReasons && lostReasons.length > 0
-    ? `<div class="fcard tile tile-loss">${buildLossReasonsSection(lostReasons)}</div>`
+    ? `<div class="fcard tile tile-loss">${buildLossReasonsDealsTable()}</div>`
     : '';
 
   renderChartHero(dailyEntries, lastMonthCurrency || currency);
@@ -4480,10 +4487,10 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="dash-section">
           <div class="dash-section-head"><span class="dot" style="background:#60A5FA"></span><h3>${t('sectionPeople')}</h3></div>
           <div class="dash-tiles">
-            ${(showReports || showLoss) ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-              ${showReports ? peopleReportTiles : ''}
-              ${showLoss ? lossHtml : ''}
+            ${showReports ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+              ${peopleReportTiles}
             </div>` : ''}
+            ${showLoss ? lossHtml : ''}
             ${showManagers ? managersHtml : ''}
           </div>
         </div>` : '';
