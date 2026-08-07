@@ -31,6 +31,18 @@
   .dot:nth-child(2){animation-delay:.15s;} .dot:nth-child(3){animation-delay:.3s;}
   @keyframes pulse{0%,100%{opacity:.3;}50%{opacity:1;}}
   .title{font-weight:700;font-size:13px;margin-bottom:10px;color:#1F2126;}
+  .coach-card{background:#F5F6F8;border:1px solid #E3E5E8;border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  .coach-note{font-size:11.5px;color:#70757D;margin-bottom:10px;line-height:1.4;}
+  .coach-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+  .coach-chip{background:#F5F6F8;border:1px solid #E3E5E8;border-radius:20px;padding:6px 12px;font-size:11.5px;color:#1F2126;cursor:pointer;}
+  .coach-chip:hover{border-color:#8FB828;}
+  .coach-log{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;margin-bottom:10px;}
+  .coach-log-q{align-self:flex-end;background:#1F2126;color:#fff;border-radius:12px 12px 2px 12px;padding:7px 11px;font-size:12px;max-width:88%;}
+  .coach-log-a{align-self:flex-start;background:#F5F6F8;border:1px solid #E3E5E8;border-radius:12px 12px 12px 2px;padding:9px 11px;font-size:12.5px;line-height:1.45;max-width:92%;white-space:pre-line;}
+  .coach-input-row{display:flex;gap:6px;margin-bottom:8px;}
+  .coach-input-row input{flex:1;border:1px solid #E3E5E8;border-radius:9px;padding:8px 10px;font-size:12.5px;background:#FFFFFF;color:#1F2126;min-width:0;}
+  .coach-send-btn{background:#B9E62E;color:#14210A;border:none;border-radius:9px;padding:0 14px;font-weight:700;cursor:pointer;font-size:12.5px;flex:none;}
+  .coach-send-btn:disabled{opacity:.5;cursor:default;}
 </style>
 </head>
 <body>
@@ -39,9 +51,19 @@
 <script src="https://api.bitrix24.com/api/v1/"></script>
 <script>
 const WORKER_BASE = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev';
+const AI_PROXY_URL = `${WORKER_BASE}/ai`;
 const root = document.getElementById('root');
 let calls = [];
 let currentDealId = null;
+let coachCallContext = null;
+let coachHistory = [];
+
+const COACH_CHIPS = [
+  'Как лучше отвечать на возражение "дорого"?',
+  'Как уверенно закрывать сделку в конце разговора?',
+  'Как расположить к себе клиента в начале звонка?',
+  'Что мне стоит улучшить в моих разговорах?'
+];
 
 function render(html){ root.innerHTML = html; try{ BX24.fitWindow(); }catch(e){} }
 function escapeHtml(s){
@@ -66,10 +88,15 @@ function bx24Call(method, params){
 }
 
 function renderCallList(){
-  const ratingsBtnHtml = `<button class="transcript-toggle" id="showRatingsBtn" style="padding:0 0 10px;display:block;">📊 Рейтинг менеджеров</button>`;
+  const topBtnsHtml = `
+    <div style="display:flex;gap:14px;margin-bottom:10px;">
+      <button class="transcript-toggle" id="showRatingsBtn" style="padding:0;">📊 Рейтинг менеджеров</button>
+      <button class="transcript-toggle" id="showCoachBtn" style="padding:0;">🤖 ИИ-тренер</button>
+    </div>`;
   if(!calls.length){
-    render(`${ratingsBtnHtml}<div class="hint">По этой сделке пока нет звонков с записью.</div>`);
+    render(`${topBtnsHtml}<div class="hint">По этой сделке пока нет звонков с записью.</div>`);
     document.getElementById('showRatingsBtn').addEventListener('click', showManagerRatings);
+    document.getElementById('showCoachBtn').addEventListener('click', () => showCoachChat(null));
     return;
   }
   const items = calls.map((c, i) => `
@@ -78,8 +105,9 @@ function renderCallList(){
       <div class="call-dur">${c.CALL_TYPE == 2 ? 'Входящий' : 'Исходящий'} · ${fmtDur(c.CALL_DURATION)}</div>
     </div>
   `).join('');
-  render(`${ratingsBtnHtml}<div class="title">Звонки по этой сделке</div>${items}`);
+  render(`${topBtnsHtml}<div class="title">Звонки по этой сделке</div>${items}`);
   document.getElementById('showRatingsBtn').addEventListener('click', showManagerRatings);
+  document.getElementById('showCoachBtn').addEventListener('click', () => showCoachChat(null));
   document.querySelectorAll('.call-item').forEach(el => {
     el.addEventListener('click', () => startAnalysis(calls[parseInt(el.dataset.idx, 10)]));
   });
@@ -125,6 +153,126 @@ async function showManagerRatings(){
     render(`<div class="error">Не удалось загрузить рейтинг: ${escapeHtml(e.message || String(e))}</div><button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад</button>`);
     document.getElementById('backBtn').addEventListener('click', renderCallList);
   }
+}
+
+// ИИ-тренер для менеджера — персональный чат с советами по продажам и переговорам с клиентами
+// (общая аналитика по компании уже есть в самом дашборде, здесь фокус узкий: как менеджеру
+// разговаривать и закрывать сделки лучше). Использует тот же прокси /ai, что и чат в дашборде.
+async function showCoachChat(callCtx){
+  coachCallContext = callCtx;
+  coachHistory = [];
+  render(`<div id="loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Открываю ИИ-тренера…</div>`);
+
+  let statCardHtml = '';
+  try{
+    const [user, ratingsData] = await Promise.all([
+      bx24Call('user.current', {}).catch(() => null),
+      fetch(`${WORKER_BASE}/call-ratings`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({portal: BX24.getDomain()})
+      }).then(r => r.json()).catch(() => null)
+    ]);
+    const myId = user && user.ID ? String(user.ID) : null;
+    const mine = myId && ratingsData && ratingsData.ratings ? ratingsData.ratings.find(r => String(r.managerId) === myId) : null;
+    if(mine){
+      const scoreStr = mine.avgScore !== null ? `${mine.avgScore}/10` : '—';
+      const color = mine.avgScore === null ? '#70757D' : mine.avgScore >= 8 ? '#6B9600' : mine.avgScore >= 5 ? '#B8790A' : '#D6362B';
+      statCardHtml = `<div class="coach-card">
+        <div>
+          <div style="font-weight:600;font-size:12.5px;">Ваш средний балл за звонки</div>
+          <div class="call-date">${mine.count} ${mine.count === 1 ? 'звонок проанализирован' : 'звонков проанализировано'}</div>
+        </div>
+        <div style="font-weight:800;font-size:18px;color:${color};">${scoreStr}</div>
+      </div>`;
+    }
+  }catch(e){ /* без карточки статистики тоже можно работать */ }
+
+  const contextNoteHtml = coachCallContext
+    ? `<div class="coach-note">💬 Разбираем конкретный звонок (оценка ${coachCallContext.score ?? '—'}/10) — можно спрашивать про него.</div>`
+    : '';
+  const chipsHtml = `<div class="coach-chips">${COACH_CHIPS.map(q => `<button type="button" class="coach-chip" data-ask="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>`;
+
+  render(`
+    <div class="title">🤖 ИИ-тренер по продажам</div>
+    ${statCardHtml}
+    ${contextNoteHtml}
+    ${chipsHtml}
+    <div class="coach-log" id="coachLog"></div>
+    <div class="coach-input-row">
+      <input type="text" id="coachInput" placeholder="Спросите, как улучшить разговор с клиентом…">
+      <button class="coach-send-btn" id="coachSendBtn">→</button>
+    </div>
+    <button class="btn btn-secondary" id="backBtn">Назад</button>
+  `);
+
+  document.getElementById('backBtn').addEventListener('click', renderCallList);
+  document.querySelectorAll('.coach-chip').forEach(el => {
+    el.addEventListener('click', () => coachAsk(el.dataset.ask));
+  });
+  const input = document.getElementById('coachInput');
+  document.getElementById('coachSendBtn').addEventListener('click', () => {
+    coachAsk(input.value);
+    input.value = '';
+  });
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){
+      coachAsk(input.value);
+      input.value = '';
+    }
+  });
+}
+
+function buildCoachPrompt(query){
+  let ctx = `Ты — персональный ИИ-тренер по продажам для менеджера, который работает в CRM PulseCRM. Помогаешь конкретному менеджеру: разбираешь его звонки, советуешь формулировки, как отвечать на возражения и увереннее закрывать сделки. Отвечай кратко и по делу (3-6 предложений), на русском языке, обращайся на "вы".\n`;
+  if(coachCallContext){
+    ctx += `\n[РАЗБИРАЕМЫЙ ЗВОНОК]\nОценка ИИ: ${coachCallContext.score ?? '—'}/10\nРазбор звонка: ${coachCallContext.analysisRu || '—'}\n`;
+    if(coachCallContext.dialogue) ctx += `Диалог (кто что говорил):\n${coachCallContext.dialogue.slice(0, 2000)}\n`;
+  }
+  if(coachHistory.length){
+    ctx += `\n[ПРЕДЫДУЩАЯ ПЕРЕПИСКА С ТРЕНЕРОМ]\n`;
+    coachHistory.slice(-6).forEach(m => { ctx += `${m.role === 'user' ? 'Менеджер' : 'Тренер'}: ${m.text}\n`; });
+  }
+  ctx += `\nВОПРОС МЕНЕДЖЕРА: ${query}`;
+  return ctx;
+}
+
+async function coachAsk(query){
+  if(!query || !query.trim()) return;
+  const log = document.getElementById('coachLog');
+  if(!log) return;
+
+  const qDiv = document.createElement('div');
+  qDiv.className = 'coach-log-q';
+  qDiv.textContent = query;
+  log.appendChild(qDiv);
+
+  const aDiv = document.createElement('div');
+  aDiv.className = 'coach-log-a';
+  aDiv.textContent = 'Тренер печатает…';
+  log.appendChild(aDiv);
+  log.scrollTop = log.scrollHeight;
+  try{ BX24.fitWindow(); }catch(e){}
+
+  const prompt = buildCoachPrompt(query);
+  let answer;
+  try{
+    const res = await fetch(AI_PROXY_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt})
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    answer = data.answer || 'ИИ не ответил';
+  }catch(e){
+    answer = `Не удалось получить ответ: ${e.message || String(e)}`;
+  }
+  aDiv.textContent = answer;
+  coachHistory.push({role: 'user', text: query});
+  coachHistory.push({role: 'coach', text: answer});
+  log.scrollTop = log.scrollHeight;
+  try{ BX24.fitWindow(); }catch(e){}
 }
 
 function renderLoading(){
@@ -174,9 +322,15 @@ function renderResult(data, downloadUrl, call){
     ${toggleHtml}
     <div class="analysis-text" id="analysisTextBox">${escapeHtml(data.analysisRu || 'Нет ответа')}</div>
     ${dialogueHtml}
-    <button class="btn btn-secondary" id="backBtn" style="margin-top:10px;">Назад к списку звонков</button>
+    <button class="btn" id="coachAboutCallBtn" style="margin-top:10px;">🤖 Обсудить этот звонок с ИИ-тренером</button>
+    <button class="btn btn-secondary" id="backBtn" style="margin-top:8px;">Назад к списку звонков</button>
   `);
   document.getElementById('backBtn').addEventListener('click', renderCallList);
+  document.getElementById('coachAboutCallBtn').addEventListener('click', () => showCoachChat({
+    score: data.score,
+    analysisRu: data.analysisRu || '',
+    dialogue: data.dialogue || ''
+  }));
   if(data.cached && call){
     document.getElementById('reanalyzeBtn').addEventListener('click', () => startAnalysis(call, true));
   }
