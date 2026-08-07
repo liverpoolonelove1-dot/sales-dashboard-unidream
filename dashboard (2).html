@@ -196,7 +196,7 @@
   .tile .managers-wrap::-webkit-scrollbar{width:4px;}
   .tile .managers-wrap::-webkit-scrollbar-track{background:transparent;}
   .tile .managers-wrap::-webkit-scrollbar-thumb{background:var(--overlay-2);border-radius:4px;}
-  .tile-loss{}
+  .tile-loss{grid-column:1/-1;}
   .tile-calls{}
   .tile-funnel{}
   .funnel-footer{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;}
@@ -1316,6 +1316,12 @@ const TRANSLATIONS = {
     // Карточки
     byManagers: 'По менеджерам',
     refusalReasons: 'Причины отказов',
+    callRatingTitle: 'Рейтинг по звонкам (ИИ)',
+    callRatingManagerCol: 'Менеджер',
+    callRatingCountCol: 'Звонков',
+    callRatingScoreCol: 'Средняя оценка',
+    callRatingEmpty: 'Пока нет проанализированных звонков',
+    callRatingLoadError: 'Не удалось загрузить рейтинг',
     calls: 'Звонки',
     tasks: 'Задачи',
     avgDeal: 'Средний чек',
@@ -1356,7 +1362,7 @@ const TRANSLATIONS = {
     prevMonth: 'прошлому месяцу',
     prevPeriodLabel: 'прошлому периоду',
     periodNote: 'Все показатели ниже и KPI сверху следуют за периодом, выбранным в фильтре выше. Исключение — график «Динамика продаж»: он всегда показывает календарь текущего месяца.',
-    truncatedWarning: 'У одной из воронок за этот период больше 50 000 сделок — для скорости загружена только часть, поэтому цифры на этой странице могут быть неполными. Сузьте период (например, «Эта неделя» вместо «Всё время»), чтобы увидеть точные данные.',
+    truncatedWarning: 'У одной из воронок за этот период больше 200 000 сделок — для скорости загружена только часть, поэтому цифры на этой странице могут быть неполными. Сузьте период (например, «Эта неделя» вместо «Всё время»), чтобы увидеть точные данные.',
     leadsNav: 'Лиды',
     convertedLbl: 'Конвертировано',
     junkLbl: 'Некачественные',
@@ -1785,6 +1791,12 @@ const TRANSLATIONS = {
     daysWithSales5: 'kun savdo bilan',
     byManagers: 'Menejerlar bo\'yicha',
     refusalReasons: 'Rad etish sabablari',
+    callRatingTitle: 'Qo\'ng\'iroqlar reytingi (AI)',
+    callRatingManagerCol: 'Menejer',
+    callRatingCountCol: 'Qo\'ng\'iroqlar',
+    callRatingScoreCol: 'O\'rtacha baho',
+    callRatingEmpty: 'Hali tahlil qilingan qo\'ng\'iroqlar yo\'q',
+    callRatingLoadError: 'Reytingni yuklab bo\'lmadi',
     calls: 'Qo\'ng\'iroqlar',
     tasks: 'Vazifalar',
     avgDeal: 'O\'rtacha chek',
@@ -1824,7 +1836,7 @@ const TRANSLATIONS = {
     prevMonth: 'oldingi oyga',
     prevPeriodLabel: 'oldingi davrga',
     periodNote: 'Pastdagi barcha ko\'rsatkichlar va yuqoridagi KPI yuqoridagi filtrda tanlangan davrga amal qiladi. Istisno — "Savdo dinamikasi" grafigi: u doim joriy oy kalendarini ko\'rsatadi.',
-    truncatedWarning: 'Voronkalardan birida shu davr uchun 50 000 dan ortiq bitim bor — tezlik uchun faqat bir qismi yuklandi, shuning uchun bu sahifadagi raqamlar to\'liq bo\'lmasligi mumkin. Aniq ma\'lumotlarni ko\'rish uchun davrni torraytiring (masalan, "Bu hafta" ni "Barcha vaqt" o\'rniga tanlang).',
+    truncatedWarning: 'Voronkalardan birida shu davr uchun 200 000 dan ortiq bitim bor — tezlik uchun faqat bir qismi yuklandi, shuning uchun bu sahifadagi raqamlar to\'liq bo\'lmasligi mumkin. Aniq ma\'lumotlarni ko\'rish uchun davrni torraytiring (masalan, "Bu hafta" ni "Barcha vaqt" o\'rniga tanlang).',
     leadsNav: 'Lidlar',
     convertedLbl: 'Bitimga aylandi',
     junkLbl: 'Sifatsiz',
@@ -2342,7 +2354,7 @@ let lastFunnels = [];
 // Список воронок и их стадий не зависит от выбранного периода (это структура CRM, не данные) —
 // раньше при каждой смене периода (Сегодня/Неделя/...) они запрашивались заново вместе со сделками.
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
-let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} }; // + статусы лидов, имена сотрудников и семантика стадий — тоже структура, не данные, незачем перезапрашивать каждый раз
+let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null }; // + статусы лидов, имена сотрудников и семантика стадий — тоже структура, не данные, незачем перезапрашивать каждый раз. lossReasonOptions — ID→текст кастомного поля причины отказа (только у клиентов с addon customLossReasonField)
 let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null }; // сделки, звонки, лиды, задачи за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
@@ -2917,11 +2929,13 @@ async function callMethodRaw(webhook, method, qs, attempt){
 }
 
 async function fetchAllPaged(webhook, method, params){
-  // Раньше лимит был 2500 — у клиентов с крупными объёмами (десятки/сотни тысяч сделок)
-  // это ОБРЕЗАЛО данные молча, и все расчёты (включая конверсию) шли по неполной выборке.
-  // Подняли лимит и вместо тихой обрезки — честно помечаем, что данные неполные,
-  // чтобы дашборд мог показать предупреждение пользователю.
-  const MAX_RECORDS = 50000;
+  // Раньше лимит был 2500, потом 50 000 — у клиентов с крупными объёмами (десятки/сотни тысяч
+  // записей) это ОБРЕЗАЛО данные молча, и все расчёты (включая конверсию) шли по неполной выборке.
+  // Замер на реальных данных (17 882 сделки Tift, 1 воронка): весь batch-забор занял 2.83 сек —
+  // это ~9000 записей/сек при concurrency=4, так что 200 000 записей — это ~22 сек, не минуты,
+  // как считалось раньше (та оценка была ДО перехода на batch API). Подняли лимит и вместо тихой
+  // обрезки — честно помечаем, что данные неполные, чтобы дашборд мог показать предупреждение.
+  const MAX_RECORDS = 200000;
   const first = await callMethod(webhook, method, {...params, start: 0});
   let all = Array.isArray(first.result) ? first.result.slice() : [];
   const total = typeof first.total === 'number' ? first.total : null;
@@ -2977,6 +2991,21 @@ function guessSemantic(statusId, map){
   return 'P';
 }
 
+// Значения полей-справочников (enumeration) Bitrix24 в сделках приходят как ID пункта,
+// а не текст — нужно один раз получить у портала список ID→текст для конкретного поля.
+// Используется addon'ом customLossReasonField (сейчас — Tift, поле "Bekor qilish sababi").
+async function fetchFieldOptions(webhook, fieldCode){
+  try{
+    const data = await callMethod(webhook, 'crm.deal.fields', {});
+    const field = data.result && data.result[fieldCode];
+    const map = {};
+    (field && field.items ? field.items : []).forEach(it => { map[it.ID] = it.VALUE; });
+    return map;
+  }catch(e){
+    return {};
+  }
+}
+
 // crm.stagehistory.list отвечает НЕ так, как обычные list-методы Bitrix24 — у него
 // result.items (объект с полем items), а не сразу массив, поэтому общий fetchAllPaged
 // сюда не подходит, нужен свой загрузчик с постраничной навигацией
@@ -2995,6 +3024,8 @@ async function fetchStageHistoryAll(webhook, params){
 
 async function fetchDealsForCategory(webhook, categoryId, period){
   const DEAL_SELECT = ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID'];
+  const lossReasonField = currentAddons.customLossReasonField || null;
+  if(lossReasonField) DEAL_SELECT.push(lossReasonField);
   const filter = {CATEGORY_ID: categoryId};
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
@@ -3154,7 +3185,7 @@ async function fetchTaskStats(webhook, period){
   const total = typeof first.total === 'number' ? first.total : null;
   if(!first.next || !total || all.length === 0) return all;
   const pageSize = all.length;
-  const MAX_RECORDS = 50000;
+  const MAX_RECORDS = 200000; // см. обоснование цифры в комментарии у fetchAllPaged выше
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
@@ -3239,6 +3270,10 @@ const CRM_ADAPTERS = {
           delete structureCache.semanticsByFunnelId[funnelId]; // и вторая попытка пустая — не кэшируем, попробуем заново в следующий раз
         }
       }
+      const lossReasonField = currentAddons.customLossReasonField || null;
+      if(lossReasonField && !structureCache.lossReasonOptions){
+        structureCache.lossReasonOptions = await fetchFieldOptions(conn.webhook, lossReasonField);
+      }
       const raw = await fetchDealsForCategory(conn.webhook, funnelId, period);
       const mapped = raw.map(d => ({
         id: d.ID,
@@ -3252,7 +3287,9 @@ const CRM_ADAPTERS = {
         updatedAt: d.DATE_MODIFY,
         actualCloseTime: d.__actualCloseTime || null, // точный момент реального перехода в выиграна/провалена (из истории стадий), в отличие от closedAt — плановой даты
         source: d.SOURCE_ID || '',
-        semantic: guessSemantic(d.STAGE_ID, semMap)
+        semantic: guessSemantic(d.STAGE_ID, semMap),
+        // текст причины отказа из кастомного поля клиента (Tift) вместо названия стадии — только если addon настроен и поле заполнено на сделке
+        lossReasonText: (lossReasonField && d[lossReasonField]) ? (structureCache.lossReasonOptions[d[lossReasonField]] || null) : null
       }));
       // map() создаёт новый массив и теряет __truncated/__total, проставленные в fetchAllPaged — переносим их
       if(raw.__truncated) mapped.__truncated = true;
@@ -3393,21 +3430,28 @@ function buildGoalSection(totalRevenue, currency){
 }
 
 
-function buildLossReasonsSection(lostReasons){
-  if(!lostReasons || lostReasons.length === 0) return '';
-  const maxCount = Math.max(1, ...lostReasons.map(r => r.count));
-  const rows = lostReasons.map((r, idx) => `
-    <div class="loss-row" data-detail="loss" data-idx="${idx}">
-      <div class="loss-label">${r.name}</div>
-      <div class="loss-track"><div class="loss-fill" style="width:${Math.round(r.count/maxCount*100)}%"></div></div>
-      <div class="loss-count">${r.count}</div>
-    </div>
-  `).join('');
+// Таблица провальных сделок — какая сделка, у какого менеджера, по какой причине (не просто
+// агрегат по причинам, а построчно: сделка/менеджер/причина), в том же виде, что и "По менеджерам"
+function buildLossReasonsDealsTable(){
+  const lostDeals = lastDealsFlat.filter(d => d.semantic === 'F');
+  if(!lostDeals.length) return '';
+  const rows = lostDeals.map(d => {
+    const mgr = lastManagers.find(m => String(m.id) === String(d.assignedTo));
+    const mgrName = mgr ? mgr.name : (d.assignedTo ? `${t('employeeIdPrefix')}${d.assignedTo}` : t('sourceNotSet'));
+    const reason = d.lossReasonText || d.stageName;
+    return `<tr>
+      <td>${escapeHtml(d.title || t('dealNumberPrefix')+d.id)}</td>
+      <td>${escapeHtml(mgrName)}</td>
+      <td>${escapeHtml(reason)}</td>
+    </tr>`;
+  }).join('');
   return `
     <p class="section-title">${t('refusalReasons')}</p>
-    <div class="managers-wrap">
-      ${rows}
-      
+    <div class="tile-body-scroll">
+      <table class="modal-list-table" style="width:100%;">
+        <thead><tr><th>${t('dealCol')}</th><th>${t('managerCol')}</th><th>${t('reasonStage')}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
   `;
 }
@@ -3590,7 +3634,7 @@ async function loadDashboard(forceRefresh){
   try{
     const connKey = conn.webhook || JSON.stringify(conn);
     if(structureCache.connKey !== connKey || forceRefresh){
-      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} };
+      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
     }
     if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
@@ -3811,7 +3855,9 @@ async function loadDashboard(forceRefresh){
         }
         if(d.semantic === 'F'){
           lostCount += 1; managerMap[mgr].lostCount += 1;
-          const reasonName = stageMap[d.stageId].name;
+          // у клиентов с addon customLossReasonField (сейчас — Tift) — реальная причина отказа
+          // из кастомного поля сделки, у остальных клиентов — по-прежнему название стадии
+          const reasonName = d.lossReasonText || stageMap[d.stageId].name;
           if(!lostReasonMap[reasonName]) lostReasonMap[reasonName] = {count: 0, sum: 0};
           lostReasonMap[reasonName].count += 1;
           lostReasonMap[reasonName].sum += amount;
@@ -3855,7 +3901,8 @@ async function loadDashboard(forceRefresh){
             closedAt: d.closedAt,
             updatedAt: d.updatedAt,
             semantic: d.semantic,
-            source: d.source || ''
+            source: d.source || '',
+            lossReasonText: d.lossReasonText || null
           })),
           monthDealsList: monthDeals.map(d => ({
             id: d.id,
@@ -4379,7 +4426,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
   }
 
   const lossHtml = lostReasons && lostReasons.length > 0
-    ? `<div class="fcard tile tile-loss">${buildLossReasonsSection(lostReasons)}</div>`
+    ? `<div class="fcard tile tile-loss">${buildLossReasonsDealsTable()}</div>`
     : '';
 
   renderChartHero(dailyEntries, lastMonthCurrency || currency);
@@ -4440,10 +4487,10 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="dash-section">
           <div class="dash-section-head"><span class="dot" style="background:#60A5FA"></span><h3>${t('sectionPeople')}</h3></div>
           <div class="dash-tiles">
-            ${(showReports || showLoss) ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-              ${showReports ? peopleReportTiles : ''}
-              ${showLoss ? lossHtml : ''}
+            ${showReports ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+              ${peopleReportTiles}
             </div>` : ''}
+            ${showLoss ? lossHtml : ''}
             ${showManagers ? managersHtml : ''}
           </div>
         </div>` : '';
@@ -5000,8 +5047,10 @@ function openLossDetail(idx){
   const totalLost = lastLostReasons.reduce((a,x) => a + x.count, 0);
   const share = totalLost > 0 ? Math.round(100 * r.count / totalLost) : 0;
   const currency = getDisplayCurrency();
-  // Каждая отдельная провальная сделка с этой причиной — не только агрегат, но и сам список
-  const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && d.stageName === r.name);
+  // Каждая отдельная провальная сделка с этой причиной — не только агрегат, но и сам список.
+  // Причина — либо текст кастомного поля (Tift), либо название стадии (остальные клиенты) —
+  // должно совпадать с тем же приоритетом, что использовался при подсчёте lostReasonMap выше.
+  const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && (d.lossReasonText || d.stageName) === r.name);
   const html = statRow(t('dealsLabel'), r.count)
     + statRow(t('amountCol'), fmtMoney(r.sum, currency))
     + statRow(t('shareAmongLosses'), share + '%')
@@ -5153,7 +5202,7 @@ function buildCallsHtml(filterType, standalone){
       : (isIn ? `<span class="badge-miss">${t('missedBadge')}</span>` : `<span class="badge-noanswer">${t('noAnswerBadge')}</span>`);
     const recordFileId = call.RECORD_FILE_ID;
     const analyzeBtn = recordFileId
-      ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">${t('analyzeBtnLabel')}</button>`
+      ? `<button class="btn btn-ghost call-analyze-btn" data-file-id="${escapeHtml(String(recordFileId))}" data-call-id="${escapeHtml(String(call.ID || ''))}" data-manager-id="${escapeHtml(String(call.PORTAL_USER_ID || ''))}" data-deal-id="${escapeHtml(String(call.CRM_ENTITY_ID || ''))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">${t('analyzeBtnLabel')}</button>`
       : '';
     const playBtn = recordFileId
       ? `<button class="btn btn-ghost call-play-btn" data-file-id="${escapeHtml(String(recordFileId))}" style="font-size:11px;padding:4px 10px;white-space:nowrap;">▶ ${t('listenBtnLabel')}</button>`
@@ -5263,7 +5312,7 @@ function buildLeadsHtml(filterType, standalone){
       </td>
       <td>${badge}</td>
       <td>${date}</td>
-      <td>${lead.OPPORTUNITY ? fmtMoney(parseFloat(lead.OPPORTUNITY), lead.CURRENCY_ID || currency) : '—'}</td>
+      <td>${lead.OPPORTUNITY ? fmtMoney(parseFloat(lead.OPPORTUNITY), currency) : '—'}</td>
     </tr>`;
   }).join('');
 
@@ -5707,7 +5756,7 @@ function generatePdfReport(currency, period, now){
       <div class="rep-section-title">Причины отказов</div>
       <table class="rep-table">
         <tr style="background:#f5f5f5;"><th>Причина (стадия)</th><th>Количество</th><th>Сумма</th></tr>
-        ${lastLostReasons.map(r=>`<tr><td>${r.stageName}</td><td>${r.count}</td><td>${fmt(r.sum)}</td></tr>`).join('')}
+        ${lastLostReasons.map(r=>`<tr><td>${r.name}</td><td>${r.count}</td><td>${fmt(r.sum)}</td></tr>`).join('')}
       </table>
     </div>` : '';
 
@@ -5901,9 +5950,9 @@ const CLIENT_ACCOUNTS = [
   //                        зато 100% точность для сделок с длинным циклом продажи)
   //   advancedMetrics    — расширенные метрики (Contact Rate, Revenue per Lead и т.д. из отдельного ТЗ)
   { login: 'Unidream', hash: '93115a15604b001f826bf0f18ce93ba0e2699ddbfa573c87b01487cf4fbe969c', webhook: 'https://unidream.bitrix24.uz/rest/163/42ohi3v7a5smqvi2/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
-  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true}, currency: 'UZS' },
-  { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
-  { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', currency: 'UZS' },
+  { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true, customLossReasonField: 'UF_CRM_1757586704285'}, currency: 'UZS' }, // customLossReasonField — код кастомного поля "Bekor qilish sababi" в Bitrix24 Tift, используется вместо названия стадии в "Причинах отказов"
+  { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'business', addons: {preciseAccounting: true}, currency: 'UZS' },
+  { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', addons: {callRating: true}, currency: 'UZS' }, // callRating — платный рейтинг менеджеров по ИИ-оценкам звонков, включается по тарифу/оплате отдельно от остальных addon'ов
   { login: 'TestBor', hash: '9e7e971dab5cf1496af9762430b6cc6e4d93d8b9965d765316a38b7749c5c114', webhook: '', plan: 'business', addons: {advancedMetrics: true}, currency: 'UZS' }, // ВЕБХУК ЕЩЁ НЕ ДОБАВЛЕН — ждём от пользователя. preciseAccounting сознательно выключен: у клиента ожидается 100k+ сделок, сначала проверим скорость базовой загрузки, потом решим включать ли
 ];
 
@@ -6273,7 +6322,7 @@ disconnectBtn.addEventListener('click', () => {
   clearSettings();
   currentAdapter = null;
   currentConn = null;
-  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {} };
+  structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
   monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
   goalAmount = null;
   selectedFunnelIds = null;
@@ -6657,7 +6706,7 @@ function buildDashboardContext(){
 
   if(lastLostReasons.length){
     ctx += `\nПРИЧИНЫ ОТКАЗОВ:\n`;
-    lastLostReasons.slice(0,3).forEach(r=> ctx += `— ${r.stageName}: ${r.count} сделок\n`);
+    lastLostReasons.slice(0,3).forEach(r=> ctx += `— ${r.name}: ${r.count} сделок\n`);
   }
 
   // Скоринг лидов
@@ -6673,6 +6722,7 @@ function buildDashboardContext(){
 // AI через Cloudflare Workers прокси — ключ скрыт от клиентов
 const AI_PROXY_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/ai';
 const CALL_ANALYZE_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/analyze-call';
+const CALL_RATINGS_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/call-ratings';
 const REGISTER_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/register';
 const LOGIN_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/login';
 const SAVE_WEBHOOK_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-webhook';
@@ -6743,7 +6793,7 @@ async function playCallRecording(fileId, btnEl){
   }
 }
 
-async function analyzeCallRecording(fileId, btnEl){
+async function analyzeCallRecording(fileId, btnEl, callId, managerId, dealId, forceReanalyze){
   const originalHtml = btnEl.innerHTML;
   btnEl.disabled = true;
   btnEl.innerHTML = '<span class="loader-bars"><span></span><span></span><span></span><span></span><span></span></span>Анализирую…';
@@ -6751,7 +6801,10 @@ async function analyzeCallRecording(fileId, btnEl){
     const res = await fetch(CALL_ANALYZE_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({fileId, customPrompt: localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '', webhook: currentConn?.webhook || ''})
+      body: JSON.stringify({
+        fileId, customPrompt: localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '', webhook: currentConn?.webhook || '',
+        callId: callId || '', managerId: managerId || '', dealId: dealId || '', forceReanalyze: !!forceReanalyze
+      })
     });
     const data = await res.json();
     btnEl.disabled = false;
@@ -6760,9 +6813,15 @@ async function analyzeCallRecording(fileId, btnEl){
       openModal('Анализ звонка', `<div class="modal-note" style="color:var(--red-bad)">Не удалось проанализировать: ${escapeHtml(data.error)}</div>`);
       return;
     }
-    const transcriptHtml = data.transcript
-      ? `<div class="help" style="max-height:220px;overflow-y:auto;white-space:pre-wrap;font-size:12.5px;">${escapeHtml(data.transcript)}</div>`
-      : '<div class="modal-note">Речь не распознана.</div>';
+    // Диалог по репликам (Менеджер/Клиент) — вместо плоской расшифровки
+    const dialogueHtml = (data.dialogue && data.dialogue.trim())
+      ? data.dialogue.split('\n').map(line => {
+          const m = line.match(/^(Менеджер|Клиент)\s*:\s*(.*)$/i);
+          if(!m) return `<div>${escapeHtml(line)}</div>`;
+          const isManager = /менеджер/i.test(m[1]);
+          return `<div style="margin-bottom:6px;"><span style="font-weight:700;color:${isManager ? 'var(--accent-strong)' : 'var(--ink-soft)'};">${escapeHtml(m[1])}:</span> ${escapeHtml(m[2])}</div>`;
+        }).join('')
+      : '';
     const analysisRu = (data.analysisRu || 'Нет ответа').trim();
     const analysisUz = (data.analysisUz || '').trim();
     const score = data.score;
@@ -6772,23 +6831,33 @@ async function analyzeCallRecording(fileId, btnEl){
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:26px;color:${scoreColor};">${score}<span style="font-size:14px;color:var(--ink-soft);font-weight:600;">/10</span></div>
         <div style="font-size:12px;color:var(--ink-soft);">${t('callScoreLabel')}</div>
       </div>` : '';
+    // Результат уже сохранён с прошлого раза — платная транскрипция не гонялась заново
+    const cachedHtml = data.cached ? `<div class="modal-note" style="margin-bottom:12px;">Звонок уже анализировался ранее — показан сохранённый результат. <button type="button" class="modal-filter-chip" id="callReanalyzeBtn" style="display:inline-flex;">Переанализировать</button></div>` : '';
     const langToggleHtml = analysisUz ? `
       <div style="display:flex;gap:6px;margin-bottom:10px;">
         <button type="button" class="modal-filter-chip active" id="callAnalysisLangRu">RU</button>
         <button type="button" class="modal-filter-chip" id="callAnalysisLangUz">UZ</button>
       </div>` : '';
     openModal('Анализ звонка', `
+      ${cachedHtml}
       ${scoreBadge}
       <div class="analytics-section" style="margin-bottom:16px;">
         <div class="analytics-title" style="font-size:14px;">Разбор</div>
         ${langToggleHtml}
         <div id="callAnalysisTextBox" style="white-space:pre-wrap;font-size:13px;line-height:1.6;">${escapeHtml(analysisRu)}</div>
       </div>
+      ${dialogueHtml ? `
       <div class="analytics-section">
-        <div class="analytics-title" style="font-size:14px;">Расшифровка</div>
-        ${transcriptHtml}
-      </div>
+        <div class="analytics-title" style="font-size:14px;">Кто что говорил</div>
+        <div class="help" style="max-height:260px;overflow-y:auto;font-size:12.5px;">${dialogueHtml}</div>
+      </div>` : '<div class="modal-note">Речь не распознана.</div>'}
     `);
+    if(data.cached){
+      document.getElementById('callReanalyzeBtn').addEventListener('click', () => {
+        closeModal();
+        analyzeCallRecording(fileId, btnEl, callId, managerId, dealId, true);
+      });
+    }
     if(analysisUz){
       const box = document.getElementById('callAnalysisTextBox');
       const ruBtn = document.getElementById('callAnalysisLangRu');
@@ -6810,7 +6879,7 @@ async function analyzeCallRecording(fileId, btnEl){
 }
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.call-analyze-btn');
-  if(btn) analyzeCallRecording(btn.dataset.fileId, btn);
+  if(btn) analyzeCallRecording(btn.dataset.fileId, btn, btn.dataset.callId, btn.dataset.managerId, btn.dataset.dealId);
   const playBtn = e.target.closest('.call-play-btn');
   if(playBtn) playCallRecording(playBtn.dataset.fileId, playBtn);
 });
@@ -7197,12 +7266,61 @@ function buildManagersLoadTab(){
       </div>
     </div>`;
 
-  return dateRangeHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`);
+  // Рейтинг по звонкам (ИИ) — платная функция (addon callRating), тело подгружается
+  // асинхронно после рендера (см. loadCallRatingCard), тут только заглушка-контейнер
+  const callRatingHtml = addonEnabled('callRating') ? `
+    <div class="analytics-section">
+      <div class="analytics-title">${t('callRatingTitle')}</div>
+      <div id="callRatingBody" class="analytics-empty">…</div>
+    </div>` : '';
+
+  return dateRangeHtml + callRatingHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`);
+}
+
+async function loadCallRatingCard(){
+  const box = document.getElementById('callRatingBody');
+  if(!box || !currentConn?.webhook) return;
+  let portal;
+  try{ portal = new URL(currentConn.webhook).hostname; }catch(e){ return; }
+  try{
+    const res = await fetch(CALL_RATINGS_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({portal})
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const ratings = (data.ratings || []).filter(r => r.managerId !== 'unknown');
+    if(!ratings.length){
+      box.className = 'analytics-empty';
+      box.textContent = t('callRatingEmpty');
+      return;
+    }
+    const rows = ratings.map(r => {
+      const mgr = lastManagers.find(m => String(m.id) === String(r.managerId));
+      const name = mgr ? mgr.name : `ID ${r.managerId}`;
+      const scoreStr = r.avgScore !== null ? `${r.avgScore}/10` : '—';
+      const color = r.avgScore === null ? 'var(--ink-soft)' : r.avgScore >= 8 ? 'var(--accent-strong)' : r.avgScore >= 5 ? '#F59E0B' : 'var(--red-bad)';
+      return `<tr>
+        <td>${escapeHtml(name)}</td>
+        <td style="text-align:right;">${r.count}</td>
+        <td style="text-align:right;font-weight:700;color:${color}">${scoreStr}</td>
+      </tr>`;
+    }).join('');
+    box.outerHTML = `<table class="analytics-table" id="callRatingBody">
+      <thead><tr><th>${t('callRatingManagerCol')}</th><th style="text-align:right;">${t('callRatingCountCol')}</th><th style="text-align:right;">${t('callRatingScoreCol')}</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }catch(e){
+    box.className = 'analytics-empty';
+    box.textContent = `${t('callRatingLoadError')}: ${e.message || e}`;
+  }
 }
 
 function renderManagersSection(){
   const html = buildManagersLoadTab();
   content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('navManagers')}</h2></div>${html}</div>`;
+  if(addonEnabled('callRating')) loadCallRatingCard();
 }
 
 function buildClosedTab(){
@@ -8065,7 +8183,7 @@ function startDemoMode(){
     {id:'t3',title:'Встреча с VIP клиентом',status:'5',deadline:new Date().toISOString(),createdDate:new Date().toISOString(),responsibleId:'d1'},
   ];
   lastBestDeal = {amount:850000, funnelName:'Основная воронка', currency:'UZS'};
-  lastLostReasons = [{stageName:'Дорого', count:8, sum:1200000},{stageName:'Ушёл к конкуренту', count:4, sum:800000}];
+  lastLostReasons = [{name:'Дорого', count:8, sum:1200000},{name:'Ушёл к конкуренту', count:4, sum:800000}];
   const dailyEntries = [];
   const now = new Date();
   for(let i=0;i<new Date(now.getFullYear(),now.getMonth()+1,0).getDate();i++){
