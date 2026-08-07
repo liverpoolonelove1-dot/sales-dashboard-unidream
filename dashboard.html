@@ -3430,26 +3430,27 @@ function buildGoalSection(totalRevenue, currency){
 }
 
 
-// Таблица провальных сделок — какая сделка, у какого менеджера, по какой причине (не просто
-// агрегат по причинам, а построчно: сделка/менеджер/причина), в том же виде, что и "По менеджерам"
+// Таблица причин отказа — агрегат: причина + сколько раз она встретилась среди проваленных сделок,
+// в том же виде, что и "По менеджерам"
 function buildLossReasonsDealsTable(){
   const lostDeals = lastDealsFlat.filter(d => d.semantic === 'F');
   if(!lostDeals.length) return '';
-  const rows = lostDeals.map(d => {
-    const mgr = lastManagers.find(m => String(m.id) === String(d.assignedTo));
-    const mgrName = mgr ? mgr.name : (d.assignedTo ? `${t('employeeIdPrefix')}${d.assignedTo}` : t('sourceNotSet'));
+  const counts = new Map();
+  lostDeals.forEach(d => {
     const reason = d.lossReasonText || d.stageName;
-    return `<tr>
-      <td>${escapeHtml(d.title || t('dealNumberPrefix')+d.id)}</td>
-      <td>${escapeHtml(mgrName)}</td>
+    counts.set(reason, (counts.get(reason) || 0) + 1);
+  });
+  const rows = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([reason, count]) => `<tr>
       <td>${escapeHtml(reason)}</td>
-    </tr>`;
-  }).join('');
+      <td>${count}</td>
+    </tr>`).join('');
   return `
     <p class="section-title">${t('refusalReasons')}</p>
     <div class="tile-body-scroll">
       <table class="modal-list-table" style="width:100%;">
-        <thead><tr><th>${t('dealCol')}</th><th>${t('managerCol')}</th><th>${t('reasonStage')}</th></tr></thead>
+        <thead><tr><th>${t('reasonStage')}</th><th>${t('quantityCol')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
