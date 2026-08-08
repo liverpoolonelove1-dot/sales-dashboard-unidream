@@ -3092,18 +3092,10 @@ async function fetchDealsForCategory(webhook, categoryId, period){
 }
 
 async function fetchUserNames(webhook, ids){
-  // user.get без фильтра отдаёт только активных сотрудников — уволенные/деактивированные
-  // в Bitrix24 в этот список не попадают, хотя в истории звонков и сделок их ID остаются
-  // (например, менеджер, который уже уволился, но раньше звонил клиентам). Из-за этого
-  // такие сотрудники показывались как "Xodim ID 47" вместо реального имени. Bitrix не
-  // позволяет получить активных и уволенных одним запросом — приходится делать два.
-  const [activeRaw, dismissedRaw] = await Promise.all([
-    fetchAllPaged(webhook, 'user.get', {}),
-    fetchAllPaged(webhook, 'user.get', {FILTER: {ACTIVE: false}}).catch(() => [])
-  ]);
+  // Только активные сотрудники — уволенных намеренно не запрашиваем (не нужны клиенту).
+  const raw = await fetchAllPaged(webhook, 'user.get', {});
   const map = {};
-  [...(activeRaw || []), ...(dismissedRaw || [])].forEach(u => {
-    if(map[u.ID]) return; // уже есть — не перезаписываем на всякий случай дублей между двумя запросами
+  (raw || []).forEach(u => {
     const name = `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim();
     map[u.ID] = {name: name || `Сотрудник ID ${u.ID}`, position: u.WORK_POSITION || ''};
   });
