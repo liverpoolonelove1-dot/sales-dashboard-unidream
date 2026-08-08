@@ -111,6 +111,14 @@ function fmtDur(sec){
   const m = Math.floor(sec / 60), s = sec % 60;
   return `${m}:${String(s).padStart(2,'0')}`;
 }
+// Русская плюрализация (1 звонок / 2 звонка / 5 звонков) — раньше было только "1 → одна форма,
+// иначе → другая", из-за чего "2 звонков", "3 звонков" и т.п. звучало грамматически неверно.
+function pluralRu(n, one, few, many){
+  const n10 = n % 10, n100 = n % 100;
+  if(n10 === 1 && n100 !== 11) return one;
+  if([2,3,4].includes(n10) && ![12,13,14].includes(n100)) return few;
+  return many;
+}
 
 function bx24Call(method, params){
   return new Promise((resolve, reject) => {
@@ -200,7 +208,7 @@ async function showManagerRatings(){
       return `<div class="call-item" style="cursor:default;display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-weight:600;font-size:12.5px;">${medal}${escapeHtml(name)}</div>
-          <div class="call-date">${r.count} ${r.count === 1 ? 'звонок' : 'звонков'}</div>
+          <div class="call-date">${r.count} ${pluralRu(r.count, 'звонок', 'звонка', 'звонков')}</div>
         </div>
         <div style="font-weight:800;font-size:16px;color:${color};">${scoreStr}</div>
       </div>`;
@@ -269,7 +277,7 @@ async function showCoachChat(callCtx){
       statCardHtml = `<div class="coach-card">
         <div>
           <div style="font-weight:600;font-size:12.5px;">Ваш средний балл за звонки</div>
-          <div class="call-date">${mine.count} ${mine.count === 1 ? 'звонок проанализирован' : 'звонков проанализировано'}</div>
+          <div class="call-date">${mine.count} ${pluralRu(mine.count, 'звонок проанализирован', 'звонка проанализировано', 'звонков проанализировано')}</div>
         </div>
         <div style="font-weight:800;font-size:18px;color:${color};">${scoreStr}</div>
       </div>`;

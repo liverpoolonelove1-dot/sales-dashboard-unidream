@@ -3771,7 +3771,7 @@ async function loadDashboard(forceRefresh){
     // они всё равно запрашивались дважды. То же самое с прошлым периодом/прошлым месяцем.
     // Теперь такие дубли не отправляются вообще — экономит до 40% запросов в самом частом случае.
     const prevIsSameAsPrevMonth = periodIsMonth; // при periodIsMonth prevPeriod всегда совпадает с prevMonthRange
-    renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${funnelsToLoad.length === 1 ? 'воронка' : 'воронок'}…`);
+    renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${pluralRu(funnelsToLoad.length, 'воронка', 'воронки', 'воронок')}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const stagesPromise = structureCache.stagesByFunnelId[fn.id]
         ? Promise.resolve(structureCache.stagesByFunnelId[fn.id])
@@ -4138,6 +4138,15 @@ function pluralDays(n){
   if(n10 === 1 && n100 !== 11) return 'день';
   if([2,3,4].includes(n10) && ![12,13,14].includes(n100)) return 'дня';
   return 'дней';
+}
+
+// Общее правило русской плюрализации (1 воронка / 2 воронки / 5 воронок) — то же самое,
+// что и в pluralDays выше, но параметризовано для любого слова, а не только "день".
+function pluralRu(n, one, few, many){
+  const n10 = n % 10, n100 = n % 100;
+  if(n10 === 1 && n100 !== 11) return one;
+  if([2,3,4].includes(n10) && ![12,13,14].includes(n100)) return few;
+  return many;
 }
 
 function renderChartHero(entries, currency){
