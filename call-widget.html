@@ -14,6 +14,22 @@
   .call-item:hover{border-color:#8FB828;}
   .call-date{color:#70757D;font-size:11px;}
   .call-dur{font-weight:600;font-size:12.5px;margin-top:2px;}
+  .top-actions{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .top-action-btn{display:flex;align-items:center;gap:6px;background:#F5F6F8;border:1px solid #E3E5E8;border-radius:20px;padding:7px 13px;font-size:12px;font-weight:600;color:#1F2126;cursor:pointer;transition:border-color .15s ease,background .15s ease;}
+  .top-action-btn:hover{border-color:#8FB828;background:#F2F8E4;}
+  .calls-header{display:flex;align-items:baseline;gap:6px;margin-bottom:10px;}
+  .calls-count{color:#70757D;font-weight:500;font-size:12px;}
+  .call-list-item{display:flex;align-items:center;gap:12px;background:#FFFFFF;border:1px solid #E3E5E8;border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s ease,border-color .15s ease,transform .1s ease;}
+  .call-list-item:hover{border-color:#B9E62E;box-shadow:0 3px 12px rgba(20,33,10,.08);transform:translateY(-1px);}
+  .call-list-item:active{transform:translateY(0);}
+  .call-icon{flex:none;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;}
+  .call-icon.dir-out{background:#EAF2FF;color:#2B6CB0;}
+  .call-icon.dir-in{background:#EAF7E4;color:#3D8B1F;}
+  .call-info{flex:1;min-width:0;}
+  .call-info-date{font-weight:700;font-size:12.5px;color:#1F2126;}
+  .call-info-meta{color:#70757D;font-size:11.5px;margin-top:2px;display:flex;align-items:center;gap:5px;}
+  .call-dur-chip{background:#F0F1F3;color:#4A4E56;border-radius:6px;padding:1px 6px;font-size:10.5px;font-weight:600;}
+  .call-chevron{flex:none;color:#C7CBD1;font-size:16px;}
   .score{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:#F5F6F8;border-radius:10px;}
   .score-num{font-weight:800;font-size:22px;}
   .lbl{color:#70757D;font-size:11px;}
@@ -108,9 +124,9 @@ function bx24Call(method, params){
 
 function renderCallList(){
   const topBtnsHtml = `
-    <div style="display:flex;gap:14px;margin-bottom:10px;">
-      <button class="transcript-toggle" id="showRatingsBtn" style="padding:0;">📊 Рейтинг менеджеров</button>
-      <button class="transcript-toggle" id="showCoachBtn" style="padding:0;">🤖 ИИ-тренер</button>
+    <div class="top-actions">
+      <button class="top-action-btn" id="showRatingsBtn">📊 Рейтинг менеджеров</button>
+      <button class="top-action-btn" id="showCoachBtn">🤖 ИИ-тренер</button>
     </div>`;
   if(!calls.length){
     render(`${topBtnsHtml}<div class="hint">По этой сделке пока нет звонков с записью.</div>`);
@@ -118,16 +134,33 @@ function renderCallList(){
     document.getElementById('showCoachBtn').addEventListener('click', () => showCoachChat(null));
     return;
   }
-  const items = calls.map((c, i) => `
-    <div class="call-item" data-idx="${i}">
-      <div class="call-date">${new Date(c.CALL_START_DATE).toLocaleString('ru-RU')}</div>
-      <div class="call-dur">${c.CALL_TYPE == 2 ? 'Входящий' : 'Исходящий'} · ${fmtDur(c.CALL_DURATION)}</div>
+  const items = calls.map((c, i) => {
+    const isIn = c.CALL_TYPE == 2;
+    const d = new Date(c.CALL_START_DATE);
+    const dateStr = d.toLocaleDateString('ru-RU', {day:'2-digit', month:'short'});
+    const timeStr = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+    return `
+    <div class="call-list-item" data-idx="${i}">
+      <div class="call-icon ${isIn ? 'dir-in' : 'dir-out'}">${isIn ? '↓' : '↑'}</div>
+      <div class="call-info">
+        <div class="call-info-date">${dateStr}, ${timeStr}</div>
+        <div class="call-info-meta">${isIn ? 'Входящий' : 'Исходящий'} <span class="call-dur-chip">${fmtDur(c.CALL_DURATION)}</span></div>
+      </div>
+      <div class="call-chevron">›</div>
     </div>
-  `).join('');
-  render(`${topBtnsHtml}<div class="title">Звонки по этой сделке</div>${items}`);
+  `;
+  }).join('');
+  render(`
+    ${topBtnsHtml}
+    <div class="calls-header">
+      <div class="title" style="margin-bottom:0;">Звонки по этой сделке</div>
+      <span class="calls-count">(${calls.length})</span>
+    </div>
+    ${items}
+  `);
   document.getElementById('showRatingsBtn').addEventListener('click', showManagerRatings);
   document.getElementById('showCoachBtn').addEventListener('click', () => showCoachChat(null));
-  document.querySelectorAll('.call-item').forEach(el => {
+  document.querySelectorAll('.call-list-item').forEach(el => {
     el.addEventListener('click', () => startAnalysis(calls[parseInt(el.dataset.idx, 10)]));
   });
 }
