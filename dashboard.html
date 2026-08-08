@@ -60,6 +60,8 @@
   #loginView .glow-corner.tl{top:-200px;left:-200px;}
   #loginView .glow-corner.br{bottom:-200px;right:-200px;}
   @media(max-width:860px){#loginView .glow{width:100%;height:320px;opacity:.14;}#loginView .glow-corner{display:none;}}
+  .login-back-link{position:absolute;top:24px;left:24px;display:flex;align-items:center;gap:6px;color:var(--ink-soft);text-decoration:none;font-size:13px;font-weight:600;z-index:2;transition:color .15s ease;}
+  .login-back-link:hover{color:var(--ink);}
   #loginView::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 60% 40%, rgba(198,241,53,.13) 0%, transparent 70%), radial-gradient(ellipse 50% 40% at 20% 80%, rgba(198,241,53,.07) 0%, transparent 60%);pointer-events:none;}
   .login-wrap{display:flex;width:100%;max-width:860px;min-height:520px;border-radius:28px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.22);position:relative;z-index:1;}
   .login-left{flex:1;background:#0F1014;padding:48px 44px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
@@ -1012,6 +1014,7 @@
 </div>
 <!-- ===== ЭКРАН ВХОДА (вне .wrap — на весь экран, без ограничения по ширине) ===== -->
 <div id="loginView" style="display:none;">
+  <a href="index.html" class="login-back-link">← <span data-i18n="loginBackToSite">На главную</span></a>
   <div class="glow"></div>
   <div class="glow-corner tl"></div>
   <div class="glow-corner br"></div>
@@ -1728,6 +1731,7 @@ const TRANSLATIONS = {
     hotLeadsAttention: 'Горячие лиды — требуют внимания сегодня',
     coldLeadsRisk: 'Холодные — риск потерять',
     loginRightTitle: 'Вход в кабинет',
+    loginBackToSite: 'На главную',
     registerTitle: 'Регистрация',
     registerSubtitle: 'Придумайте логин и пароль',
     registerBtn: 'Зарегистрироваться →',
@@ -2211,6 +2215,7 @@ const TRANSLATIONS = {
     hotLeadsAttention: 'Issiq lidlar — bugun e\'tibor talab qiladi',
     coldLeadsRisk: 'Sovuq — yo\'qotish xavfi',
     loginRightTitle: 'Kabinetga kirish',
+    loginBackToSite: 'Bosh sahifaga',
     registerTitle: 'Ro\'yxatdan o\'tish',
     registerSubtitle: 'Login va parol o\'ylab toping',
     registerBtn: 'Ro\'yxatdan o\'tish →',
@@ -6048,6 +6053,10 @@ function showLoginView(){
 function hideLoginView(){
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('mainWrap').style.display = 'block';
+  // Верхняя панель (уведомления/журнал ошибок/кабинет) вне #mainWrap — performLogout() её
+  // прячет при выходе, здесь возвращаем обратно при успешном входе.
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = '';
 }
 
 const loginBtn = document.getElementById('loginBtn');
@@ -8974,6 +8983,21 @@ function performLogout(){
   currentConn = null;
   isDemoMode = false;
   document.body.classList.remove('cine-active');
+
+  // Верхняя панель (бейдж тарифа, уведомления, журнал ошибок, аналитик) — вне #mainWrap,
+  // поэтому showLoginView() сама по себе её не скрывает. Без этого на экране входа
+  // оставались чужие непрочитанные уведомления, счётчик ошибок и тариф от прошлой сессии.
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = 'none';
+  const planBadgeEl = document.getElementById('planBadge');
+  if(planBadgeEl) planBadgeEl.style.display = 'none';
+  document.getElementById('assistantToggleBtn').style.display = 'none';
+  document.getElementById('assistantPanel').style.display = 'none';
+  notifications.length = 0;
+  updateNotifBadge();
+  errorLog.length = 0;
+  updateErrorLogBadge();
+
   showLoginView();
 }
 document.getElementById('accountBtn').addEventListener('click', openAccountPanel);
