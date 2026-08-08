@@ -6359,14 +6359,18 @@ function stripWebhookFromUrl(){
   }catch(e){ /* если history API недоступен — просто игнорируем, не критично */ }
 }
 
-disconnectBtn.addEventListener('click', () => {
-  isDemoMode = false;
-  const topbarIconsEl = document.querySelector('.topbar-icons');
-  if(topbarIconsEl) topbarIconsEl.style.display = '';
-  document.body.classList.remove('cine-active');
+// Общий сброс всех данных загруженной сессии — и "забыть подключение" (обратно на экран
+// подключения), и "выйти из аккаунта" (обратно на экран логина) должны одинаково полно
+// чистить бизнес-данные текущего клиента (сделки/звонки/лиды/кэши/рендер), а не только
+// само подключение. Раньше это делал только disconnectBtn, и то не полностью (errorLog,
+// например, не чистился нигде) — после logout в памяти и в DOM оставались данные
+// предыдущего клиента вплоть до первой успешной загрузки следующего: если #mainWrap
+// станет видимым до её завершения, можно на мгновение увидеть чужие цифры.
+function resetDashboardState(){
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
   clearTimeout(cineLoopTimer);
-  clearSavedConnection();
-  clearSettings();
+  document.body.classList.remove('cine-active');
+  isDemoMode = false;
   currentAdapter = null;
   currentConn = null;
   structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
@@ -6375,6 +6379,25 @@ disconnectBtn.addEventListener('click', () => {
   selectedFunnelIds = null;
   availableFunnels = [];
   hasLoadedOnce = false;
+
+  lastFunnels = [];
+  lastManagers = [];
+  lastDailyEntries = [];
+  lastNamesResolved = true;
+  lastNamesErrorMsg = '';
+  lastHasManagers = false;
+  lastLostReasons = [];
+  lastBestDeal = null;
+  lastDealsFlat = [];
+  lastMonthDealsFlat = [];
+  lastMonthRevenue = 0;
+  lastMonthCurrency = '';
+  lastPrevMonthRevenue = 0;
+  lastMonthDealsTotal = 0;
+  lastMonthWonCount = 0;
+  lastMonthLostCount = 0;
+  lastNewClientsCount = null;
+  lastPrevNewClientsCount = null;
   lastCallStats = null;
   lastCallStatsError = '';
   lastRawCalls = [];
@@ -6385,31 +6408,42 @@ disconnectBtn.addEventListener('click', () => {
   lastRawTasks = [];
   lastTasksFetched = false;
   lastTaskStatsError = '';
+  lastWonPoints = [];
   taskFilterManagerId = 'all';
   callFilterManagerId = 'all';
   callFilterType = 'all';
   leadFilterManagerId = 'all';
   leadFilterType = 'all';
-  lastNewClientsCount = null;
-  lastPrevNewClientsCount = null;
-  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
-  connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
+
   content.innerHTML = '';
   document.getElementById('chartHeroContainer').innerHTML = '';
   document.getElementById('companyBadge').style.display = 'none';
   document.getElementById('assistantToggleBtn').style.display = 'none';
   document.getElementById('errorLogBtn').style.display = 'none';
   document.getElementById('notifBtn').style.display = 'none';
-  notifications.length = 0;
-  updateNotifBadge();
-  hideSearchBar();
   document.getElementById('assistantPanel').style.display = 'none';
   const assistantLogEl = document.getElementById('assistantLog');
   if(assistantLogEl) assistantLogEl.innerHTML = '';
+  notifications.length = 0;
+  updateNotifBadge();
+  errorLog.length = 0;
+  updateErrorLogBadge();
+  hideSearchBar();
   dupWarning.style.display = 'none';
   periodBar.style.display = 'none';
   toolbar2.style.display = 'none';
   refreshBtn.style.display = 'none';
+  const planBadgeEl = document.getElementById('planBadge');
+  if(planBadgeEl) planBadgeEl.style.display = 'none';
+}
+
+disconnectBtn.addEventListener('click', () => {
+  resetDashboardState();
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = '';
+  clearSavedConnection();
+  clearSettings();
+  connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
   disconnectBtn.style.display = 'none';
   helpBox.style.display = CRM_ADAPTERS[crmSelect.value]?.helpHtml ? 'block' : 'none';
   statusLine.className = 'status-line';
@@ -8988,25 +9022,13 @@ function closeAccountPanel(){
 function performLogout(){
   closeAccountPanel();
   clearSessionAccount();
-  currentAdapter = null;
-  currentConn = null;
-  isDemoMode = false;
-  document.body.classList.remove('cine-active');
-
-  // Верхняя панель (бейдж тарифа, уведомления, журнал ошибок, аналитик) — вне #mainWrap,
-  // поэтому showLoginView() сама по себе её не скрывает. Без этого на экране входа
-  // оставались чужие непрочитанные уведомления, счётчик ошибок и тариф от прошлой сессии.
+  // resetDashboardState() чистит не только шапку (бейдж тарифа, уведомления, журнал ошибок),
+  // но и сами загруженные бизнес-данные клиента (сделки/звонки/лиды/кэши/рендер) — без этого
+  // при входе другим аккаунтом на этом же устройстве можно было на мгновение увидеть
+  // остаточные данные предыдущего клиента, пока не подгрузятся новые.
+  resetDashboardState();
   const topbarIconsEl = document.querySelector('.topbar-icons');
   if(topbarIconsEl) topbarIconsEl.style.display = 'none';
-  const planBadgeEl = document.getElementById('planBadge');
-  if(planBadgeEl) planBadgeEl.style.display = 'none';
-  document.getElementById('assistantToggleBtn').style.display = 'none';
-  document.getElementById('assistantPanel').style.display = 'none';
-  notifications.length = 0;
-  updateNotifBadge();
-  errorLog.length = 0;
-  updateErrorLogBadge();
-
   showLoginView();
 }
 document.getElementById('accountBtn').addEventListener('click', openAccountPanel);
