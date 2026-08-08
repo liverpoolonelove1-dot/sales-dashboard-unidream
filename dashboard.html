@@ -1663,12 +1663,21 @@ const TRANSLATIONS = {
     stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
     applyBtn: 'Применить',
     singleDayLabel: 'Или конкретный день:',
-    customAnalysisLink: 'Настроить критерии анализа звонков',
-    customAnalysisTitle: 'Критерии анализа звонков',
-    customAnalysisDesc: 'Опишите своими словами, на что ИИ должен обращать внимание при разборе звонков — на русском или на узбекском языке, как удобнее. Например: проверять упоминание конкретной акции, следовать вашему скрипту продаж. Оценка звонка по 10-балльной шкале добавляется автоматически при любом разборе, задавать её отдельно не нужно. Если оставить поле пустым — используется стандартный разбор.',
+    customAnalysisLink: 'Скрипты продаж для анализа звонков',
+    customAnalysisTitle: 'Скрипты продаж',
+    customAnalysisDesc: 'Добавьте один или несколько скриптов продаж — на русском или на узбекском языке, как удобнее. Если скриптов несколько, ИИ сам определяет, какой ближе всего конкретному разговору, и сверяется именно с ним. Оценка звонка по 10-балльной шкале добавляется автоматически при любом разборе. Если скриптов нет — используется стандартный разбор.',
     customAnalysisPlaceholder: 'Например:\n1. Упомянул ли менеджер акцию "Скидка 10% при оплате картой"?\n2. Задал ли уточняющие вопросы о потребностях клиента?\n3. Предложил ли встречу или следующий шаг перед завершением звонка?',
     customAnalysisSave: 'Сохранить',
     customAnalysisReset: 'Сбросить',
+    customAnalysisEdit: 'Изменить',
+    callScriptsEmpty: 'Пока нет ни одного скрипта — анализ звонков идёт по стандартным критериям.',
+    callScriptsAddBtn: 'Добавить скрипт',
+    callScriptsLimitNote: `Достигнут лимит — максимум ${5} скриптов.`,
+    callScriptsDeleteBtn: 'Удалить',
+    callScriptsDeleteConfirm: 'Удалить этот скрипт?',
+    callScriptsNamePlaceholder: 'Название скрипта (например: Холодные звонки)',
+    callScriptsCancelBtn: 'Отмена',
+    callScriptsLoadError: 'Не удалось сохранить/загрузить скрипты',
     doneChip: 'Завершённые',
     overdueChip: 'Просроченные',
     overdueBadge: 'Просрочена',
@@ -2137,12 +2146,21 @@ const TRANSLATIONS = {
     stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
     applyBtn: 'Qo\'llash',
     singleDayLabel: 'Yoki aniq bir kun:',
-    customAnalysisLink: 'Qo\'ng\'iroq tahlili mezonlarini sozlash',
-    customAnalysisTitle: 'Qo\'ng\'iroq tahlili mezonlari',
-    customAnalysisDesc: 'AI qo\'ng\'iroqlarni tahlil qilishda nimalarga e\'tibor berishi kerakligini o\'z so\'zlaringiz bilan yozing — ruscha yoki o\'zbekcha, qulay bo\'lgan tilda. Masalan: aniq aksiya aytilganini tekshirish, savdo skriptingizga amal qilish. 10 balllik shkala bo\'yicha baho har doim avtomatik qo\'shiladi, uni alohida so\'rash shart emas. Bo\'sh qoldirsangiz — standart tahlil ishlatiladi.',
+    customAnalysisLink: 'Qo\'ng\'iroq tahlili uchun savdo skriptlari',
+    customAnalysisTitle: 'Savdo skriptlari',
+    customAnalysisDesc: 'Bitta yoki bir nechta savdo skriptini qo\'shing — ruscha yoki o\'zbekcha, qulay bo\'lgan tilda. Agar bir nechta skript bo\'lsa, AI o\'zi aniq suhbatga eng mos kelganini tanlaydi va aynan o\'shanga solishtiradi. 10 balllik shkala bo\'yicha baho har doim avtomatik qo\'shiladi. Skript bo\'lmasa — standart tahlil ishlatiladi.',
     customAnalysisPlaceholder: 'Masalan:\n1. Menejer "Karta orqali to\'lovda 10% chegirma" aksiyasini aytdimi?\n2. Mijoz ehtiyojlari haqida aniqlashtiruvchi savollar berdimi?\n3. Qo\'ng\'iroqni tugatishdan oldin uchrashuv yoki keyingi qadamni taklif qildimi?',
     customAnalysisSave: 'Saqlash',
     customAnalysisReset: 'Tozalash',
+    customAnalysisEdit: 'Tahrirlash',
+    callScriptsEmpty: 'Hali birorta ham skript yo\'q — qo\'ng\'iroqlar standart mezonlar bo\'yicha tahlil qilinadi.',
+    callScriptsAddBtn: 'Skript qo\'shish',
+    callScriptsLimitNote: `Limitga yetdingiz — maksimum ${5} skript.`,
+    callScriptsDeleteBtn: 'O\'chirish',
+    callScriptsDeleteConfirm: 'Ushbu skriptni o\'chirasizmi?',
+    callScriptsNamePlaceholder: 'Skript nomi (masalan: Sovuq qo\'ng\'iroqlar)',
+    callScriptsCancelBtn: 'Bekor qilish',
+    callScriptsLoadError: 'Skriptlarni saqlab/yuklab bo\'lmadi',
     doneChip: 'Bajarilgan',
     overdueChip: 'Muddati o\'tgan',
     overdueBadge: 'Muddati o\'tgan',
@@ -6738,38 +6756,138 @@ const REGISTER_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/reg
 const LOGIN_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/login';
 const SAVE_WEBHOOK_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-webhook';
 const SAVE_CALL_PROMPT_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-call-prompt';
+const CALL_SCRIPTS_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/call-scripts';
+const SAVE_CALL_SCRIPTS_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-call-scripts';
+const CALL_SCRIPTS_LIMIT = 5;
 
 const CALL_PROMPT_STORAGE_KEY = 'salesPulseCallPrompt';
 
-function openCallAnalysisSettings(){
-  const saved = localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '';
-  const html = `
-    <p class="modal-note" style="margin-bottom:12px;">${t('customAnalysisDesc')}</p>
-    <textarea id="callPromptInput" style="width:100%;min-height:160px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;resize:vertical;" placeholder="${t('customAnalysisPlaceholder')}">${escapeHtml(saved)}</textarea>
-    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
-      <button class="btn btn-ghost" id="callPromptClearBtn" type="button">${t('customAnalysisReset')}</button>
-      <button class="btn btn-primary" id="callPromptSaveBtn" type="button">${t('customAnalysisSave')}</button>
+// Скрипты продаж хранятся на сервере по домену портала (а не по логину дашборда, как раньше
+// единственный кастомный промпт) — так их видит и дашборд, и виджет в карточке сделки
+// Bitrix24, у которого нет доступа к логину/паролю дашборда. Несколько скриптов позволяют
+// завести разные сценарии (для холодных звонков, повторных клиентов и т.п.) — ИИ сам
+// определяет, какой из них ближе всего конкретному разговору.
+let callScriptsCache = null;
+
+function getPortalDomain(){
+  try{ return new URL(currentConn.webhook).hostname; }catch(e){ return null; }
+}
+
+async function fetchCallScripts(){
+  const portal = getPortalDomain();
+  if(!portal) return [];
+  const res = await fetch(CALL_SCRIPTS_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({portal})
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data.scripts || [];
+}
+
+async function persistCallScripts(scripts){
+  const portal = getPortalDomain();
+  if(!portal) throw new Error('Нет подключения к порталу');
+  const res = await fetch(SAVE_CALL_SCRIPTS_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({portal, scripts})
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data.scripts || [];
+}
+
+async function openCallAnalysisSettings(){
+  openModal(t('customAnalysisTitle'), `<div class="modal-note">${t('loadingRecording')}</div>`);
+  try{
+    callScriptsCache = await fetchCallScripts();
+  }catch(e){
+    openModal(t('customAnalysisTitle'), `<div class="modal-note" style="color:var(--red-bad);">${escapeHtml(t('callScriptsLoadError'))}: ${escapeHtml(e.message || String(e))}</div>`);
+    return;
+  }
+  renderCallScriptsList();
+}
+
+function renderCallScriptsList(){
+  const scripts = callScriptsCache || [];
+  const rows = scripts.map((s, i) => `
+    <div class="call-script-row" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="min-width:0;">
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(s.name)}</div>
+          <div style="font-size:12px;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(s.text)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex:none;">
+          <button class="btn btn-ghost btn-sm" type="button" data-edit-script="${i}">${t('customAnalysisEdit')}</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-delete-script="${i}">${t('callScriptsDeleteBtn')}</button>
+        </div>
+      </div>
     </div>
+  `).join('');
+  const emptyHtml = !scripts.length ? `<div class="modal-note" style="margin-bottom:12px;">${t('callScriptsEmpty')}</div>` : '';
+  const addBtnHtml = scripts.length < CALL_SCRIPTS_LIMIT
+    ? `<button class="btn btn-primary" id="callScriptAddBtn" type="button" style="width:100%;margin-top:4px;">+ ${t('callScriptsAddBtn')}</button>`
+    : `<div class="modal-note" style="margin-top:4px;">${t('callScriptsLimitNote')}</div>`;
+  const html = `
+    <p class="modal-note" style="margin-bottom:14px;">${t('customAnalysisDesc')}</p>
+    ${emptyHtml}
+    ${rows}
+    ${addBtnHtml}
   `;
   openModal(t('customAnalysisTitle'), html);
-  document.getElementById('callPromptSaveBtn').addEventListener('click', () => {
-    const val = document.getElementById('callPromptInput').value.trim();
-    if(val) localStorage.setItem(CALL_PROMPT_STORAGE_KEY, val);
-    else localStorage.removeItem(CALL_PROMPT_STORAGE_KEY);
-    // Сохраняем и на сервере, чтобы подхватывалось на любом устройстве этого клиента
-    const session = getSessionAccount();
-    if(session && session.login && session.hash){
-      fetch(SAVE_CALL_PROMPT_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({login: session.login, hash: session.hash, callPrompt: val})
-      }).catch(() => {}); // не критично, если не получилось — на этом устройстве всё равно сохранено локально
-    }
-    closeModal();
+  if(document.getElementById('callScriptAddBtn')){
+    document.getElementById('callScriptAddBtn').addEventListener('click', () => openCallScriptEditor(null));
+  }
+  document.querySelectorAll('[data-edit-script]').forEach(el => {
+    el.addEventListener('click', () => openCallScriptEditor(parseInt(el.dataset.editScript, 10)));
   });
-  document.getElementById('callPromptClearBtn').addEventListener('click', () => {
-    localStorage.removeItem(CALL_PROMPT_STORAGE_KEY);
-    document.getElementById('callPromptInput').value = '';
+  document.querySelectorAll('[data-delete-script]').forEach(el => {
+    el.addEventListener('click', async () => {
+      if(!confirm(t('callScriptsDeleteConfirm'))) return;
+      const idx = parseInt(el.dataset.deleteScript, 10);
+      const updated = callScriptsCache.slice();
+      updated.splice(idx, 1);
+      try{
+        callScriptsCache = await persistCallScripts(updated);
+        renderCallScriptsList();
+      }catch(e){
+        alert(`${t('callScriptsLoadError')}: ${e.message || String(e)}`);
+      }
+    });
+  });
+}
+
+function openCallScriptEditor(idx){
+  const isNew = idx === null;
+  const script = isNew ? {name: '', text: ''} : callScriptsCache[idx];
+  const html = `
+    <input type="text" id="callScriptNameInput" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;margin-bottom:10px;" placeholder="${t('callScriptsNamePlaceholder')}" value="${escapeHtml(script.name)}" maxlength="80">
+    <textarea id="callScriptTextInput" style="width:100%;min-height:200px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;resize:vertical;" placeholder="${t('customAnalysisPlaceholder')}">${escapeHtml(script.text)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+      <button class="btn btn-ghost" id="callScriptCancelBtn" type="button">${t('callScriptsCancelBtn')}</button>
+      <button class="btn btn-primary" id="callScriptSaveBtn" type="button">${t('customAnalysisSave')}</button>
+    </div>
+  `;
+  openModal(isNew ? t('callScriptsAddBtn') : t('customAnalysisEdit'), html);
+  document.getElementById('callScriptCancelBtn').addEventListener('click', renderCallScriptsList);
+  document.getElementById('callScriptSaveBtn').addEventListener('click', async () => {
+    const name = document.getElementById('callScriptNameInput').value.trim();
+    const text = document.getElementById('callScriptTextInput').value.trim();
+    if(!text) return;
+    const updated = callScriptsCache.slice();
+    const entry = {id: isNew ? undefined : script.id, name: name || t('callScriptsNamePlaceholder'), text};
+    if(isNew) updated.push(entry); else updated[idx] = entry;
+    const btn = document.getElementById('callScriptSaveBtn');
+    btn.disabled = true;
+    try{
+      callScriptsCache = await persistCallScripts(updated);
+      renderCallScriptsList();
+    }catch(e){
+      btn.disabled = false;
+      alert(`${t('callScriptsLoadError')}: ${e.message || String(e)}`);
+    }
   });
 }
 document.addEventListener('click', (e) => {
