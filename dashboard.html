@@ -3092,9 +3092,18 @@ async function fetchDealsForCategory(webhook, categoryId, period){
 }
 
 async function fetchUserNames(webhook, ids){
-  const raw = await fetchAllPaged(webhook, 'user.get', {});
+  // user.get без фильтра отдаёт только активных сотрудников — уволенные/деактивированные
+  // в Bitrix24 в этот список не попадают, хотя в истории звонков и сделок их ID остаются
+  // (например, менеджер, который уже уволился, но раньше звонил клиентам). Из-за этого
+  // такие сотрудники показывались как "Xodim ID 47" вместо реального имени. Bitrix не
+  // позволяет получить активных и уволенных одним запросом — приходится делать два.
+  const [activeRaw, dismissedRaw] = await Promise.all([
+    fetchAllPaged(webhook, 'user.get', {}),
+    fetchAllPaged(webhook, 'user.get', {FILTER: {ACTIVE: false}}).catch(() => [])
+  ]);
   const map = {};
-  (raw || []).forEach(u => {
+  [...(activeRaw || []), ...(dismissedRaw || [])].forEach(u => {
+    if(map[u.ID]) return; // уже есть — не перезаписываем на всякий случай дублей между двумя запросами
     const name = `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim();
     map[u.ID] = {name: name || `Сотрудник ID ${u.ID}`, position: u.WORK_POSITION || ''};
   });
@@ -5090,6 +5099,18 @@ function openBestDealDetail(){
   openModal(t('biggestDealTitle'), html);
 }
 
+// lastManagers содержит только тех, у кого есть сделки — сотрудник, который лишь звонит
+// (например, оператор без своих сделок), туда не попадает. Поэтому для звонков имя сначала
+// ищем в полном справочнике сотрудников портала (structureCache.userNames, туда попадают
+// все, включая уволенных — см. fetchUserNames), и только если там тоже нет — показываем ID.
+function resolveCallManagerName(id){
+  const found = lastManagers.find(m => String(m.id) === id);
+  if(found) return found.name;
+  const cached = structureCache.userNames && structureCache.userNames[id];
+  if(cached) return cached.name;
+  return `${t('employeeIdPrefix')} ${id}`;
+}
+
 function buildCallsHtml(filterType, standalone){
   if(!lastCallStats && lastRawCalls.length === 0) return null;
   filterType = filterType || 'all';
@@ -5097,8 +5118,7 @@ function buildCallsHtml(filterType, standalone){
   // Фильтр по менеджеру — по всем звонкам, которые реально есть в загруженных данных
   const uniqueCallManagers = [...new Set(lastRawCalls.map(c => String(c.PORTAL_USER_ID || '')))].filter(Boolean);
   const callManagerOptions = uniqueCallManagers.map(id => {
-    const found = lastManagers.find(m => String(m.id) === id);
-    const name = found ? found.name : `${t('employeeIdPrefix')} ${id}`;
+    const name = resolveCallManagerName(id);
     return `<option value="${id}" ${callFilterManagerId === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
   }).join('');
   const managerFilterHtml = uniqueCallManagers.length > 0 ? `
@@ -5152,8 +5172,7 @@ function buildCallsHtml(filterType, standalone){
   const managerRows = Object.entries(byManagerMap)
     .sort((a,b) => b[1].total - a[1].total)
     .map(([id, s]) => {
-      const found = lastManagers.find(m => String(m.id) === id);
-      const name = found ? found.name : (id === 'unknown' ? '—' : `${t('employeeIdPrefix')} ${id}`);
+      const name = id === 'unknown' ? '—' : resolveCallManagerName(id);
       const rate = s.total > 0 ? Math.round(100 * s.successful / s.total) : 0;
       // Средняя длительность считаем только по дозвонившимся звонкам — иначе
       // куча "не дозвонились" (0 секунд) искусственно занижает среднее
@@ -5191,8 +5210,7 @@ function buildCallsHtml(filterType, standalone){
     const dur = parseInt(call.CALL_DURATION, 10) || 0;
     const isOk = dur > 0;
     const date = call.CALL_START_DATE ? new Date(call.CALL_START_DATE).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
-    const mgr = lastManagers.find(m => String(m.id) === String(call.PORTAL_USER_ID));
-    const mgrName = mgr ? mgr.name : (call.PORTAL_USER_ID ? `ID ${call.PORTAL_USER_ID}` : '—');
+    const mgrName = call.PORTAL_USER_ID ? resolveCallManagerName(String(call.PORTAL_USER_ID)) : '—';
     const durStr = dur > 0 ? fmtDuration(dur) : '—';
     const phone = call.PHONE_NUMBER || call.CALLER_ID || '—';
     const dirBadge = isIn
