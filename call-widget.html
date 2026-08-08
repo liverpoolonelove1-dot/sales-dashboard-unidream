@@ -216,6 +216,36 @@ async function showManagerRatings(){
 // ИИ-тренер для менеджера — персональный чат с советами по продажам и переговорам с клиентами
 // (общая аналитика по компании уже есть в самом дашборде, здесь фокус узкий: как менеджеру
 // разговаривать и закрывать сделки лучше). Использует тот же прокси /ai, что и чат в дашборде.
+// Разметка чата (чипсы+лог+инпут) общая — используется и тут (отдельный экран без привязки
+// к конкретному звонку), и встроенной прямо в экран результата анализа звонка.
+function buildCoachChatSectionHtml(){
+  const chipsHtml = `<div class="coach-chips">${COACH_CHIPS.map(q => `<button type="button" class="coach-chip" data-ask="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>`;
+  return `
+    ${chipsHtml}
+    <div class="coach-log" id="coachLog"></div>
+    <div class="coach-input-row">
+      <input type="text" id="coachInput" placeholder="Спросите, как улучшить разговор с клиентом…">
+      <button class="coach-send-btn" id="coachSendBtn">→</button>
+    </div>
+  `;
+}
+function wireCoachChatSection(){
+  document.querySelectorAll('.coach-chip').forEach(el => {
+    el.addEventListener('click', () => coachAsk(el.dataset.ask));
+  });
+  const input = document.getElementById('coachInput');
+  document.getElementById('coachSendBtn').addEventListener('click', () => {
+    coachAsk(input.value);
+    input.value = '';
+  });
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){
+      coachAsk(input.value);
+      input.value = '';
+    }
+  });
+}
+
 async function showCoachChat(callCtx){
   coachCallContext = callCtx;
   coachHistory = [];
@@ -246,39 +276,15 @@ async function showCoachChat(callCtx){
     }
   }catch(e){ /* без карточки статистики тоже можно работать */ }
 
-  const contextNoteHtml = coachCallContext
-    ? `<div class="coach-note">💬 Разбираем конкретный звонок (оценка ${coachCallContext.score ?? '—'}/10) — можно спрашивать про него.</div>`
-    : '';
-  const chipsHtml = `<div class="coach-chips">${COACH_CHIPS.map(q => `<button type="button" class="coach-chip" data-ask="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join('')}</div>`;
-
   render(`
     <div class="title">🤖 ИИ-тренер по продажам</div>
     ${statCardHtml}
-    ${contextNoteHtml}
-    ${chipsHtml}
-    <div class="coach-log" id="coachLog"></div>
-    <div class="coach-input-row">
-      <input type="text" id="coachInput" placeholder="Спросите, как улучшить разговор с клиентом…">
-      <button class="coach-send-btn" id="coachSendBtn">→</button>
-    </div>
+    ${buildCoachChatSectionHtml()}
     <button class="btn btn-secondary" id="backBtn">Назад</button>
   `);
 
   document.getElementById('backBtn').addEventListener('click', renderCallList);
-  document.querySelectorAll('.coach-chip').forEach(el => {
-    el.addEventListener('click', () => coachAsk(el.dataset.ask));
-  });
-  const input = document.getElementById('coachInput');
-  document.getElementById('coachSendBtn').addEventListener('click', () => {
-    coachAsk(input.value);
-    input.value = '';
-  });
-  input.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter'){
-      coachAsk(input.value);
-      input.value = '';
-    }
-  });
+  wireCoachChatSection();
 }
 
 function buildCoachPrompt(query){
@@ -401,6 +407,17 @@ function renderResult(data, downloadUrl, call){
     + reportCard('improvements', '🎯', 'Точки роста', data.improvements)
     + reportCard('recommendations', '💡', 'Рекомендации', data.recommendations);
 
+  // Чат с ИИ-тренером встроен прямо в результат анализа (а не отдельным экраном) — так менеджер
+  // видит разбор звонка и сразу может спросить про него, не теряя контекст.
+  coachCallContext = {score: data.score, analysisRu: data.analysisRu || '', dialogue: data.dialogue || ''};
+  coachHistory = [];
+  const coachSectionHtml = `
+    <div class="calls-card" style="margin-top:12px;">
+      <div class="title" style="margin-bottom:10px;">🤖 Спросите ИИ-тренера об этом звонке</div>
+      ${buildCoachChatSectionHtml()}
+    </div>
+  `;
+
   render(`
     ${cachedHtml}
     ${audioHtml}
@@ -410,15 +427,11 @@ function renderResult(data, downloadUrl, call){
     <div class="analysis-text" id="analysisTextBox">${escapeHtml(data.analysisRu || 'Нет ответа')}</div>
     ${reportCardsHtml}
     ${dialogueHtml}
-    <button class="btn" id="coachAboutCallBtn" style="margin-top:10px;">🤖 Обсудить этот звонок с ИИ-тренером</button>
-    <button class="btn btn-secondary" id="backBtn" style="margin-top:8px;">Назад к списку звонков</button>
+    ${coachSectionHtml}
+    <button class="btn btn-secondary" id="backBtn" style="margin-top:12px;">Назад к списку звонков</button>
   `);
   document.getElementById('backBtn').addEventListener('click', renderCallList);
-  document.getElementById('coachAboutCallBtn').addEventListener('click', () => showCoachChat({
-    score: data.score,
-    analysisRu: data.analysisRu || '',
-    dialogue: data.dialogue || ''
-  }));
+  wireCoachChatSection();
   if(data.cached && call){
     document.getElementById('reanalyzeBtn').addEventListener('click', () => startAnalysis(call, true));
   }
