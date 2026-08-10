@@ -2826,6 +2826,15 @@ const requestQueue = [];
 
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
+// Повтор при лимите запросов (429/503/QUERY_LIMIT_EXCEEDED) — раньше было всего 5 попыток
+// с короткой линейной паузой (350/700/1050/1400/1750 мс, суммарно ~5 сек). У клиента с 20-40
+// параллельными batch-чанками (109 833 сделки у TestBor) это оказалось мало — несколько
+// чанков одновременно ловят 429 и ретраятся почти синхронно, снова упираясь в тот же лимит
+// ("грозовое стадо"). Теперь пауза растёт экспоненциально + случайный джиттер, чтобы разные
+// чанки расходились по времени, и попыток заметно больше.
+const RATE_LIMIT_MAX_ATTEMPTS = 8;
+function rateLimitBackoff(attempt){ return Math.min(500 * Math.pow(1.7, attempt), 8000) + Math.random() * 400; }
+
 function enqueueRequest(fn){
   return new Promise((resolve, reject) => {
     requestQueue.push({fn, resolve, reject});
@@ -2876,14 +2885,14 @@ async function callBatchRaw(webhook, cmd, attempt){
     clearTimeout(timeout);
     if(res.status === 401) throw new Error('HTTP 401 — нет прав доступа. Проверьте настройки вебхука.');
     if(res.status === 403) throw new Error('HTTP 403 — доступ запрещён. Добавьте нужные права вебхуку.');
-    if((res.status === 503 || res.status === 429) && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if((res.status === 503 || res.status === 429) && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callBatchRaw(webhook, cmd, attempt + 1);
     }
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callBatchRaw(webhook, cmd, attempt + 1);
     }
     if(data.error) throw new Error(data.error_description || data.error);
@@ -2938,14 +2947,14 @@ async function callMethodRaw(webhook, method, qs, attempt){
     clearTimeout(timeout);
     if(res.status === 401) throw new Error('HTTP 401 — нет прав доступа. Проверьте настройки вебхука.');
     if(res.status === 403) throw new Error('HTTP 403 — доступ запрещён. Добавьте нужные права вебхуку.');
-    if((res.status === 503 || res.status === 429) && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if((res.status === 503 || res.status === 429) && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callMethodRaw(webhook, method, qs, attempt + 1);
     }
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callMethodRaw(webhook, method, qs, attempt + 1);
     }
     if(data.error) throw new Error(data.error_description || data.error);
