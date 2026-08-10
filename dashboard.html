@@ -2856,7 +2856,13 @@ async function callMethod(webhook, method, params){
 // скорости для клиентов с большим объёмом сделок.
 async function callBatchRaw(webhook, cmd, attempt){
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  // 25 сек хватало, пока проверяли на клиентах в пределах ~20к сделок (Tift, 2.83 сек на весь
+  // забор). У TestBor реально оказалось 109 833 сделки — при таком объёме пагинации один из
+  // batch-чанков (запросов по 50 команд) иногда не укладывается в 25 сек даже при быстром
+  // вебхуке (сам вебхук отвечает за <0.5 сек — проверено вручную), и весь Promise.all в
+  // callBatch() падает из-за одного медленного чанка. Подняли лимит и добавили повтор ниже —
+  // таймаут тут не значит "сломано", чаще просто "в этот раз Bitrix24 ответил медленнее".
+  const timeout = setTimeout(() => controller.abort(), 45000);
   try{
     const body = new URLSearchParams();
     body.append('halt', '0');
@@ -2884,7 +2890,13 @@ async function callBatchRaw(webhook, cmd, attempt){
     return data.result; // {result:{key:[...]}, result_error:{...}, ...}
   }catch(e){
     clearTimeout(timeout);
-    if(e.name === 'AbortError') throw new Error('Превышено время ожидания batch-запроса.');
+    if(e.name === 'AbortError'){
+      if(attempt < 2){
+        await sleep(500 * (attempt + 1));
+        return callBatchRaw(webhook, cmd, attempt + 1);
+      }
+      throw new Error('Превышено время ожидания batch-запроса.');
+    }
     if(e instanceof TypeError && attempt < 3){
       await sleep(500 * (attempt + 1));
       return callBatchRaw(webhook, cmd, attempt + 1);
