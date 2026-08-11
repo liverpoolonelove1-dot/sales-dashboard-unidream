@@ -5608,7 +5608,14 @@ function buildCallsHtml(filterType, standalone){
 
   const note = calls.length > 100 ? `<div class="modal-note">${t('last100shown')} ${calls.length} ${t('callsWord')}.</div>` : '';
 
+  // Мини-виджет плана по звонкам (тот же, что на Обзоре) — показываем только в standalone-версии
+  // (раздел "Звонки" в сайдбаре). В модалке его не рендерим: кнопки set/edit-calls-goal обрабатывает
+  // обработчик клика, повешенный на #dashboardView, а модалка #detailModal лежит вне него в DOM —
+  // кнопка внутри модалки была бы нерабочей.
+  const callsGoalHtml = (standalone && lastCallStats) ? buildCallsGoalMini(lastCallStats.total) : '';
+
   const html = managerTableHtml + analysisSettingsLink + managerFilterHtml + summary
+    + callsGoalHtml
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
     + table + note;
 
