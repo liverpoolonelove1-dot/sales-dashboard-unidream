@@ -1202,6 +1202,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Задачи</span>
       </button>
+      <button class="sbnav-item" data-nav="employees">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Сотрудники</span>
+      </button>
       <button class="sbnav-item" data-nav="analytics">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         <span>Аналитика</span>
@@ -1408,6 +1412,10 @@ const TRANSLATIONS = {
     navManagers: 'Менеджеры',
     navCalls: 'Звонки',
     navTasks: 'Задачи',
+    employeesNav: 'Сотрудники',
+    employeeCol: 'Сотрудник',
+    positionCol: 'Должность',
+    employeesPageNote: 'Все сотрудники портала Bitrix24 и их нагрузка по задачам — независимо от того, ведут они сделки или нет. Нажмите на строку, чтобы открыть список задач сотрудника.',
     navAnalytics: 'Аналитика',
     navSettings: 'Настройки',
     prevMonth: 'прошлому месяцу',
@@ -1915,6 +1923,10 @@ const TRANSLATIONS = {
     navManagers: 'Menejerlar',
     navCalls: 'Qo\'ng\'iroqlar',
     navTasks: 'Vazifalar',
+    employeesNav: 'Xodimlar',
+    employeeCol: 'Xodim',
+    positionCol: 'Lavozim',
+    employeesPageNote: 'Bitrix24 portalining barcha xodimlari va ularning vazifalar bo\'yicha yuklamasi — bitimlar bilan ishlashidan qat\'i nazar. Xodimning vazifalar ro\'yxatini ochish uchun qatorni bosing.',
     navAnalytics: 'Tahlil',
     navSettings: 'Sozlamalar',
     prevMonth: 'oldingi oyga',
@@ -2394,7 +2406,7 @@ function applyLang(){
     if(key) el.textContent = t(key);
   });
   // сайдбар
-  const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', leads:'leadsNav', calls:'navCalls', tasks:'navTasks', analytics:'navAnalytics', settings:'navSettings'};
+  const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', leads:'leadsNav', calls:'navCalls', tasks:'navTasks', employees:'employeesNav', analytics:'navAnalytics', settings:'navSettings'};
   document.querySelectorAll('.sbnav-item').forEach(btn => {
     const key = navMap[btn.dataset.nav];
     const span = btn.querySelector('span');
@@ -4303,6 +4315,7 @@ async function loadDashboard(forceRefresh){
     if(currentSection === 'calls') renderCallsSection(callFilterType);
     else if(currentSection === 'leads') renderLeadsSection(leadFilterType);
     else if(currentSection === 'tasks') renderTasksSection();
+    else if(currentSection === 'employees') renderEmployeesSection();
     else if(currentSection === 'managers') renderManagersSection();
     else if(currentSection === 'funnels') renderStagesSection();
     else if(currentSection === 'analytics') openAnalytics(currentAnalyticsTab);
@@ -4620,7 +4633,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     const taskStats = aggregateTaskStats(lastRawTasks, taskFilterManagerId);
     const uniqueResp = [...new Set(lastRawTasks.map(t => String(t.responsibleId)))];
     const managerOptions = uniqueResp.map(id => {
-      const found = lastManagers.find(m => String(m.id) === id);
+      const found = lastManagers.find(m => String(m.id) === id) || lastIdleEmployees.find(m => String(m.id) === id);
       const name = found ? found.name : `Сотрудник ID ${id}`;
       return `<option value="${id}" ${taskFilterManagerId === id ? 'selected' : ''}>${name}</option>`;
     }).join('');
@@ -5249,7 +5262,8 @@ function buildTasksHtml(filterStatus, standalone){
   };
 
   const rows = tasks.slice(0, 100).map(tsk => {
-    const mgr = lastManagers.find(m => String(m.id) === String(tsk.responsibleId));
+    const mgr = lastManagers.find(m => String(m.id) === String(tsk.responsibleId))
+      || lastIdleEmployees.find(m => String(m.id) === String(tsk.responsibleId));
     const mgrName = mgr ? mgr.name : (tsk.responsibleId ? `ID ${tsk.responsibleId}` : '—');
     const deadline = tsk.deadline ? new Date(tsk.deadline).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
     const created = tsk.createdDate ? new Date(tsk.createdDate).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
@@ -5294,6 +5308,63 @@ function renderTasksSection(filterStatus){
     return;
   }
   content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${built.title}</h2></div>${built.html}</div>`;
+}
+
+// Единый список сотрудников для раздела "Сотрудники" — продажники (lastManagers, у которых
+// есть хотя бы одна сделка) и все остальные (lastIdleEmployees, без сделок), в одном месте,
+// специально чтобы контролировать нагрузку по задачам независимо от того, ведёт человек
+// сделки или нет. В отличие от таблицы "По менеджерам" (раздел Менеджеры), тут это нарочно
+// не разделяется визуально — сам раздел целиком про задачи, а не про рейтинг продаж.
+function buildEmployeeRoster(){
+  const fromManagers = lastManagers.filter(m => m.id !== 'unknown').map(m => ({id: m.id, name: m.name, position: m.position || ''}));
+  const fromIdle = lastIdleEmployees.map(e => ({id: e.id, name: e.name, position: e.position || ''}));
+  return [...fromManagers, ...fromIdle];
+}
+
+function renderEmployeesSection(){
+  const roster = buildEmployeeRoster();
+  if(!roster.length){
+    content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('employeesNav')}</h2></div><div class="modal-note">${t('noData')}</div></div>`;
+    return;
+  }
+
+  const rows = roster
+    .map(emp => ({emp, stats: aggregateTaskStats(lastRawTasks, emp.id)}))
+    .sort((a,b) => b.stats.overdue - a.stats.overdue || b.stats.total - a.stats.total);
+
+  const trs = rows.map(({emp, stats}) => `
+    <tr class="employee-row" data-emp-id="${emp.id}" style="cursor:pointer;">
+      <td>
+        <div style="font-weight:600;font-size:12.5px;">${escapeHtml(emp.name)}</div>
+        ${emp.position ? `<div style="font-size:10.5px;color:var(--ink-soft);">${escapeHtml(emp.position)}</div>` : ''}
+      </td>
+      <td style="text-align:center;">${stats.total}</td>
+      <td style="text-align:center;">${stats.neW}</td>
+      <td style="text-align:center;">${stats.inProgress}</td>
+      <td style="text-align:center;color:var(--accent-strong);">${stats.completed}</td>
+      <td style="text-align:center;${stats.overdue > 0 ? 'color:var(--red-bad);font-weight:700;' : ''}">${stats.overdue}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div class="analytics-section">
+      <div class="modal-note" style="margin-bottom:14px;">${t('employeesPageNote')}</div>
+      <div class="section-list-scroll">
+        <table class="modal-list-table" style="width:100%;">
+          <thead><tr>
+            <th>${t('employeeCol')}</th>
+            <th style="text-align:center;">${t('totalShort')}</th>
+            <th style="text-align:center;">${t('newTasks')}</th>
+            <th style="text-align:center;">${t('inWork')}</th>
+            <th style="text-align:center;">${t('completed')}</th>
+            <th style="text-align:center;">${t('overdue')}</th>
+          </tr></thead>
+          <tbody>${trs}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('employeesNav')}</h2></div>${html}</div>`;
 }
 
 function openLossDetail(idx){
@@ -5787,6 +5858,13 @@ document.addEventListener('click', (e) => {
   const backBtn = e.target.closest('[data-back-funnel]');
   if(backBtn){
     openFunnelDetail(parseInt(backBtn.dataset.backFunnel, 10));
+    return;
+  }
+
+  const empRow = e.target.closest('[data-emp-id]');
+  if(empRow){
+    taskFilterManagerId = empRow.dataset.empId;
+    openTasksDetail('all');
     return;
   }
 
@@ -8639,6 +8717,8 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
     renderLeadsSection();
   } else if(nav === 'tasks'){
     renderTasksSection();
+  } else if(nav === 'employees'){
+    renderEmployeesSection();
   } else if(nav === 'settings'){
     setSidebarActive('overview');
     currentSection = 'overview';
