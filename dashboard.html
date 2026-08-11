@@ -1123,6 +1123,7 @@
       <button class="atab" data-tab="roi" data-i18n="tabRoi">LTV / ROI</button>
       <button class="atab" data-tab="forecast" data-i18n="tabForecast">Прогноз</button>
       <button class="atab" data-tab="finance" data-i18n="tabFinance">Финансы / ROI</button>
+      <button class="atab" id="advancedMetricsTab" data-tab="advanced" data-i18n="tabAdvanced" style="display:none;">Скорость и конверсия</button>
     </div>
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
@@ -1530,6 +1531,21 @@ const TRANSLATIONS = {
     avgDealCycle: 'Средний цикл сделки',
     roiBySource: 'ROI по источникам лидов',
     revenuePerLead: 'Выручка/лид',
+    tabAdvanced: 'Скорость и конверсия',
+    advConversionTitle: 'Конверсия лидов',
+    advContactRate: 'Contact Rate (охват)',
+    advQualificationRate: 'Qualification Rate (квалификация)',
+    advContactRateNote: 'Contact Rate — доля лидов, у которых есть хотя бы один результативный звонок, привязанный напрямую к лиду в Bitrix24. Если в вашей телефонии звонки привязываются к контакту/сделке, а не к лиду, реальный охват может быть выше показанного.',
+    advRevenueTitle: 'Выручка на лида',
+    advSpeedTitle: 'Скорость реакции на лид',
+    advLeadResponseTime: 'Время до первого звонка',
+    advResponseTimeNote: 'Считается только по лидам, у которых звонок привязан напрямую к лиду в Bitrix24 (см. пояснение к Contact Rate выше) — не по всем лидам периода.',
+    advLeadsCountedCol: 'Лидов учтено',
+    advActivityTitle: 'Детализация звонков',
+    advBusyRate: 'Занято',
+    advNoAnswerRate: 'Не отвечает',
+    advOtherFailLbl: 'Прочие сбои, шт.',
+    noAdvancedData: 'Недостаточно данных за этот период — попробуйте выбрать другой диапазон дат.',
     roiFormula: 'ROI = Выручка / Упущенная сумма × 100%',
     ltvByManagers: 'LTV по менеджерам',
     sourceNotSet: 'Не указан',
@@ -2015,6 +2031,21 @@ const TRANSLATIONS = {
     avgDealCycle: 'O\'rtacha bitim sikli',
     roiBySource: 'Lid manbalari bo\'yicha ROI',
     revenuePerLead: 'Tushum/lid',
+    tabAdvanced: 'Tezlik va konversiya',
+    advConversionTitle: 'Lidlar konversiyasi',
+    advContactRate: 'Contact Rate (qamrov)',
+    advQualificationRate: 'Qualification Rate (kvalifikatsiya)',
+    advContactRateNote: 'Contact Rate — Bitrix24da to\'g\'ridan-to\'g\'ri lidga bog\'langan kamida bitta natijali qo\'ng\'iroqqa ega lidlar ulushi. Agar telefoniyangizda qo\'ng\'iroqlar lidga emas, kontakt/bitimga bog\'lansa, real qamrov ko\'rsatilganidan yuqori bo\'lishi mumkin.',
+    advRevenueTitle: 'Bir lidga to\'g\'ri keladigan tushum',
+    advSpeedTitle: 'Lidga javob berish tezligi',
+    advLeadResponseTime: 'Birinchi qo\'ng\'iroqqacha vaqt',
+    advResponseTimeNote: 'Faqat Bitrix24da to\'g\'ridan-to\'g\'ri lidga bog\'langan qo\'ng\'iroqli lidlar bo\'yicha hisoblanadi (yuqoridagi Contact Rate izohiga qarang) — davrning barcha lidlari bo\'yicha emas.',
+    advLeadsCountedCol: 'Hisoblangan lidlar',
+    advActivityTitle: 'Qo\'ng\'iroqlar tafsiloti',
+    advBusyRate: 'Band',
+    advNoAnswerRate: 'Javob bermadi',
+    advOtherFailLbl: 'Boshqa xatolar, dona',
+    noAdvancedData: 'Ushbu davr uchun yetarli ma\'lumot yo\'q — boshqa sana oralig\'ini tanlab ko\'ring.',
     roiFormula: 'ROI = Tushum / Yo\'qotilgan summa × 100%',
     ltvByManagers: 'Menejerlar bo\'yicha LTV',
     sourceNotSet: 'Ko\'rsatilmagan',
@@ -6021,6 +6052,9 @@ function applyPlanRestrictions(){
   if(demoBtn) demoBtn.style.display = planHas('analytics') ? 'inline-flex' : 'none';
   // Показываем бейдж плана в шапке
   updatePlanBadge();
+  // Вкладка "Скорость и конверсия" — платная функция addon advancedMetrics (сейчас только TestBor)
+  const advTab = document.getElementById('advancedMetricsTab');
+  if(advTab) advTab.style.display = addonEnabled('advancedMetrics') ? '' : 'none';
 }
 
 function updatePlanBadge(){
@@ -8032,6 +8066,132 @@ function buildRoiTab(){
   `;
 }
 
+// Вкладка "Скорость и конверсия" — платный addon advancedMetrics (сейчас только TestBor,
+// по отдельному ТЗ от клиента). Всё считается из уже загруженных lastRawLeads/lastRawCalls —
+// без дополнительных запросов к Bitrix24, это важно для клиента с 100k+ записей.
+function buildAdvancedMetricsTab(){
+  if(!lastRawLeads.length && !lastRawCalls.length){
+    return `<div class="analytics-empty">${t('noAdvancedData')}</div>`;
+  }
+  const currency = getDisplayCurrency();
+  const fmt = n => fmtMoney(n, currency);
+
+  function fmtMinutes(min){
+    if(min === null || min === undefined) return '—';
+    if(min < 60) return `${min} ${t('minShort') || 'мин'}`;
+    const h = Math.floor(min/60), m = min % 60;
+    return `${h} ч ${m} мин`;
+  }
+
+  // ===== CONVERSION =====
+  const totalLeads = lastRawLeads.length;
+  const convertedLeads = lastRawLeads.filter(l => (l.STATUS_ID || 'NEW') === 'CONVERTED').length;
+  const qualificationRate = totalLeads > 0 ? Math.round(100 * convertedLeads / totalLeads) : 0;
+
+  // Contact Rate — лиды с хотя бы одним результативным (dur>0) звонком, привязанным НАПРЯМУЮ
+  // к лиду (CRM_ENTITY_TYPE=LEAD). У части клиентов телефония привязывает звонки к контакту
+  // или сделке уже после конвертации — тогда реальный охват выше показанного (см. advContactRateNote).
+  const contactedLeadIds = new Set();
+  lastRawCalls.forEach(c => {
+    if(c.CRM_ENTITY_TYPE === 'LEAD' && c.CRM_ENTITY_ID && (parseInt(c.CALL_DURATION, 10) || 0) > 0){
+      contactedLeadIds.add(String(c.CRM_ENTITY_ID));
+    }
+  });
+  const leadsContacted = lastRawLeads.filter(l => contactedLeadIds.has(String(l.ID))).length;
+  const contactRate = totalLeads > 0 ? Math.round(100 * leadsContacted / totalLeads) : 0;
+
+  // ===== REVENUE =====
+  const revenuePerLead = totalLeads > 0 ? Math.round(lastMonthRevenue / totalLeads) : 0;
+
+  // ===== SPEED: Lead Response Time =====
+  const firstCallByLead = {};
+  lastRawCalls.forEach(c => {
+    if(c.CRM_ENTITY_TYPE !== 'LEAD' || !c.CRM_ENTITY_ID || !c.CALL_START_DATE) return;
+    const key = String(c.CRM_ENTITY_ID);
+    const ts = new Date(c.CALL_START_DATE).getTime();
+    if(!firstCallByLead[key] || ts < firstCallByLead[key]) firstCallByLead[key] = ts;
+  });
+  const responseTimes = [];
+  const responseByManager = {};
+  lastRawLeads.forEach(l => {
+    const firstCallTs = firstCallByLead[String(l.ID)];
+    if(!firstCallTs || !l.DATE_CREATE) return;
+    const createdTs = new Date(l.DATE_CREATE).getTime();
+    const diffMin = Math.round((firstCallTs - createdTs) / 60000);
+    if(diffMin < 0 || diffMin > 60 * 24 * 30) return; // защита от аномалий/сбоев данных (>30 дней или отрицательное)
+    responseTimes.push(diffMin);
+    const mgrId = String(l.ASSIGNED_BY_ID || 'unknown');
+    if(!responseByManager[mgrId]) responseByManager[mgrId] = {sum: 0, count: 0};
+    responseByManager[mgrId].sum += diffMin;
+    responseByManager[mgrId].count += 1;
+  });
+  const avgResponseMin = responseTimes.length ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) : null;
+  const mgrResponseRows = Object.entries(responseByManager)
+    .map(([id, s]) => {
+      const mgr = lastManagers.find(m => String(m.id) === id);
+      const name = mgr ? mgr.name : (id === 'unknown' ? t('sourceNotSet') : `${t('employeeIdPrefix')}${id}`);
+      return {name, avg: Math.round(s.sum / s.count), count: s.count};
+    })
+    .sort((a, b) => a.avg - b.avg)
+    .map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${fmtMinutes(r.avg)}</td><td>${r.count}</td></tr>`)
+    .join('');
+
+  // ===== ACTIVITY: разбивка недозвонов по CALL_FAILED_CODE =====
+  // 486 (SIP Busy Here) и 480 (SIP Temporarily Unavailable, обычно "не отвечает") — стандартные
+  // SIP-коды, интерпретируем уверенно. Остальные коды (например 304, 500 — не документированы
+  // явно для Bitrix24/Voximplant) намеренно не подписываем конкретной причиной, чтобы не гадать
+  // и не показывать клиенту неверный ярлык — только общий счётчик "прочие сбои".
+  let connectedCount = 0, busyCount = 0, noAnswerCount = 0, otherFailCount = 0;
+  lastRawCalls.forEach(c => {
+    const dur = parseInt(c.CALL_DURATION, 10) || 0;
+    if(dur > 0){ connectedCount++; return; }
+    const code = String(c.CALL_FAILED_CODE || '');
+    if(code === '486') busyCount++;
+    else if(code === '480') noAnswerCount++;
+    else otherFailCount++;
+  });
+  const totalCallsCount = lastRawCalls.length;
+  const pct = n => totalCallsCount > 0 ? Math.round(100 * n / totalCallsCount) : 0;
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advConversionTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${contactRate}%</div><div class="analytics-card-lbl">${t('advContactRate')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${qualificationRate}%</div><div class="analytics-card-lbl">${t('advQualificationRate')}</div></div>
+      </div>
+      <div class="modal-note" style="margin-top:8px;">${t('advContactRateNote')}</div>
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advRevenueTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(revenuePerLead)}</div><div class="analytics-card-lbl">${t('revenuePerLead')}</div></div>
+      </div>
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advSpeedTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${fmtMinutes(avgResponseMin)}</div><div class="analytics-card-lbl">${t('advLeadResponseTime')}</div></div>
+      </div>
+      <div class="modal-note" style="margin-top:8px;">${t('advResponseTimeNote')}</div>
+      ${mgrResponseRows ? `
+      <table class="analytics-table" style="margin-top:12px;">
+        <thead><tr><th>${t('managerCol')}</th><th>${t('advLeadResponseTime')}</th><th>${t('advLeadsCountedCol')}</th></tr></thead>
+        <tbody>${mgrResponseRows}</tbody>
+      </table>` : ''}
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advActivityTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--accent-strong)">${pct(connectedCount)}%</div><div class="analytics-card-lbl">${t('successful')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${pct(busyCount)}%</div><div class="analytics-card-lbl">${t('advBusyRate')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:#F59E0B">${pct(noAnswerCount)}%</div><div class="analytics-card-lbl">${t('advNoAnswerRate')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${otherFailCount}</div><div class="analytics-card-lbl">${t('advOtherFailLbl')}</div></div>
+      </div>
+    </div>
+  `;
+}
+
 function buildFinanceTab(){
   const currency = getDisplayCurrency();
   const fmt = n => fmtMoney(n, currency);
@@ -8202,7 +8362,8 @@ const ANALYTICS_BUILDERS = {
   clients: buildClientsTab,
   finance: buildFinanceTab,
   roi: buildRoiTab,
-  forecast: buildForecastTab
+  forecast: buildForecastTab,
+  advanced: buildAdvancedMetricsTab
 };
 
 let currentAnalyticsTab = 'sources';
