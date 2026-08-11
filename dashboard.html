@@ -385,11 +385,6 @@
   .analytics-card:hover{box-shadow:0 10px 28px var(--shadow-color);transform:translateY(-2px);}
   .analytics-card-val{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:clamp(13px, 8cqw, 20px);line-height:1.2;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .analytics-card-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);margin-top:6px;}
-  .idle-employees-section{padding-top:20px;border-top:1px dashed var(--line);}
-  .idle-employees-grid{display:flex;flex-wrap:wrap;gap:8px;}
-  .idle-employee-chip{display:flex;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 12px;}
-  .idle-employee-name{font-size:12.5px;color:var(--ink);}
-  .idle-employee-position{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);}
   .analytics-table{width:100%;border-collapse:collapse;font-size:13px;}
   .analytics-table th{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);padding:0 0 10px;border-bottom:2px solid var(--line);text-align:left;}
   .analytics-table th:not(:first-child){text-align:right;}
@@ -1497,8 +1492,6 @@ const TRANSLATIONS = {
     summaryByFunnels: 'Сводка по воронкам',
     summaryByManagers: 'Сводка по менеджерам',
     noManagerData: 'Нет данных по менеджерам',
-    idleEmployeesTitle: 'Сотрудники без сделок за период',
-    idleEmployeesNote: 'Пользователи Bitrix24, на которых сейчас не назначено ни одной сделки — не продажники, стажёры или просто не работали в выбранном периоде/воронках.',
     noDealData: 'Нет данных о сделках',
     noFinanceData: 'Нет данных для финансового анализа',
     sourcesLeadsTitle: 'Источники лидов',
@@ -2008,8 +2001,6 @@ const TRANSLATIONS = {
     summaryByFunnels: 'Voronkalar bo\'yicha xulosa',
     summaryByManagers: 'Menejerlar bo\'yicha xulosa',
     noManagerData: 'Menejerlar bo\'yicha ma\'lumot yo\'q',
-    idleEmployeesTitle: 'Davr uchun bitimlarsiz xodimlar',
-    idleEmployeesNote: 'Bitrix24 foydalanuvchilari, hozircha ularga birorta ham bitim biriktirilmagan — sotuvchi bo\'lmagan xodimlar, stajyorlar yoki tanlangan davr/voronkalarda ishlamaganlar.',
     noDealData: 'Bitimlar haqida ma\'lumot yo\'q',
     noFinanceData: 'Moliyaviy tahlil uchun ma\'lumot yo\'q',
     sourcesLeadsTitle: 'Lidlar manbalari',
@@ -7788,24 +7779,11 @@ function buildManagersLoadTab(){
       <div id="callRatingBody" class="analytics-empty">…</div>
     </div>` : '';
 
-  // Отдельный, визуально приглушённый блок для сотрудников без сделок за период — намеренно
-  // идёт ПОСЛЕ рейтинга продажников и не участвует ни в сортировке, ни в overviewCards,
-  // чтобы не путался с рейтингом менеджеров по продажам.
-  const idleEmployeesHtml = lastIdleEmployees.length ? `
-    <div class="analytics-section idle-employees-section">
-      <div class="analytics-title">${t('idleEmployeesTitle')} <span style="font-size:13px;font-weight:400;color:var(--ink-soft)">${lastIdleEmployees.length}</span></div>
-      <div class="modal-note" style="margin-bottom:10px;">${t('idleEmployeesNote')}</div>
-      <div class="idle-employees-grid">
-        ${lastIdleEmployees.map(e => `
-          <div class="idle-employee-chip">
-            <span class="idle-employee-name">${escapeHtml(e.name)}</span>
-            ${e.position ? `<span class="idle-employee-position">${escapeHtml(e.position)}</span>` : ''}
-          </div>
-        `).join('')}
-      </div>
-    </div>` : '';
-
-  return dateRangeHtml + callRatingHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`) + idleEmployeesHtml;
+  // Список сотрудников без сделок раньше дублировался тут же простым списком имён — убрано,
+  // т.к. для этого теперь есть отдельный раздел "Сотрудники" (renderEmployeesSection) с
+  // реальной пользой (нагрузка по задачам), а не просто список без применения. lastIdleEmployees
+  // по-прежнему используется в buildEmployeeRoster() для того раздела.
+  return dateRangeHtml + callRatingHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`);
 }
 
 async function loadCallRatingCard(){
