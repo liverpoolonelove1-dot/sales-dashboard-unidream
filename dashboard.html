@@ -519,7 +519,11 @@
   .confetti-piece{position:absolute;top:-24px;width:8px;height:14px;border-radius:2px;opacity:.9;animation-name:confettiFall;animation-timing-function:cubic-bezier(.36,.5,.66,1);animation-fill-mode:forwards;}
   @keyframes confettiFall{to{transform:translateY(105vh) rotate(560deg);opacity:0;}}
 
-  .periodbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 16px;background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:14px;padding:8px 14px;}
+  /* position+z-index обязательны: backdrop-filter сам по себе создаёт новый стек наложения,
+     и без явного z-index этот блок (вместе с выпадающей панелью фильтра воронок внутри него,
+     см. .filter-panel) проигрывает по порядку отрисовки соседнему #content ниже — из-за этого
+     карточки KPI визуально ложились поверх открытого списка воронок в фильтре. */
+  .periodbar{position:relative;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 16px;background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:14px;padding:8px 14px;}
   .company-badge{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;color:var(--ink);background:var(--overlay-2);padding:6px 12px;border-radius:20px;margin-right:4px;}
   .pbtn{font-family:'Inter',sans-serif;font-weight:600;font-size:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:7px 14px;cursor:pointer;transition:all .15s ease;}
   .pbtn:hover{border-color:var(--ink-soft);color:var(--ink);}
