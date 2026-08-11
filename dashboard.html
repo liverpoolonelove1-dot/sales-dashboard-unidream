@@ -4200,7 +4200,11 @@ async function loadDashboard(forceRefresh){
     lastManagers = managers;
     lastDailyEntries = dailyEntries;
     lastNamesResolved = namesResolved;
-    lastNamesErrorMsg = namesErrorMsg; logError("Пользователи", "Не удалось получить имена сотрудников", namesErrorMsg);
+    lastNamesErrorMsg = namesErrorMsg;
+    // Раньше logError() вызывался безусловно на каждой загрузке — в журнал ошибок писалась
+    // запись "Не удалось получить имена сотрудников" даже когда имена резолвились нормально
+    // (namesResolved === true), потому что проверка на namesResolved отсутствовала.
+    if(!namesResolved) logError("Пользователи", "Не удалось получить имена сотрудников", namesErrorMsg);
     lastHasManagers = managerIds.length > 0;
     lastLostReasons = lostReasons;
 
