@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PulseCRM — дашборд продаж для Битрикс24</title>
+<script>
+// Применяем сохранённую тему СРАЗУ, до отрисовки — иначе при светлой теме был бы виден
+// мгновенный "мигание" тёмным фоном (html по умолчанию data-theme="dark"), пока основной
+// скрипт внизу страницы не успел бы её переключить.
+(function(){
+  try{
+    var t = localStorage.getItem('salesPulseTheme');
+    if(t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  }catch(e){}
+})();
+</script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2314151A'/><text y='22' x='4' font-size='20' font-family='Arial' font-weight='900' fill='%23C6F135'>P</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -886,6 +897,10 @@
 </button>
 <button id="helpGuideBtn" class="theme-toggle" title="Как пользоваться дашбордом" aria-label="Как пользоваться дашбордом">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+</button>
+<button id="themeToggleBtn" class="theme-toggle" title="Светлая/тёмная тема" aria-label="Переключить тему">
+  <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
 </button>
 <button id="langToggleBtn" class="theme-toggle" title="Язык / Til" aria-label="Язык / Til">
   <span id="langLabel" style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;">RU</span>
@@ -2355,6 +2370,26 @@ function applyLang(){
     if(st) st.textContent = t('registerSubtitle');
   }
 }
+
+// ===== Светлая/тёмная тема =====
+// Переменные для обеих тем уже были в CSS (:root — светлая по умолчанию, [data-theme="dark"] —
+// тёмная), просто раньше не было ни переключателя, ни сохранения выбора — html жёстко висел
+// на data-theme="dark". Само переключение атрибута уже применено выше (см. инлайн-скрипт в
+// <head>, чтобы избежать мигания при перезагрузке страницы у тех, кто выбрал светлую тему).
+const THEME_STORAGE_KEY = 'salesPulseTheme';
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  const sunIcon = document.getElementById('themeIconSun');
+  const moonIcon = document.getElementById('themeIconMoon');
+  if(sunIcon) sunIcon.style.display = theme === 'dark' ? '' : 'none';
+  if(moonIcon) moonIcon.style.display = theme === 'light' ? '' : 'none';
+  try{ localStorage.setItem(THEME_STORAGE_KEY, theme); }catch(e){}
+}
+applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+document.getElementById('themeToggleBtn').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
 
 const langToggleBtn = document.getElementById('langToggleBtn');
 langToggleBtn.addEventListener('click', () => {
