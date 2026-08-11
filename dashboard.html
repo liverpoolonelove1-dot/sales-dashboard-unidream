@@ -1333,6 +1333,7 @@ const TRANSLATIONS = {
     daysWithSales5: 'дней с продажами',
     // Карточки
     byManagers: 'По менеджерам',
+    paymentsCountCol: 'Оплат',
     refusalReasons: 'Причины отказов',
     callRatingTitle: 'Рейтинг по звонкам (ИИ)',
     callRatingManagerCol: 'Менеджер',
@@ -1818,6 +1819,7 @@ const TRANSLATIONS = {
     daysWithSales2: 'kun savdo bilan',
     daysWithSales5: 'kun savdo bilan',
     byManagers: 'Menejerlar bo\'yicha',
+    paymentsCountCol: 'To\'lovlar',
     refusalReasons: 'Rad etish sabablari',
     callRatingTitle: 'Qo\'ng\'iroqlar reytingi (AI)',
     callRatingManagerCol: 'Menejer',
@@ -4496,6 +4498,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <tr class="manager-row" data-detail="manager" data-idx="${idx}">
           <td>${escapeHtml(m.name)}</td>
           <td style="text-align:right;white-space:nowrap;">${fmtMoney(m.wonSum, currency)}</td>
+          <td style="text-align:right;white-space:nowrap;">${m.wonCount}</td>
           <td style="text-align:right;white-space:nowrap;">${m.dealsCount}</td>
           <td style="text-align:right;white-space:nowrap;">${conv}%</td>
         </tr>
@@ -4506,7 +4509,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <p class="section-title">${t('byManagers')}</p>
         <div class="tile-body-scroll">
           <table class="modal-list-table" style="width:100%;">
-            <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;">${t('convLabel')}</th></tr></thead>
+            <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;">${t('paymentsCountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;">${t('convLabel')}</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
           ${namesResolved ? '' : `<div class="managers-note">Не удалось получить имена сотрудников${lastNamesErrorMsg ? ': ' + lastNamesErrorMsg : ''} — показаны ID.</div>`}
