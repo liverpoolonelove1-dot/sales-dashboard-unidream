@@ -6557,10 +6557,14 @@ function attemptConnect(){
   currentAdapter = adapter;
   currentConn = adapter.buildConnection(raw);
   if(adapter.status === 'ready') saveConnection(adapter.id, raw);
-  // Если это первое подключение вебхука для залогиненного (саморегистрированного) клиента —
-  // сохраняем вебхук на сервере тоже, чтобы он подхватывался при входе с другого устройства.
+  // Сохраняем вебхук на сервере для залогиненного (саморегистрированного) клиента — не только
+  // при первом подключении, но и при любом изменении (например, клиент перевыпустил вебхук
+  // в Bitrix24 после того, как старый перестал работать/истекли права). Раньше условие было
+  // "!session.webhook" (только первый раз) — из-за этого повторное подключение с НОВЫМ вебхуком
+  // чинило дашборд только в текущей вкладке браузера, а на сервере оставался старый: при следующем
+  // входе (перезагрузка страницы, другое устройство) клиенту снова подставлялся протухший вебхук.
   const session = getSessionAccount();
-  if(session && session.hash && !session.webhook && adapter.status === 'ready' && raw.webhook){
+  if(session && session.hash && session.webhook !== raw.webhook && adapter.status === 'ready' && raw.webhook){
     fetch(SAVE_WEBHOOK_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
