@@ -806,6 +806,23 @@
   #goalInput:focus{outline:none;border-color:var(--accent-strong);}
   .forecast-line{font-size:11.5px;color:var(--ink-soft);margin-top:8px;font-family:'JetBrains Mono',monospace;}
 
+  .calls-goal-block{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);}
+  #callsGoalInput{width:110px;border:1px solid var(--line);border-radius:9px;padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface);color:var(--ink);}
+  #callsGoalInput.input-error{border-color:var(--red-bad);animation:inputShake .35s ease;}
+  #callsGoalInput:focus{outline:none;border-color:var(--accent-strong);}
+
+  .mgr-goal-view{display:inline-flex;align-items:center;gap:6px;}
+  .mgr-goal-amount{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);}
+  .mgr-goal-pct{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;color:var(--ink-soft);}
+  .mgr-goal-pct.done{color:var(--accent-strong);}
+  .mgr-goal-edit,.mgr-goal-save{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11px;padding:2px 6px;border-radius:8px;cursor:pointer;line-height:1.4;}
+  .mgr-goal-edit:hover,.mgr-goal-save:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .mgr-goal-set-btn{background:transparent;border:1px dashed var(--line);color:var(--ink-soft);font-size:11px;padding:3px 8px;border-radius:20px;cursor:pointer;}
+  .mgr-goal-set-btn:hover{border-color:var(--accent-strong);color:var(--accent-strong);}
+  .mgr-goal-edit-row{display:inline-flex;align-items:center;gap:4px;}
+  .mgr-goal-input{width:90px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface);color:var(--ink);}
+  .mgr-goal-input:focus{outline:none;border-color:var(--accent-strong);}
+
   .goal-split{display:flex;align-items:stretch;}
   .goal-left{flex:1.2;padding:28px 32px;position:relative;overflow:hidden;min-width:0;}
   .goal-empty-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--ink-soft);font-size:13px;}
@@ -1339,6 +1356,9 @@ const TRANSLATIONS = {
     // Карточки
     byManagers: 'По менеджерам',
     paymentsCountCol: 'Оплат',
+    planCol: 'План',
+    setPlanShort: '+ План',
+    mgrGoalPlaceholder: 'сумма плана',
     refusalReasons: 'Причины отказов',
     callRatingTitle: 'Рейтинг по звонкам (ИИ)',
     callRatingManagerCol: 'Менеджер',
@@ -1347,6 +1367,8 @@ const TRANSLATIONS = {
     callRatingEmpty: 'Пока нет проанализированных звонков',
     callRatingLoadError: 'Не удалось загрузить рейтинг',
     calls: 'Звонки',
+    callsGoalLabel: 'План:',
+    callsGoalPlaceholder: 'например, 500',
     tasks: 'Задачи',
     avgDeal: 'Средний чек',
     bestManager: 'Лучший менеджер',
@@ -1840,6 +1862,9 @@ const TRANSLATIONS = {
     daysWithSales5: 'kun savdo bilan',
     byManagers: 'Menejerlar bo\'yicha',
     paymentsCountCol: 'To\'lovlar',
+    planCol: 'Reja',
+    setPlanShort: '+ Reja',
+    mgrGoalPlaceholder: 'reja summasi',
     refusalReasons: 'Rad etish sabablari',
     callRatingTitle: 'Qo\'ng\'iroqlar reytingi (AI)',
     callRatingManagerCol: 'Menejer',
@@ -1848,6 +1873,8 @@ const TRANSLATIONS = {
     callRatingEmpty: 'Hali tahlil qilingan qo\'ng\'iroqlar yo\'q',
     callRatingLoadError: 'Reytingni yuklab bo\'lmadi',
     calls: 'Qo\'ng\'iroqlar',
+    callsGoalLabel: 'Reja:',
+    callsGoalPlaceholder: 'masalan, 500',
     tasks: 'Vazifalar',
     avgDeal: 'O\'rtacha chek',
     bestManager: 'Eng yaxshi menejer',
@@ -2532,6 +2559,8 @@ let currentAdapter = null;
 let currentConn = null;
 let goalAmount = null; // цель на период — задаётся вручную, хранится на время сессии
 let goalCelebrated = false; // чтобы конфетти не запускалось повторно на каждый рендер
+let callsGoalAmount = null; // план по количеству звонков за период
+let managerGoals = {}; // {managerId: сумма плана} — индивидуальный план продаж по каждому менеджеру
 let availableFunnels = []; // [{id,name}] — список воронок для панели фильтра
 let selectedFunnelIds = null; // null = показывать все; иначе Set выбранных id
 
@@ -3546,6 +3575,78 @@ function buildGoalSection(totalRevenue, currency){
   `;
 }
 
+// Мини-виджет плана по звонкам — та же логика, что и у плана продаж (buildGoalSection),
+// но по количеству звонков за период вместо суммы. Живёт внутри карточки "Звонки".
+function buildCallsGoalMini(totalCalls){
+  if(callsGoalAmount && callsGoalAmount > 0){
+    const pct = Math.min(100, Math.round(100 * totalCalls / callsGoalAmount));
+    const done = totalCalls >= callsGoalAmount;
+    return `
+      <div class="calls-goal-block">
+        <div class="chart-hero-goal-row" style="margin-bottom:4px;">
+          <span class="chart-hero-goal-label">${t('callsGoalLabel')} <b>${totalCalls} / ${callsGoalAmount}</b></span>
+          <span class="chart-hero-goal-pct ${done ? 'done' : ''}">${pct}%</span>
+          <button class="goal-edit" data-action="edit-calls-goal" type="button">${t('goalEdit')}</button>
+        </div>
+        <div class="chart-hero-goal-bar"><div class="chart-hero-goal-fill goal-bar-fill ${done ? 'done' : ''}" style="width:0%" data-target-width="${pct}%"></div></div>
+      </div>
+    `;
+  }
+  return `
+    <div class="calls-goal-block chart-hero-goal-empty" style="margin-top:8px;">
+      <input type="number" id="callsGoalInput" placeholder="${t('callsGoalPlaceholder')}" min="0" max="1000000">
+      <button class="btn btn-ghost btn-sm" data-action="set-calls-goal" type="button">${t('setGoalBtn')}</button>
+    </div>
+  `;
+}
+
+// Ячейка "План" в таблице "По менеджерам" — задать/показать индивидуальный план продаж
+// менеджера. Открытие/закрытие редактирования делается точечной заменой innerHTML одной
+// ячейки (openMgrGoalEditor), а не полным rerenderCached() — иначе открытие формы теряло бы
+// фокус и скроллило бы всю таблицу заново на каждый клик.
+function mgrGoalCellHtml(m, currency){
+  const goal = managerGoals[m.id];
+  if(goal && goal > 0){
+    const pct = Math.min(999, Math.round(100 * m.wonSum / goal));
+    const done = m.wonSum >= goal;
+    return `
+      <span class="mgr-goal-view">
+        <span class="mgr-goal-amount">${fmtMoney(goal, currency)}</span>
+        <span class="mgr-goal-pct ${done ? 'done' : ''}">${pct}%</span>
+        <button class="mgr-goal-edit" data-action="edit-mgr-goal" data-mid="${m.id}" type="button" title="${t('goalEdit')}">✎</button>
+      </span>
+    `;
+  }
+  return `<button class="mgr-goal-set-btn" data-action="edit-mgr-goal" data-mid="${m.id}" type="button">${t('setPlanShort')}</button>`;
+}
+
+function openMgrGoalEditor(mid){
+  const cell = document.querySelector(`[data-mgr-goal-cell="${mid}"]`);
+  if(!cell) return;
+  const current = managerGoals[mid] || '';
+  cell.innerHTML = `
+    <span class="mgr-goal-edit-row">
+      <input type="number" class="mgr-goal-input" min="0" max="${GOAL_MAX}" value="${current}" placeholder="${t('mgrGoalPlaceholder')}">
+      <button class="mgr-goal-save" data-action="save-mgr-goal" data-mid="${mid}" type="button">✓</button>
+    </span>
+  `;
+  const input = cell.querySelector('.mgr-goal-input');
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); saveMgrGoal(mid, input.value); }
+  });
+}
+
+function saveMgrGoal(mid, rawVal){
+  const val = parseFloat(rawVal);
+  if(val > 0 && val <= GOAL_MAX) managerGoals[mid] = val;
+  else if(!rawVal || val === 0) delete managerGoals[mid];
+  else return; // некорректное значение — оставляем редактор открытым
+  saveSettings();
+  rerenderCached();
+}
+
 
 // Таблица причин отказа — агрегат: причина + сколько раз она встретилась среди проваленных сделок,
 // в том же виде, что и "По менеджерам"
@@ -4478,6 +4579,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div><span class="calls-label">${t('unsuccessfulLabel')}</span><span class="calls-value calls-bad">${lastCallStats.missed + lastCallStats.noAnswer}</span></div>
         </div>
         <div class="calls-duration">${fmtDuration(lastCallStats.totalDuration)} ${currentLang === 'uz' ? 'davr uchun suhbat' : 'разговоров за период'}</div>
+        ${buildCallsGoalMini(lastCallStats.total)}
       </div>
     `;
   } else if(lastCallStatsError){
@@ -4536,6 +4638,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <td style="text-align:right;white-space:nowrap;">${m.wonCount}</td>
           <td style="text-align:right;white-space:nowrap;">${m.dealsCount}</td>
           <td style="text-align:right;white-space:nowrap;">${conv}%</td>
+          <td style="text-align:right;white-space:nowrap;" data-mgr-goal-cell="${m.id}">${mgrGoalCellHtml(m, currency)}</td>
         </tr>
       `;
     }).join('');
@@ -4544,7 +4647,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <p class="section-title">${t('byManagers')}</p>
         <div class="tile-body-scroll">
           <table class="modal-list-table" style="width:100%;">
-            <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;">${t('paymentsCountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;">${t('convLabel')}</th></tr></thead>
+            <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;">${t('paymentsCountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;">${t('convLabel')}</th><th style="text-align:right;">${t('planCol')}</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
           ${namesResolved ? '' : `<div class="managers-note">Не удалось получить имена сотрудников${lastNamesErrorMsg ? ': ' + lastNamesErrorMsg : ''} — показаны ID.</div>`}
@@ -6360,10 +6463,32 @@ disconnectBtn.addEventListener('click', () => { /* clearSessionAccount(); */ });
 const CONN_STORAGE_KEY = 'salesPulseConnection_v1';
 const SETTINGS_STORAGE_KEY = 'salesPulseSettings_v1';
 
+// Раньше настройки (план продаж и т.п.) хранились под одним общим ключом localStorage
+// на все аккаунты сразу — если на одном браузере/устройстве заходили под разными клиентами
+// (агентство ведёт несколько порталов, демонстрация нескольких клиентов и т.п.), план,
+// заданный для одного клиента, тут же "утекал" и показывался у всех остальных. Приводим
+// ключ к конкретному Bitrix24-порталу (домен вебхука), а если он ещё не известен — к логину
+// текущей сессии, чтобы у каждого клиента были свои настройки.
+function getSettingsNamespace(){
+  try{
+    const wh = (currentConn && currentConn.webhook) || connFields.querySelector('[data-field="webhook"]')?.value;
+    if(wh) return new URL(wh).hostname;
+  }catch(e){ /* невалидный/пустой URL — пробуем следующий источник */ }
+  const session = getSessionAccount();
+  return (session && session.login) ? session.login : null;
+}
+
+function settingsStorageKey(){
+  const ns = getSettingsNamespace();
+  return ns ? `${SETTINGS_STORAGE_KEY}_${ns}` : SETTINGS_STORAGE_KEY;
+}
+
 function saveSettings(){
   try{
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+    localStorage.setItem(settingsStorageKey(), JSON.stringify({
       goalAmount,
+      callsGoalAmount,
+      managerGoals,
       selectedFunnelIds: selectedFunnelIds ? Array.from(selectedFunnelIds) : null,
       autoRefreshMinutes: parseInt(autoRefreshSelect.value, 10) || 0
     }));
@@ -6372,7 +6497,7 @@ function saveSettings(){
 
 function loadSettings(){
   try{
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const raw = localStorage.getItem(settingsStorageKey());
     return raw ? JSON.parse(raw) : null;
   }catch(e){
     return null;
@@ -6380,13 +6505,15 @@ function loadSettings(){
 }
 
 function clearSettings(){
-  try{ localStorage.removeItem(SETTINGS_STORAGE_KEY); }catch(e){ /* игнорируем */ }
+  try{ localStorage.removeItem(settingsStorageKey()); }catch(e){ /* игнорируем */ }
 }
 
 function restoreSettings(){
   const s = loadSettings();
   if(!s) return;
   if(typeof s.goalAmount === 'number' && s.goalAmount > 0) goalAmount = s.goalAmount;
+  if(typeof s.callsGoalAmount === 'number' && s.callsGoalAmount > 0) callsGoalAmount = s.callsGoalAmount;
+  if(s.managerGoals && typeof s.managerGoals === 'object') managerGoals = s.managerGoals;
   if(Array.isArray(s.selectedFunnelIds) && s.selectedFunnelIds.length > 0){
     selectedFunnelIds = new Set(s.selectedFunnelIds);
   }
@@ -6473,6 +6600,8 @@ function resetDashboardState(){
   structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
   monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
   goalAmount = null;
+  callsGoalAmount = null;
+  managerGoals = {};
   selectedFunnelIds = null;
   availableFunnels = [];
   hasLoadedOnce = false;
@@ -9371,6 +9500,10 @@ content.addEventListener('mouseout', (e) => {
 });
 
 dashboardView.addEventListener('click', (e) => {
+  // Ячейка плана менеджера и мини-виджет плана звонков живут внутри строк/карточек,
+  // у которых есть свой data-detail (открывает модалку по менеджеру/звонкам) — без этого
+  // клик по инпуту или кнопке плана параллельно открывал бы чужую модалку поверх редактора.
+  if(e.target.closest('[data-mgr-goal-cell], .calls-goal-block')) e.stopPropagation();
   const btn = e.target.closest('[data-action]');
   if(!btn) return;
   if(btn.dataset.action === 'set-goal'){
@@ -9390,6 +9523,27 @@ dashboardView.addEventListener('click', (e) => {
     goalCelebrated = false;
     saveSettings();
     rerenderCached();
+  } else if(btn.dataset.action === 'set-calls-goal'){
+    const input = document.getElementById('callsGoalInput');
+    const val = parseInt(input.value, 10);
+    if(val > 0 && val <= 1000000){
+      callsGoalAmount = val;
+      saveSettings();
+      rerenderCached();
+    } else if(val > 1000000){
+      input.classList.add('input-error');
+      setTimeout(() => input.classList.remove('input-error'), 900);
+    }
+  } else if(btn.dataset.action === 'edit-calls-goal'){
+    callsGoalAmount = null;
+    saveSettings();
+    rerenderCached();
+  } else if(btn.dataset.action === 'edit-mgr-goal'){
+    openMgrGoalEditor(btn.dataset.mid);
+  } else if(btn.dataset.action === 'save-mgr-goal'){
+    const cell = btn.closest('[data-mgr-goal-cell]');
+    const input = cell && cell.querySelector('.mgr-goal-input');
+    if(input) saveMgrGoal(btn.dataset.mid, input.value);
   }
 });
 
@@ -9403,6 +9557,17 @@ dashboardView.addEventListener('keydown', (e) => {
       saveSettings();
       rerenderCached();
     } else if(val > GOAL_MAX){
+      e.target.classList.add('input-error');
+      setTimeout(() => e.target.classList.remove('input-error'), 900);
+    }
+  } else if(e.key === 'Enter' && e.target.id === 'callsGoalInput'){
+    e.preventDefault();
+    const val = parseInt(e.target.value, 10);
+    if(val > 0 && val <= 1000000){
+      callsGoalAmount = val;
+      saveSettings();
+      rerenderCached();
+    } else if(val > 1000000){
       e.target.classList.add('input-error');
       setTimeout(() => e.target.classList.remove('input-error'), 900);
     }
