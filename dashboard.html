@@ -699,6 +699,7 @@
   .modal-deal-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .modal-deal-row-rich .modal-deal-sum{font-family:'JetBrains Mono',monospace;font-weight:600;flex:none;}
   .modal-deal-row-bottom{font-size:10.5px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .modal-deal-comment{font-size:11px;color:var(--ink-soft);font-style:italic;margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:1.4;white-space:normal;}
   .modal-back-link{background:none;border:none;color:var(--accent-strong);font-size:12px;font-weight:600;cursor:pointer;padding:0 0 12px;display:block;}
   .modal-back-link:hover{text-decoration:underline;}
 
@@ -2552,6 +2553,7 @@ let lastNamesResolved = true;
 let lastNamesErrorMsg = '';
 let lastHasManagers = false;
 let lastLostReasons = [];
+let lastLossReasonBreakdown = []; // {reason, count} — данные таблицы buildLossReasonsDealsTable, нужны отдельно от lastLostReasons для клика по строке (openLossReasonDetail)
 let lastBestDeal = null;
 let lastDealsFlat = []; // все сделки всех воронок одним плоским списком — для клика "детали сделки"
 let lastMonthDealsFlat = []; // то же самое, но строго за этот месяц — не зависит от выбранного периода в фильтре
@@ -3725,11 +3727,13 @@ function buildLossReasonsDealsTable(){
     const reason = d.lossReasonText || d.stageName;
     counts.set(reason, (counts.get(reason) || 0) + 1);
   });
-  const rows = [...counts.entries()]
+  lastLossReasonBreakdown = [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([reason, count]) => `<tr>
-      <td>${escapeHtml(reason)}</td>
-      <td>${count}</td>
+    .map(([reason, count]) => ({reason, count}));
+  const rows = lastLossReasonBreakdown
+    .map((r, i) => `<tr data-detail="lossreason" data-idx="${i}" style="cursor:pointer;">
+      <td>${escapeHtml(r.reason)}</td>
+      <td>${r.count}</td>
     </tr>`).join('');
   return `
     <p class="section-title">${t('refusalReasons')}</p>
@@ -5057,7 +5061,7 @@ function buildDealListRows(deals, limit){
     const idx = isMonthScoped ? d._monthFlatIdx : d._flatIdx;
     const src = isMonthScoped ? 'month' : 'all';
     return `
-      <div class="modal-deal-row-rich" data-detail="dealdetail" data-idx="${idx}" data-src="${src}">
+      <div class="modal-deal-row-rich" data-detail="dealdetail" data-idx="${idx}" data-src="${src}" data-deal-id="${d.id}">
         <div class="modal-deal-row-top">
           <span class="modal-deal-title">${title}</span>
           <span class="modal-deal-sum">${fmtMoney(d.amount, d.currency)}</span>
@@ -5443,14 +5447,65 @@ function openLossDetail(idx){
   // Причина — либо текст кастомного поля (Tift), либо название стадии (остальные клиенты) —
   // должно совпадать с тем же приоритетом, что использовался при подсчёте lostReasonMap выше.
   const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && (d.lossReasonText || d.stageName) === r.name);
+  const shown = matchingDeals.slice(0, 100);
   const html = statRow(t('dealsLabel'), r.count)
     + statRow(t('amountCol'), fmtMoney(r.sum, currency))
     + statRow(t('shareAmongLosses'), share + '%')
     + `<div class="modal-note">${t('lossReasonNote')}</div>`
     + `<div class="modal-subtitle" style="margin-top:16px;">${t('lostDealsListTitle')}</div>`
-    + (matchingDeals.length > 0 ? buildDealListRows(matchingDeals, 100) : `<div class="modal-note">${t('noDealsForReason')}</div>`);
+    + (matchingDeals.length > 0 ? `<div id="lossDetailDealList">${buildDealListRows(matchingDeals, 100)}</div>` : `<div class="modal-note">${t('noDealsForReason')}</div>`);
   openModal(r.name, html);
   document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+  loadCommentsForDeals(shown, '#lossDetailDealList');
+}
+
+// Клик по строке в карточке "Причины отказов" (buildLossReasonsDealsTable) — та же логика,
+// что и openLossDetail выше, но по другому исходному массиву (lastLossReasonBreakdown — считает
+// причины по ВСЕМ провалам за период, включая те воронки/стадии, которых нет в lastLostReasons).
+function openLossReasonDetail(idx){
+  const r = lastLossReasonBreakdown[idx];
+  if(!r) return;
+  const currency = getDisplayCurrency();
+  const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && (d.lossReasonText || d.stageName) === r.reason);
+  const totalSum = matchingDeals.reduce((a,d) => a + d.amount, 0);
+  const shown = matchingDeals.slice(0, 100);
+  const html = statRow(t('dealsLabel'), r.count)
+    + statRow(t('amountCol'), fmtMoney(totalSum, currency))
+    + `<div class="modal-subtitle" style="margin-top:16px;">${t('lostDealsListTitle')}</div>`
+    + (matchingDeals.length > 0 ? `<div id="lossReasonDealList">${buildDealListRows(matchingDeals, 100)}</div>` : `<div class="modal-note">${t('noDealsForReason')}</div>`);
+  openModal(r.reason, html);
+  document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+  loadCommentsForDeals(shown, '#lossReasonDealList');
+}
+
+// Комментарии по сделке (COMMENTS) в Bitrix24 не входят в основной набор полей, который тянется
+// пакетно для ВСЕХ сделок за период (для клиентов с 50к+ сделок это было бы очень тяжело) —
+// подгружаем их отдельным точечным запросом только для уже показанных в модалке сделок (макс. 100,
+// укладывается в один вызов crm.deal.list с фильтром по @ID, без пагинации).
+async function loadCommentsForDeals(deals, containerSelector){
+  if(!currentConn?.webhook || !deals.length) return;
+  const ids = deals.map(d => d.id);
+  try{
+    const res = await callMethod(currentConn.webhook, 'crm.deal.list', {filter: {'@ID': ids}, select: ['ID','COMMENTS']});
+    // COMMENTS у Bitrix24 приходит с HTML-разметкой — прогоняем через detached-элемент, чтобы
+    // корректно убрать теги И раскодировать сущности вроде &nbsp;, не рискуя выполнением скриптов
+    // (innerHTML на элементе, который никогда не попадает в live DOM, тегов не исполняет).
+    const stripHtml = html => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html || '';
+      return tmp.textContent.replace(/\s+/g, ' ').trim();
+    };
+    (res || []).forEach(d => {
+      const raw = stripHtml(d.COMMENTS);
+      if(!raw) return;
+      const row = document.querySelector(`${containerSelector} [data-deal-id="${d.ID}"]`);
+      if(!row) return;
+      const div = document.createElement('div');
+      div.className = 'modal-deal-comment';
+      div.textContent = raw.length > 220 ? raw.slice(0, 220) + '…' : raw;
+      row.appendChild(div);
+    });
+  }catch(e){ /* комментарии необязательны — молча пропускаем, чтобы не ломать уже открытую модалку */ }
 }
 
 function openDayDetail(idx){
@@ -5952,6 +6007,7 @@ document.addEventListener('click', (e) => {
   if(type === 'funnel') openFunnelDetail(idx);
   else if(type === 'manager') openManagerDetail(idx);
   else if(type === 'loss') openLossDetail(idx);
+  else if(type === 'lossreason') openLossReasonDetail(idx);
   else if(type === 'day') openDayDetail(idx);
   else if(type === 'avgdeal') openAvgDealDetail();
   else if(type === 'bestdeal') openBestDealDetail();
