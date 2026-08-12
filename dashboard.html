@@ -5599,11 +5599,15 @@ function buildCallsHtml(filterType, standalone){
   const byManagerMap = {};
   lastRawCalls.forEach(call => {
     const id = String(call.PORTAL_USER_ID || 'unknown');
-    if(!byManagerMap[id]) byManagerMap[id] = {total: 0, outgoing: 0, incoming: 0, successful: 0, duration: 0};
+    if(!byManagerMap[id]) byManagerMap[id] = {total: 0, outgoing: 0, incoming: 0, successful: 0, successfulOut: 0, successfulIn: 0, duration: 0};
     byManagerMap[id].total += 1;
-    if(String(call.CALL_TYPE) === '2') byManagerMap[id].incoming += 1; else byManagerMap[id].outgoing += 1;
+    const isIncoming = String(call.CALL_TYPE) === '2';
+    if(isIncoming) byManagerMap[id].incoming += 1; else byManagerMap[id].outgoing += 1;
     const dur = parseInt(call.CALL_DURATION, 10) || 0;
-    if(dur > 0) byManagerMap[id].successful += 1;
+    if(dur > 0){
+      byManagerMap[id].successful += 1;
+      if(isIncoming) byManagerMap[id].successfulIn += 1; else byManagerMap[id].successfulOut += 1;
+    }
     byManagerMap[id].duration += dur;
   });
   const managerRows = Object.entries(byManagerMap)
@@ -5614,7 +5618,7 @@ function buildCallsHtml(filterType, standalone){
       // Средняя длительность считаем только по дозвонившимся звонкам — иначе
       // куча "не дозвонились" (0 секунд) искусственно занижает среднее
       const avgDuration = s.successful > 0 ? Math.round(s.duration / s.successful) : 0;
-      return `<tr><td>${escapeHtml(name)}</td><td>${s.total} <span style="color:var(--ink-soft);font-size:11px;">(${t('outgoingShort')} ${s.outgoing} / ${t('incomingShort')} ${s.incoming})</span></td><td>${s.successful} (${rate}%)</td><td>${fmtDuration(avgDuration)}</td><td>${fmtDuration(s.duration)}</td></tr>`;
+      return `<tr><td>${escapeHtml(name)}</td><td>${s.total} <span style="color:var(--ink-soft);font-size:11px;">(${t('outgoingShort')} ${s.outgoing} / ${t('incomingShort')} ${s.incoming})</span></td><td>${s.successful} (${rate}%) <span style="color:var(--ink-soft);font-size:11px;">(${t('outgoingShort')} ${s.successfulOut} / ${t('incomingShort')} ${s.successfulIn})</span></td><td>${fmtDuration(avgDuration)}</td><td>${fmtDuration(s.duration)}</td></tr>`;
     }).join('');
   const managerTableHtml = managerRows ? `
     <div class="modal-subtitle">${t('callsByManagerTitle')}</div>
