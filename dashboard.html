@@ -619,6 +619,8 @@
   .modal-list-table tbody tr{transition:background .12s ease;}
   .modal-list-table tbody tr:hover{background:var(--overlay-1);}
   .modal-list-scroll{max-height:320px;overflow-y:auto;}
+  .manager-total-row td{font-weight:700;color:var(--ink);border-top:2px solid var(--line);border-bottom:none;}
+  .manager-total-row:hover{background:transparent;}
   .badge-in{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#EFF6FF;color:#1D4ED8;}
   html[data-theme="dark"] .badge-in{background:#1e3a5f;color:#93c5fd;}
   .badge-out{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:var(--overlay-1);color:var(--ink-soft);}
@@ -1370,6 +1372,7 @@ const TRANSLATIONS = {
     planCol: 'План',
     setPlanShort: '+ План',
     mgrGoalPlaceholder: 'сумма плана',
+    totalRowLabel: 'Итого',
     refusalReasons: 'Причины отказов',
     callRatingTitle: 'Рейтинг по звонкам (ИИ)',
     callRatingManagerCol: 'Менеджер',
@@ -1894,6 +1897,7 @@ const TRANSLATIONS = {
     planCol: 'Reja',
     setPlanShort: '+ Reja',
     mgrGoalPlaceholder: 'reja summasi',
+    totalRowLabel: 'Jami',
     refusalReasons: 'Rad etish sabablari',
     callRatingTitle: 'Qo\'ng\'iroqlar reytingi (AI)',
     callRatingManagerCol: 'Menejer',
@@ -4720,6 +4724,19 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         </tr>
       `;
     }).join('');
+
+    // Итоговая строка — сумма/среднее по всем менеджерам из таблицы выше (включая admin/
+    // "без ответственного", если он там есть — итого должно совпадать с тем, что реально видно).
+    const totalWonSum = managers.reduce((a,m) => a + m.wonSum, 0);
+    const totalWonCount = managers.reduce((a,m) => a + m.wonCount, 0);
+    const totalDealsCount = managers.reduce((a,m) => a + m.dealsCount, 0);
+    const totalLostCount = managers.reduce((a,m) => a + m.lostCount, 0);
+    const totalConv = (totalWonCount + totalLostCount) > 0 ? Math.round(100 * totalWonCount / (totalWonCount + totalLostCount)) : 0;
+    const totalPlan = managers.reduce((a,m) => a + (managerGoals[m.id] || 0), 0);
+    const totalPlanCell = totalPlan > 0
+      ? `${fmtMoney(totalPlan, currency)} <span class="mgr-goal-pct ${totalWonSum >= totalPlan ? 'done' : ''}">${Math.round(100 * totalWonSum / totalPlan)}%</span>`
+      : '—';
+
     managersHtml = `
       <div class="fcard tile tile-managers">
         <p class="section-title">${t('byManagers')}</p>
@@ -4727,6 +4744,14 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <table class="modal-list-table" style="width:100%;">
             <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;" data-tooltip="${t('tipPaymentsCol')}">${t('paymentsCountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;" data-tooltip="${t('tipConvCol')}">${t('convLabel')}</th><th style="text-align:right;" data-tooltip="${t('tipPlanCol')}">${t('planCol')}</th></tr></thead>
             <tbody>${rows}</tbody>
+            <tfoot><tr class="manager-total-row">
+              <td>${t('totalRowLabel')}</td>
+              <td style="text-align:right;white-space:nowrap;">${fmtMoney(totalWonSum, currency)}</td>
+              <td style="text-align:right;white-space:nowrap;">${totalWonCount}</td>
+              <td style="text-align:right;white-space:nowrap;">${totalDealsCount}</td>
+              <td style="text-align:right;white-space:nowrap;">${totalConv}%</td>
+              <td style="text-align:right;white-space:nowrap;">${totalPlanCell}</td>
+            </tr></tfoot>
           </table>
           ${namesResolved ? '' : `<div class="managers-note">Не удалось получить имена сотрудников${lastNamesErrorMsg ? ': ' + lastNamesErrorMsg : ''} — показаны ID.</div>`}
         </div>
