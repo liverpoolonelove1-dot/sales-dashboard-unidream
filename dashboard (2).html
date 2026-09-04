@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PulseCRM — дашборд продаж для Битрикс24</title>
+<script>
+// Применяем сохранённую тему СРАЗУ, до отрисовки — иначе при светлой теме был бы виден
+// мгновенный "мигание" тёмным фоном (html по умолчанию data-theme="dark"), пока основной
+// скрипт внизу страницы не успел бы её переключить.
+(function(){
+  try{
+    var t = localStorage.getItem('salesPulseTheme');
+    if(t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  }catch(e){}
+})();
+</script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2314151A'/><text y='22' x='4' font-size='20' font-family='Arial' font-weight='900' fill='%23C6F135'>P</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -60,6 +71,8 @@
   #loginView .glow-corner.tl{top:-200px;left:-200px;}
   #loginView .glow-corner.br{bottom:-200px;right:-200px;}
   @media(max-width:860px){#loginView .glow{width:100%;height:320px;opacity:.14;}#loginView .glow-corner{display:none;}}
+  .login-back-link{position:absolute;top:24px;left:24px;display:flex;align-items:center;gap:6px;color:var(--ink-soft);text-decoration:none;font-size:13px;font-weight:600;z-index:2;transition:color .15s ease;}
+  .login-back-link:hover{color:var(--ink);}
   #loginView::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 60% 40%, rgba(198,241,53,.13) 0%, transparent 70%), radial-gradient(ellipse 50% 40% at 20% 80%, rgba(198,241,53,.07) 0%, transparent 60%);pointer-events:none;}
   .login-wrap{display:flex;width:100%;max-width:860px;min-height:520px;border-radius:28px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.22);position:relative;z-index:1;}
   .login-left{flex:1;background:#0F1014;padding:48px 44px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
@@ -140,6 +153,13 @@
   }
   @keyframes tooltipFade{from{opacity:0;transform:translateX(-50%) translateY(4px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
   @media(max-width:900px){[data-tooltip]:hover::after,[data-tooltip]:hover::before{display:none;}}
+  /* Варианты позиционирования для элементов у самого верха/края экрана (иконки в шапке) —
+     без этого тултип "над" элементом обрезался бы верхней границей окна. */
+  [data-tooltip][data-tooltip-pos="bottom"]:hover::after{bottom:auto;top:calc(100% + 9px);animation:tooltipFadeDown .15s ease;}
+  [data-tooltip][data-tooltip-pos="bottom"]:hover::before{bottom:auto;top:calc(100% + 4px);border-top-color:transparent;border-bottom-color:var(--ink-solid);}
+  [data-tooltip][data-tooltip-align="right"]:hover::after{left:auto;right:-6px;transform:none;}
+  [data-tooltip][data-tooltip-align="right"]:hover::before{left:auto;right:10px;transform:none;}
+  @keyframes tooltipFadeDown{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
 
   #tourOverlay{position:fixed;inset:0;z-index:900;pointer-events:none;}
   .tour-spotlight{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.72);pointer-events:none;transition:top .3s ease,left .3s ease,width .3s ease,height .3s ease;z-index:901;}
@@ -196,7 +216,7 @@
   .tile .managers-wrap::-webkit-scrollbar{width:4px;}
   .tile .managers-wrap::-webkit-scrollbar-track{background:transparent;}
   .tile .managers-wrap::-webkit-scrollbar-thumb{background:var(--overlay-2);border-radius:4px;}
-  .tile-loss{grid-column:1/-1;}
+  .tile-loss{grid-column:1/-1;max-height:400px;}
   .tile-calls{}
   .tile-funnel{}
   .funnel-footer{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;}
@@ -506,7 +526,11 @@
   .confetti-piece{position:absolute;top:-24px;width:8px;height:14px;border-radius:2px;opacity:.9;animation-name:confettiFall;animation-timing-function:cubic-bezier(.36,.5,.66,1);animation-fill-mode:forwards;}
   @keyframes confettiFall{to{transform:translateY(105vh) rotate(560deg);opacity:0;}}
 
-  .periodbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 16px;background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:14px;padding:8px 14px;}
+  /* position+z-index обязательны: backdrop-filter сам по себе создаёт новый стек наложения,
+     и без явного z-index этот блок (вместе с выпадающей панелью фильтра воронок внутри него,
+     см. .filter-panel) проигрывает по порядку отрисовки соседнему #content ниже — из-за этого
+     карточки KPI визуально ложились поверх открытого списка воронок в фильтре. */
+  .periodbar{position:relative;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 16px;background:var(--surface-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line-soft);border-radius:14px;padding:8px 14px;}
   .company-badge{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;color:var(--ink);background:var(--overlay-2);padding:6px 12px;border-radius:20px;margin-right:4px;}
   .pbtn{font-family:'Inter',sans-serif;font-weight:600;font-size:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:20px;padding:7px 14px;cursor:pointer;transition:all .15s ease;}
   .pbtn:hover{border-color:var(--ink-soft);color:var(--ink);}
@@ -595,6 +619,8 @@
   .modal-list-table tbody tr{transition:background .12s ease;}
   .modal-list-table tbody tr:hover{background:var(--overlay-1);}
   .modal-list-scroll{max-height:320px;overflow-y:auto;}
+  .manager-total-row td{font-weight:700;color:var(--ink);border-top:2px solid var(--line);border-bottom:none;}
+  .manager-total-row:hover{background:transparent;}
   .badge-in{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:#EFF6FF;color:#1D4ED8;}
   html[data-theme="dark"] .badge-in{background:#1e3a5f;color:#93c5fd;}
   .badge-out{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:var(--overlay-1);color:var(--ink-soft);}
@@ -673,6 +699,7 @@
   .modal-deal-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .modal-deal-row-rich .modal-deal-sum{font-family:'JetBrains Mono',monospace;font-weight:600;flex:none;}
   .modal-deal-row-bottom{font-size:10.5px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .modal-deal-comment{font-size:11px;color:var(--ink-soft);font-style:italic;margin-top:5px;padding-top:5px;border-top:1px dashed var(--line);line-height:1.4;white-space:normal;}
   .modal-back-link{background:none;border:none;color:var(--accent-strong);font-size:12px;font-weight:600;cursor:pointer;padding:0 0 12px;display:block;}
   .modal-back-link:hover{text-decoration:underline;}
 
@@ -789,6 +816,23 @@
   #goalInput:focus{outline:none;border-color:var(--accent-strong);}
   .forecast-line{font-size:11.5px;color:var(--ink-soft);margin-top:8px;font-family:'JetBrains Mono',monospace;}
 
+  .calls-goal-block{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);}
+  #callsGoalInput{width:110px;border:1px solid var(--line);border-radius:9px;padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface);color:var(--ink);}
+  #callsGoalInput.input-error{border-color:var(--red-bad);animation:inputShake .35s ease;}
+  #callsGoalInput:focus{outline:none;border-color:var(--accent-strong);}
+
+  .mgr-goal-view{display:inline-flex;align-items:center;gap:6px;}
+  .mgr-goal-amount{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);}
+  .mgr-goal-pct{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;color:var(--ink-soft);}
+  .mgr-goal-pct.done{color:var(--accent-strong);}
+  .mgr-goal-edit,.mgr-goal-save{background:transparent;border:1px solid var(--line);color:var(--ink-soft);font-size:11px;padding:2px 6px;border-radius:8px;cursor:pointer;line-height:1.4;}
+  .mgr-goal-edit:hover,.mgr-goal-save:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .mgr-goal-set-btn{background:transparent;border:1px dashed var(--line);color:var(--ink-soft);font-size:11px;padding:3px 8px;border-radius:20px;cursor:pointer;}
+  .mgr-goal-set-btn:hover{border-color:var(--accent-strong);color:var(--accent-strong);}
+  .mgr-goal-edit-row{display:inline-flex;align-items:center;gap:4px;}
+  .mgr-goal-input{width:90px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface);color:var(--ink);}
+  .mgr-goal-input:focus{outline:none;border-color:var(--accent-strong);}
+
   .goal-split{display:flex;align-items:stretch;}
   .goal-left{flex:1.2;padding:28px 32px;position:relative;overflow:hidden;min-width:0;}
   .goal-empty-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--ink-soft);font-size:13px;}
@@ -865,30 +909,34 @@
 </head>
 <body>
 <div class="topbar-icons">
-<button id="notifBtn" class="theme-toggle" style="display:none;" title="Уведомления" aria-label="Уведомления">
+<button id="notifBtn" class="theme-toggle" style="display:none;" data-tooltip="Уведомления" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Уведомления">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
   <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red-bad);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 3px;font-family:'JetBrains Mono',monospace;"></span>
 </button>
-<button id="settingsBtn" class="theme-toggle" title="Настройки подключения" aria-label="Настройки подключения">
+<button id="settingsBtn" class="theme-toggle" data-tooltip="Настройки подключения" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Настройки подключения">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
 </button>
-<button id="errorLogBtn" class="theme-toggle" style="display:none;" title="Журнал ошибок" aria-label="Журнал ошибок">
+<button id="errorLogBtn" class="theme-toggle" style="display:none;" data-tooltip="Журнал ошибок" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Журнал ошибок">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
   <span id="errorLogBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red-bad);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 3px;font-family:'JetBrains Mono',monospace;"></span>
 </button>
-<button id="editorBtn" class="theme-toggle" style="display:none;" title="Настроить интерфейс" aria-label="Настроить интерфейс">
+<button id="editorBtn" class="theme-toggle" style="display:none;" data-tooltip="Настроить интерфейс" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Настроить интерфейс">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 </button>
-<button id="shortcutsBtn" class="theme-toggle" title="Горячие клавиши" aria-label="Горячие клавиши">
+<button id="shortcutsBtn" class="theme-toggle" data-tooltip="Горячие клавиши" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Горячие клавиши">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
 </button>
-<button id="helpGuideBtn" class="theme-toggle" title="Как пользоваться дашбордом" aria-label="Как пользоваться дашбордом">
+<button id="helpGuideBtn" class="theme-toggle" data-tooltip="Как пользоваться дашбордом" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Как пользоваться дашбордом">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
 </button>
-<button id="langToggleBtn" class="theme-toggle" title="Язык / Til" aria-label="Язык / Til">
+<button id="themeToggleBtn" class="theme-toggle" data-tooltip="Светлая/тёмная тема" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Переключить тему">
+  <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+</button>
+<button id="langToggleBtn" class="theme-toggle" data-tooltip="Язык / Til" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Язык / Til">
   <span id="langLabel" style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;">RU</span>
 </button>
-<button id="accountBtn" class="theme-toggle" title="Личный кабинет" aria-label="Личный кабинет">
+<button id="accountBtn" class="theme-toggle" data-tooltip="Личный кабинет" data-tooltip-pos="bottom" data-tooltip-align="right" aria-label="Личный кабинет">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
 </button>
 </div>
@@ -1012,6 +1060,7 @@
 </div>
 <!-- ===== ЭКРАН ВХОДА (вне .wrap — на весь экран, без ограничения по ширине) ===== -->
 <div id="loginView" style="display:none;">
+  <a href="index.html" class="login-back-link">← <span data-i18n="loginBackToSite">На главную</span></a>
   <div class="glow"></div>
   <div class="glow-corner tl"></div>
   <div class="glow-corner br"></div>
@@ -1101,6 +1150,7 @@
       <button class="atab" data-tab="roi" data-i18n="tabRoi">LTV / ROI</button>
       <button class="atab" data-tab="forecast" data-i18n="tabForecast">Прогноз</button>
       <button class="atab" data-tab="finance" data-i18n="tabFinance">Финансы / ROI</button>
+      <button class="atab" id="advancedMetricsTab" data-tab="advanced" data-i18n="tabAdvanced" style="display:none;">Скорость и конверсия</button>
     </div>
   </div>
   <div id="analyticsContent" class="analytics-content"></div>
@@ -1157,6 +1207,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Задачи</span>
       </button>
+      <button class="sbnav-item" data-nav="employees">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Сотрудники</span>
+      </button>
       <button class="sbnav-item" data-nav="analytics">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         <span>Аналитика</span>
@@ -1197,7 +1251,7 @@
           <button class="btn btn-ghost" id="exportBtn">Скачать CSV</button>
         </div>
         <div class="filter-wrap">
-          <button class="icon-btn" id="funnelFilterBtn" title="Фильтр по воронкам" aria-label="Фильтр по воронкам">
+          <button class="icon-btn" id="funnelFilterBtn" data-tooltip="Фильтр по воронкам" aria-label="Фильтр по воронкам">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5Z"/></svg>
           </button>
           <div class="filter-panel" id="funnelFilterPanel" style="display:none;"></div>
@@ -1223,7 +1277,7 @@
   </div>
 </div>
 
-<button id="assistantToggleBtn" class="assistant-toggle" title="Аналитик дашборда" aria-label="Аналитик дашборда" style="display:none;">
+<button id="assistantToggleBtn" class="assistant-toggle" data-tooltip="Аналитик дашборда" data-tooltip-align="right" aria-label="Аналитик дашборда" style="display:none;">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2v1h1a3 3 0 0 1 3 3v2a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8a3 3 0 0 1 3-3h1V4a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="10.5" r="1"/><circle cx="14.5" cy="10.5" r="1"/><path d="M12 15v2m-4 2h8m-8 3h8"/></svg>
   <span id="assistantBadge" class="assistant-badge" style="display:none;"></span>
 </button>
@@ -1315,6 +1369,11 @@ const TRANSLATIONS = {
     daysWithSales5: 'дней с продажами',
     // Карточки
     byManagers: 'По менеджерам',
+    paymentsCountCol: 'Оплат',
+    planCol: 'План',
+    setPlanShort: '+ План',
+    mgrGoalPlaceholder: 'сумма плана',
+    totalRowLabel: 'Итого',
     refusalReasons: 'Причины отказов',
     callRatingTitle: 'Рейтинг по звонкам (ИИ)',
     callRatingManagerCol: 'Менеджер',
@@ -1323,6 +1382,8 @@ const TRANSLATIONS = {
     callRatingEmpty: 'Пока нет проанализированных звонков',
     callRatingLoadError: 'Не удалось загрузить рейтинг',
     calls: 'Звонки',
+    callsGoalLabel: 'План:',
+    callsGoalPlaceholder: 'например, 500',
     tasks: 'Задачи',
     avgDeal: 'Средний чек',
     bestManager: 'Лучший менеджер',
@@ -1357,6 +1418,10 @@ const TRANSLATIONS = {
     navManagers: 'Менеджеры',
     navCalls: 'Звонки',
     navTasks: 'Задачи',
+    employeesNav: 'Сотрудники',
+    employeeCol: 'Сотрудник',
+    positionCol: 'Должность',
+    employeesPageNote: 'Все сотрудники портала Bitrix24 и их нагрузка по задачам — независимо от того, ведут они сделки или нет. Нажмите на строку, чтобы открыть список задач сотрудника.',
     navAnalytics: 'Аналитика',
     navSettings: 'Настройки',
     prevMonth: 'прошлому месяцу',
@@ -1507,6 +1572,21 @@ const TRANSLATIONS = {
     avgDealCycle: 'Средний цикл сделки',
     roiBySource: 'ROI по источникам лидов',
     revenuePerLead: 'Выручка/лид',
+    tabAdvanced: 'Скорость и конверсия',
+    advConversionTitle: 'Конверсия лидов',
+    advContactRate: 'Contact Rate (охват)',
+    advQualificationRate: 'Qualification Rate (квалификация)',
+    advContactRateNote: 'Contact Rate — доля лидов, у которых есть хотя бы один результативный звонок, привязанный напрямую к лиду в Bitrix24. Если в вашей телефонии звонки привязываются к контакту/сделке, а не к лиду, реальный охват может быть выше показанного.',
+    advRevenueTitle: 'Выручка на лида',
+    advSpeedTitle: 'Скорость реакции на лид',
+    advLeadResponseTime: 'Время до первого звонка',
+    advResponseTimeNote: 'Считается только по лидам, у которых звонок привязан напрямую к лиду в Bitrix24 (см. пояснение к Contact Rate выше) — не по всем лидам периода.',
+    advLeadsCountedCol: 'Лидов учтено',
+    advActivityTitle: 'Детализация звонков',
+    advBusyRate: 'Занято',
+    advNoAnswerRate: 'Не отвечает',
+    advOtherFailLbl: 'Прочие сбои, шт.',
+    noAdvancedData: 'Недостаточно данных за этот период — попробуйте выбрать другой диапазон дат.',
     roiFormula: 'ROI = Выручка / Упущенная сумма × 100%',
     ltvByManagers: 'LTV по менеджерам',
     sourceNotSet: 'Не указан',
@@ -1558,6 +1638,20 @@ const TRANSLATIONS = {
     tipBestManager: 'Менеджер с наибольшей суммой выигранных сделок за период',
     tipBiggestDeal: 'Самая крупная выигранная сделка за период',
     tipFunnelCard: 'Клик откроет разбивку по стадиям этой воронки',
+    tipNotifications: 'Уведомления',
+    tipConnectionSettings: 'Настройки подключения',
+    tipErrorLog: 'Журнал ошибок',
+    tipEditorInterface: 'Настроить интерфейс',
+    tipShortcuts: 'Горячие клавиши',
+    tipHelpGuide: 'Как пользоваться дашбордом',
+    tipThemeToggle: 'Светлая/тёмная тема',
+    tipLangToggle: 'Язык / Til',
+    tipAccount: 'Личный кабинет',
+    tipAssistantAnalyst: 'Аналитик дашборда',
+    tipFunnelFilterBtn: 'Фильтр по воронкам',
+    tipPaymentsCol: 'Количество выигранных сделок (оплат) у менеджера',
+    tipConvCol: 'Доля выигранных сделок от всех завершённых у этого менеджера',
+    tipPlanCol: 'Личный план продаж менеджера на этот период — клик по карандашу, чтобы задать',
     guideSec1Title: 'Обзор',
     guideSec1Text: 'KPI-карточки сверху показывают выручку, сделки и конверсию за этот месяц — независимо от периода в фильтре. Ниже — график «Динамика продаж» по дням, там же можно задать план продаж и следить за прогрессом. Наведите курсор на любую карточку — появится подсказка, что именно она показывает.',
     guideSec2Title: 'Сайдбар слева',
@@ -1663,12 +1757,21 @@ const TRANSLATIONS = {
     stagesDateRangeLabel: 'Свой диапазон дат для этой вкладки:',
     applyBtn: 'Применить',
     singleDayLabel: 'Или конкретный день:',
-    customAnalysisLink: 'Настроить критерии анализа звонков',
-    customAnalysisTitle: 'Критерии анализа звонков',
-    customAnalysisDesc: 'Опишите своими словами, на что ИИ должен обращать внимание при разборе звонков — на русском или на узбекском языке, как удобнее. Например: проверять упоминание конкретной акции, следовать вашему скрипту продаж. Оценка звонка по 10-балльной шкале добавляется автоматически при любом разборе, задавать её отдельно не нужно. Если оставить поле пустым — используется стандартный разбор.',
+    customAnalysisLink: 'Скрипты продаж для анализа звонков',
+    customAnalysisTitle: 'Скрипты продаж',
+    customAnalysisDesc: 'Добавьте один или несколько скриптов продаж — на русском или на узбекском языке, как удобнее. Если скриптов несколько, ИИ сам определяет, какой ближе всего конкретному разговору, и сверяется именно с ним. Оценка звонка по 10-балльной шкале добавляется автоматически при любом разборе. Если скриптов нет — используется стандартный разбор.',
     customAnalysisPlaceholder: 'Например:\n1. Упомянул ли менеджер акцию "Скидка 10% при оплате картой"?\n2. Задал ли уточняющие вопросы о потребностях клиента?\n3. Предложил ли встречу или следующий шаг перед завершением звонка?',
     customAnalysisSave: 'Сохранить',
     customAnalysisReset: 'Сбросить',
+    customAnalysisEdit: 'Изменить',
+    callScriptsEmpty: 'Пока нет ни одного скрипта — анализ звонков идёт по стандартным критериям.',
+    callScriptsAddBtn: 'Добавить скрипт',
+    callScriptsLimitNote: `Достигнут лимит — максимум ${5} скриптов.`,
+    callScriptsDeleteBtn: 'Удалить',
+    callScriptsDeleteConfirm: 'Удалить этот скрипт?',
+    callScriptsNamePlaceholder: 'Название скрипта (например: Холодные звонки)',
+    callScriptsCancelBtn: 'Отмена',
+    callScriptsLoadError: 'Не удалось сохранить/загрузить скрипты',
     doneChip: 'Завершённые',
     overdueChip: 'Просроченные',
     overdueBadge: 'Просрочена',
@@ -1719,6 +1822,7 @@ const TRANSLATIONS = {
     hotLeadsAttention: 'Горячие лиды — требуют внимания сегодня',
     coldLeadsRisk: 'Холодные — риск потерять',
     loginRightTitle: 'Вход в кабинет',
+    loginBackToSite: 'На главную',
     registerTitle: 'Регистрация',
     registerSubtitle: 'Придумайте логин и пароль',
     registerBtn: 'Зарегистрироваться →',
@@ -1790,6 +1894,11 @@ const TRANSLATIONS = {
     daysWithSales2: 'kun savdo bilan',
     daysWithSales5: 'kun savdo bilan',
     byManagers: 'Menejerlar bo\'yicha',
+    paymentsCountCol: 'To\'lovlar',
+    planCol: 'Reja',
+    setPlanShort: '+ Reja',
+    mgrGoalPlaceholder: 'reja summasi',
+    totalRowLabel: 'Jami',
     refusalReasons: 'Rad etish sabablari',
     callRatingTitle: 'Qo\'ng\'iroqlar reytingi (AI)',
     callRatingManagerCol: 'Menejer',
@@ -1798,6 +1907,8 @@ const TRANSLATIONS = {
     callRatingEmpty: 'Hali tahlil qilingan qo\'ng\'iroqlar yo\'q',
     callRatingLoadError: 'Reytingni yuklab bo\'lmadi',
     calls: 'Qo\'ng\'iroqlar',
+    callsGoalLabel: 'Reja:',
+    callsGoalPlaceholder: 'masalan, 500',
     tasks: 'Vazifalar',
     avgDeal: 'O\'rtacha chek',
     bestManager: 'Eng yaxshi menejer',
@@ -1831,6 +1942,10 @@ const TRANSLATIONS = {
     navManagers: 'Menejerlar',
     navCalls: 'Qo\'ng\'iroqlar',
     navTasks: 'Vazifalar',
+    employeesNav: 'Xodimlar',
+    employeeCol: 'Xodim',
+    positionCol: 'Lavozim',
+    employeesPageNote: 'Bitrix24 portalining barcha xodimlari va ularning vazifalar bo\'yicha yuklamasi — bitimlar bilan ishlashidan qat\'i nazar. Xodimning vazifalar ro\'yxatini ochish uchun qatorni bosing.',
     navAnalytics: 'Tahlil',
     navSettings: 'Sozlamalar',
     prevMonth: 'oldingi oyga',
@@ -1981,6 +2096,21 @@ const TRANSLATIONS = {
     avgDealCycle: 'O\'rtacha bitim sikli',
     roiBySource: 'Lid manbalari bo\'yicha ROI',
     revenuePerLead: 'Tushum/lid',
+    tabAdvanced: 'Tezlik va konversiya',
+    advConversionTitle: 'Lidlar konversiyasi',
+    advContactRate: 'Contact Rate (qamrov)',
+    advQualificationRate: 'Qualification Rate (kvalifikatsiya)',
+    advContactRateNote: 'Contact Rate — Bitrix24da to\'g\'ridan-to\'g\'ri lidga bog\'langan kamida bitta natijali qo\'ng\'iroqqa ega lidlar ulushi. Agar telefoniyangizda qo\'ng\'iroqlar lidga emas, kontakt/bitimga bog\'lansa, real qamrov ko\'rsatilganidan yuqori bo\'lishi mumkin.',
+    advRevenueTitle: 'Bir lidga to\'g\'ri keladigan tushum',
+    advSpeedTitle: 'Lidga javob berish tezligi',
+    advLeadResponseTime: 'Birinchi qo\'ng\'iroqqacha vaqt',
+    advResponseTimeNote: 'Faqat Bitrix24da to\'g\'ridan-to\'g\'ri lidga bog\'langan qo\'ng\'iroqli lidlar bo\'yicha hisoblanadi (yuqoridagi Contact Rate izohiga qarang) — davrning barcha lidlari bo\'yicha emas.',
+    advLeadsCountedCol: 'Hisoblangan lidlar',
+    advActivityTitle: 'Qo\'ng\'iroqlar tafsiloti',
+    advBusyRate: 'Band',
+    advNoAnswerRate: 'Javob bermadi',
+    advOtherFailLbl: 'Boshqa xatolar, dona',
+    noAdvancedData: 'Ushbu davr uchun yetarli ma\'lumot yo\'q — boshqa sana oralig\'ini tanlab ko\'ring.',
     roiFormula: 'ROI = Tushum / Yo\'qotilgan summa × 100%',
     ltvByManagers: 'Menejerlar bo\'yicha LTV',
     sourceNotSet: 'Ko\'rsatilmagan',
@@ -2032,6 +2162,20 @@ const TRANSLATIONS = {
     tipBestManager: 'Davr uchun eng ko\'p yutilgan bitim summasiga ega menejer',
     tipBiggestDeal: 'Davrdagi eng katta yutilgan bitim',
     tipFunnelCard: 'Bosing — shu voronkaning bosqichlar bo\'yicha taqsimoti ochiladi',
+    tipNotifications: 'Bildirishnomalar',
+    tipConnectionSettings: 'Ulanish sozlamalari',
+    tipErrorLog: 'Xatoliklar jurnali',
+    tipEditorInterface: 'Interfeysni sozlash',
+    tipShortcuts: 'Tezkor tugmalar',
+    tipHelpGuide: 'Dashboarddan qanday foydalanish',
+    tipThemeToggle: 'Yorug\'/qorong\'i mavzu',
+    tipLangToggle: 'Til / Язык',
+    tipAccount: 'Shaxsiy kabinet',
+    tipAssistantAnalyst: 'Dashboard tahlilchisi',
+    tipFunnelFilterBtn: 'Voronkalar bo\'yicha filtr',
+    tipPaymentsCol: 'Menejerning yutgan (to\'langan) bitimlari soni',
+    tipConvCol: 'Shu menejerning barcha yakunlangan bitimlari orasida yutilganlar ulushi',
+    tipPlanCol: 'Menejerning shu davrga shaxsiy savdo rejasi — belgilash uchun qalam belgisini bosing',
     guideSec1Title: 'Umumiy',
     guideSec1Text: 'Yuqoridagi KPI-kartochkalar shu oydagi tushum, bitimlar va konversiyani ko\'rsatadi — filtrdagi davrga bog\'liq emas. Pastda — kunlar bo\'yicha "Savdo dinamikasi" grafigi, o\'sha yerda savdo rejasini belgilash va progressni kuzatish mumkin. Har qanday kartochkaga sichqonchani olib boring — nima ko\'rsatayotgani haqida maslahat chiqadi.',
     guideSec2Title: 'Chapdagi sайдбар',
@@ -2137,12 +2281,21 @@ const TRANSLATIONS = {
     stagesDateRangeLabel: 'Ushbu varaq uchun sana oralig\'i:',
     applyBtn: 'Qo\'llash',
     singleDayLabel: 'Yoki aniq bir kun:',
-    customAnalysisLink: 'Qo\'ng\'iroq tahlili mezonlarini sozlash',
-    customAnalysisTitle: 'Qo\'ng\'iroq tahlili mezonlari',
-    customAnalysisDesc: 'AI qo\'ng\'iroqlarni tahlil qilishda nimalarga e\'tibor berishi kerakligini o\'z so\'zlaringiz bilan yozing — ruscha yoki o\'zbekcha, qulay bo\'lgan tilda. Masalan: aniq aksiya aytilganini tekshirish, savdo skriptingizga amal qilish. 10 balllik shkala bo\'yicha baho har doim avtomatik qo\'shiladi, uni alohida so\'rash shart emas. Bo\'sh qoldirsangiz — standart tahlil ishlatiladi.',
+    customAnalysisLink: 'Qo\'ng\'iroq tahlili uchun savdo skriptlari',
+    customAnalysisTitle: 'Savdo skriptlari',
+    customAnalysisDesc: 'Bitta yoki bir nechta savdo skriptini qo\'shing — ruscha yoki o\'zbekcha, qulay bo\'lgan tilda. Agar bir nechta skript bo\'lsa, AI o\'zi aniq suhbatga eng mos kelganini tanlaydi va aynan o\'shanga solishtiradi. 10 balllik shkala bo\'yicha baho har doim avtomatik qo\'shiladi. Skript bo\'lmasa — standart tahlil ishlatiladi.',
     customAnalysisPlaceholder: 'Masalan:\n1. Menejer "Karta orqali to\'lovda 10% chegirma" aksiyasini aytdimi?\n2. Mijoz ehtiyojlari haqida aniqlashtiruvchi savollar berdimi?\n3. Qo\'ng\'iroqni tugatishdan oldin uchrashuv yoki keyingi qadamni taklif qildimi?',
     customAnalysisSave: 'Saqlash',
     customAnalysisReset: 'Tozalash',
+    customAnalysisEdit: 'Tahrirlash',
+    callScriptsEmpty: 'Hali birorta ham skript yo\'q — qo\'ng\'iroqlar standart mezonlar bo\'yicha tahlil qilinadi.',
+    callScriptsAddBtn: 'Skript qo\'shish',
+    callScriptsLimitNote: `Limitga yetdingiz — maksimum ${5} skript.`,
+    callScriptsDeleteBtn: 'O\'chirish',
+    callScriptsDeleteConfirm: 'Ushbu skriptni o\'chirasizmi?',
+    callScriptsNamePlaceholder: 'Skript nomi (masalan: Sovuq qo\'ng\'iroqlar)',
+    callScriptsCancelBtn: 'Bekor qilish',
+    callScriptsLoadError: 'Skriptlarni saqlab/yuklab bo\'lmadi',
     doneChip: 'Bajarilgan',
     overdueChip: 'Muddati o\'tgan',
     overdueBadge: 'Muddati o\'tgan',
@@ -2193,6 +2346,7 @@ const TRANSLATIONS = {
     hotLeadsAttention: 'Issiq lidlar — bugun e\'tibor talab qiladi',
     coldLeadsRisk: 'Sovuq — yo\'qotish xavfi',
     loginRightTitle: 'Kabinetga kirish',
+    loginBackToSite: 'Bosh sahifaga',
     registerTitle: 'Ro\'yxatdan o\'tish',
     registerSubtitle: 'Login va parol o\'ylab toping',
     registerBtn: 'Ro\'yxatdan o\'tish →',
@@ -2283,11 +2437,26 @@ function applyLang(){
     if(key) el.textContent = t(key);
   });
   // сайдбар
-  const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', leads:'leadsNav', calls:'navCalls', tasks:'navTasks', analytics:'navAnalytics', settings:'navSettings'};
+  const navMap = {overview:'navOverview', funnels:'navFunnels', managers:'navManagers', leads:'leadsNav', calls:'navCalls', tasks:'navTasks', employees:'employeesNav', analytics:'navAnalytics', settings:'navSettings'};
   document.querySelectorAll('.sbnav-item').forEach(btn => {
     const key = navMap[btn.dataset.nav];
     const span = btn.querySelector('span');
     if(key && span) span.textContent = t(key);
+  });
+  // компактные подсказки иконок в шапке — сама разметка статичная (не через t()), т.к. рендерится
+  // ещё до инициализации JS, поэтому язык подтягиваем сюда через data-tooltip/aria-label
+  const iconTooltipMap = {
+    notifBtn: 'tipNotifications', settingsBtn: 'tipConnectionSettings', errorLogBtn: 'tipErrorLog',
+    editorBtn: 'tipEditorInterface', shortcutsBtn: 'tipShortcuts', helpGuideBtn: 'tipHelpGuide',
+    themeToggleBtn: 'tipThemeToggle', langToggleBtn: 'tipLangToggle', accountBtn: 'tipAccount',
+    assistantToggleBtn: 'tipAssistantAnalyst', funnelFilterBtn: 'tipFunnelFilterBtn'
+  };
+  Object.entries(iconTooltipMap).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const label = t(key);
+    el.setAttribute('data-tooltip', label);
+    el.setAttribute('aria-label', label);
   });
   // экран входа
   const loginFooterEl = document.getElementById('loginFooter');
@@ -2333,6 +2502,26 @@ function applyLang(){
   }
 }
 
+// ===== Светлая/тёмная тема =====
+// Переменные для обеих тем уже были в CSS (:root — светлая по умолчанию, [data-theme="dark"] —
+// тёмная), просто раньше не было ни переключателя, ни сохранения выбора — html жёстко висел
+// на data-theme="dark". Само переключение атрибута уже применено выше (см. инлайн-скрипт в
+// <head>, чтобы избежать мигания при перезагрузке страницы у тех, кто выбрал светлую тему).
+const THEME_STORAGE_KEY = 'salesPulseTheme';
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  const sunIcon = document.getElementById('themeIconSun');
+  const moonIcon = document.getElementById('themeIconMoon');
+  if(sunIcon) sunIcon.style.display = theme === 'dark' ? '' : 'none';
+  if(moonIcon) moonIcon.style.display = theme === 'light' ? '' : 'none';
+  try{ localStorage.setItem(THEME_STORAGE_KEY, theme); }catch(e){}
+}
+applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+document.getElementById('themeToggleBtn').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
 const langToggleBtn = document.getElementById('langToggleBtn');
 langToggleBtn.addEventListener('click', () => {
   currentLang = currentLang === 'ru' ? 'uz' : 'ru';
@@ -2358,11 +2547,13 @@ let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadS
 let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null }; // сделки, звонки, лиды, задачи за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
+let lastIdleEmployees = []; // сотрудники Bitrix24 (из user.get), на которых за текущий выбор периода/воронок не назначено ни одной сделки — не входят в lastManagers, чтобы не мешаться с рейтингом продажников
 let lastDailyEntries = [];
 let lastNamesResolved = true;
 let lastNamesErrorMsg = '';
 let lastHasManagers = false;
 let lastLostReasons = [];
+let lastLossReasonBreakdown = []; // {reason, count} — данные таблицы buildLossReasonsDealsTable, нужны отдельно от lastLostReasons для клика по строке (openLossReasonDetail)
 let lastBestDeal = null;
 let lastDealsFlat = []; // все сделки всех воронок одним плоским списком — для клика "детали сделки"
 let lastMonthDealsFlat = []; // то же самое, но строго за этот месяц — не зависит от выбранного периода в фильтре
@@ -2437,6 +2628,8 @@ let currentAdapter = null;
 let currentConn = null;
 let goalAmount = null; // цель на период — задаётся вручную, хранится на время сессии
 let goalCelebrated = false; // чтобы конфетти не запускалось повторно на каждый рендер
+let callsGoalAmount = null; // план по количеству звонков за период
+let managerGoals = {}; // {managerId: сумма плана} — индивидуальный план продаж по каждому менеджеру
 let availableFunnels = []; // [{id,name}] — список воронок для панели фильтра
 let selectedFunnelIds = null; // null = показывать все; иначе Set выбранных id
 
@@ -2803,6 +2996,15 @@ const requestQueue = [];
 
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
+// Повтор при лимите запросов (429/503/QUERY_LIMIT_EXCEEDED) — раньше было всего 5 попыток
+// с короткой линейной паузой (350/700/1050/1400/1750 мс, суммарно ~5 сек). У клиента с 20-40
+// параллельными batch-чанками (109 833 сделки у TestBor) это оказалось мало — несколько
+// чанков одновременно ловят 429 и ретраятся почти синхронно, снова упираясь в тот же лимит
+// ("грозовое стадо"). Теперь пауза растёт экспоненциально + случайный джиттер, чтобы разные
+// чанки расходились по времени, и попыток заметно больше.
+const RATE_LIMIT_MAX_ATTEMPTS = 8;
+function rateLimitBackoff(attempt){ return Math.min(500 * Math.pow(1.7, attempt), 8000) + Math.random() * 400; }
+
 function enqueueRequest(fn){
   return new Promise((resolve, reject) => {
     requestQueue.push({fn, resolve, reject});
@@ -2833,7 +3035,13 @@ async function callMethod(webhook, method, params){
 // скорости для клиентов с большим объёмом сделок.
 async function callBatchRaw(webhook, cmd, attempt){
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  // 25 сек хватало, пока проверяли на клиентах в пределах ~20к сделок (Tift, 2.83 сек на весь
+  // забор). У TestBor реально оказалось 109 833 сделки — при таком объёме пагинации один из
+  // batch-чанков (запросов по 50 команд) иногда не укладывается в 25 сек даже при быстром
+  // вебхуке (сам вебхук отвечает за <0.5 сек — проверено вручную), и весь Promise.all в
+  // callBatch() падает из-за одного медленного чанка. Подняли лимит и добавили повтор ниже —
+  // таймаут тут не значит "сломано", чаще просто "в этот раз Bitrix24 ответил медленнее".
+  const timeout = setTimeout(() => controller.abort(), 45000);
   try{
     const body = new URLSearchParams();
     body.append('halt', '0');
@@ -2847,21 +3055,27 @@ async function callBatchRaw(webhook, cmd, attempt){
     clearTimeout(timeout);
     if(res.status === 401) throw new Error('HTTP 401 — нет прав доступа. Проверьте настройки вебхука.');
     if(res.status === 403) throw new Error('HTTP 403 — доступ запрещён. Добавьте нужные права вебхуку.');
-    if((res.status === 503 || res.status === 429) && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if((res.status === 503 || res.status === 429) && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callBatchRaw(webhook, cmd, attempt + 1);
     }
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callBatchRaw(webhook, cmd, attempt + 1);
     }
     if(data.error) throw new Error(data.error_description || data.error);
     return data.result; // {result:{key:[...]}, result_error:{...}, ...}
   }catch(e){
     clearTimeout(timeout);
-    if(e.name === 'AbortError') throw new Error('Превышено время ожидания batch-запроса.');
+    if(e.name === 'AbortError'){
+      if(attempt < 2){
+        await sleep(500 * (attempt + 1));
+        return callBatchRaw(webhook, cmd, attempt + 1);
+      }
+      throw new Error('Превышено время ожидания batch-запроса.');
+    }
     if(e instanceof TypeError && attempt < 3){
       await sleep(500 * (attempt + 1));
       return callBatchRaw(webhook, cmd, attempt + 1);
@@ -2903,14 +3117,14 @@ async function callMethodRaw(webhook, method, qs, attempt){
     clearTimeout(timeout);
     if(res.status === 401) throw new Error('HTTP 401 — нет прав доступа. Проверьте настройки вебхука.');
     if(res.status === 403) throw new Error('HTTP 403 — доступ запрещён. Добавьте нужные права вебхуку.');
-    if((res.status === 503 || res.status === 429) && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if((res.status === 503 || res.status === 429) && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callMethodRaw(webhook, method, qs, attempt + 1);
     }
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < 5){
-      await sleep(350 * (attempt + 1));
+    if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < RATE_LIMIT_MAX_ATTEMPTS){
+      await sleep(rateLimitBackoff(attempt));
       return callMethodRaw(webhook, method, qs, attempt + 1);
     }
     if(data.error) throw new Error(data.error_description || data.error);
@@ -3092,6 +3306,7 @@ async function fetchDealsForCategory(webhook, categoryId, period){
 }
 
 async function fetchUserNames(webhook, ids){
+  // Только активные сотрудники — уволенных намеренно не запрашиваем (не нужны клиенту).
   const raw = await fetchAllPaged(webhook, 'user.get', {});
   const map = {};
   (raw || []).forEach(u => {
@@ -3429,27 +3644,102 @@ function buildGoalSection(totalRevenue, currency){
   `;
 }
 
+// Мини-виджет плана по звонкам — та же логика, что и у плана продаж (buildGoalSection),
+// но по количеству звонков за период вместо суммы. Живёт внутри карточки "Звонки".
+function buildCallsGoalMini(totalCalls){
+  if(callsGoalAmount && callsGoalAmount > 0){
+    const pct = Math.min(100, Math.round(100 * totalCalls / callsGoalAmount));
+    const done = totalCalls >= callsGoalAmount;
+    return `
+      <div class="calls-goal-block">
+        <div class="chart-hero-goal-row" style="margin-bottom:4px;">
+          <span class="chart-hero-goal-label">${t('callsGoalLabel')} <b>${totalCalls} / ${callsGoalAmount}</b></span>
+          <span class="chart-hero-goal-pct ${done ? 'done' : ''}">${pct}%</span>
+          <button class="goal-edit" data-action="edit-calls-goal" type="button">${t('goalEdit')}</button>
+        </div>
+        <div class="chart-hero-goal-bar"><div class="chart-hero-goal-fill goal-bar-fill ${done ? 'done' : ''}" style="width:0%" data-target-width="${pct}%"></div></div>
+      </div>
+    `;
+  }
+  return `
+    <div class="calls-goal-block chart-hero-goal-empty" style="margin-top:8px;">
+      <input type="number" id="callsGoalInput" placeholder="${t('callsGoalPlaceholder')}" min="0" max="1000000">
+      <button class="btn btn-ghost btn-sm" data-action="set-calls-goal" type="button">${t('setGoalBtn')}</button>
+    </div>
+  `;
+}
 
-// Таблица провальных сделок — какая сделка, у какого менеджера, по какой причине (не просто
-// агрегат по причинам, а построчно: сделка/менеджер/причина), в том же виде, что и "По менеджерам"
+// Ячейка "План" в таблице "По менеджерам" — задать/показать индивидуальный план продаж
+// менеджера. Открытие/закрытие редактирования делается точечной заменой innerHTML одной
+// ячейки (openMgrGoalEditor), а не полным rerenderCached() — иначе открытие формы теряло бы
+// фокус и скроллило бы всю таблицу заново на каждый клик.
+function mgrGoalCellHtml(m, currency){
+  const goal = managerGoals[m.id];
+  if(goal && goal > 0){
+    const pct = Math.min(999, Math.round(100 * m.wonSum / goal));
+    const done = m.wonSum >= goal;
+    return `
+      <span class="mgr-goal-view">
+        <span class="mgr-goal-amount">${fmtMoney(goal, currency)}</span>
+        <span class="mgr-goal-pct ${done ? 'done' : ''}">${pct}%</span>
+        <button class="mgr-goal-edit" data-action="edit-mgr-goal" data-mid="${m.id}" type="button" data-tooltip="${t('goalEdit')}">✎</button>
+      </span>
+    `;
+  }
+  return `<button class="mgr-goal-set-btn" data-action="edit-mgr-goal" data-mid="${m.id}" type="button">${t('setPlanShort')}</button>`;
+}
+
+function openMgrGoalEditor(mid){
+  const cell = document.querySelector(`[data-mgr-goal-cell="${mid}"]`);
+  if(!cell) return;
+  const current = managerGoals[mid] || '';
+  cell.innerHTML = `
+    <span class="mgr-goal-edit-row">
+      <input type="number" class="mgr-goal-input" min="0" max="${GOAL_MAX}" value="${current}" placeholder="${t('mgrGoalPlaceholder')}">
+      <button class="mgr-goal-save" data-action="save-mgr-goal" data-mid="${mid}" type="button">✓</button>
+    </span>
+  `;
+  const input = cell.querySelector('.mgr-goal-input');
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); saveMgrGoal(mid, input.value); }
+  });
+}
+
+function saveMgrGoal(mid, rawVal){
+  const val = parseFloat(rawVal);
+  if(val > 0 && val <= GOAL_MAX) managerGoals[mid] = val;
+  else if(!rawVal || val === 0) delete managerGoals[mid];
+  else return; // некорректное значение — оставляем редактор открытым
+  saveSettings();
+  rerenderCached();
+}
+
+
+// Таблица причин отказа — агрегат: причина + сколько раз она встретилась среди проваленных сделок,
+// в том же виде, что и "По менеджерам"
 function buildLossReasonsDealsTable(){
   const lostDeals = lastDealsFlat.filter(d => d.semantic === 'F');
   if(!lostDeals.length) return '';
-  const rows = lostDeals.map(d => {
-    const mgr = lastManagers.find(m => String(m.id) === String(d.assignedTo));
-    const mgrName = mgr ? mgr.name : (d.assignedTo ? `${t('employeeIdPrefix')}${d.assignedTo}` : t('sourceNotSet'));
+  const counts = new Map();
+  lostDeals.forEach(d => {
     const reason = d.lossReasonText || d.stageName;
-    return `<tr>
-      <td>${escapeHtml(d.title || t('dealNumberPrefix')+d.id)}</td>
-      <td>${escapeHtml(mgrName)}</td>
-      <td>${escapeHtml(reason)}</td>
-    </tr>`;
-  }).join('');
+    counts.set(reason, (counts.get(reason) || 0) + 1);
+  });
+  lastLossReasonBreakdown = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([reason, count]) => ({reason, count}));
+  const rows = lastLossReasonBreakdown
+    .map((r, i) => `<tr data-detail="lossreason" data-idx="${i}" style="cursor:pointer;">
+      <td>${escapeHtml(r.reason)}</td>
+      <td>${r.count}</td>
+    </tr>`).join('');
   return `
     <p class="section-title">${t('refusalReasons')}</p>
     <div class="tile-body-scroll">
       <table class="modal-list-table" style="width:100%;">
-        <thead><tr><th>${t('dealCol')}</th><th>${t('managerCol')}</th><th>${t('reasonStage')}</th></tr></thead>
+        <thead><tr><th>${t('reasonStage')}</th><th>${t('quantityCol')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -3746,7 +4036,7 @@ async function loadDashboard(forceRefresh){
     // они всё равно запрашивались дважды. То же самое с прошлым периодом/прошлым месяцем.
     // Теперь такие дубли не отправляются вообще — экономит до 40% запросов в самом частом случае.
     const prevIsSameAsPrevMonth = periodIsMonth; // при periodIsMonth prevPeriod всегда совпадает с prevMonthRange
-    renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${funnelsToLoad.length === 1 ? 'воронка' : 'воронок'}…`);
+    renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${pluralRu(funnelsToLoad.length, 'воронка', 'воронки', 'воронок')}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const stagesPromise = structureCache.stagesByFunnelId[fn.id]
         ? Promise.resolve(structureCache.stagesByFunnelId[fn.id])
@@ -3951,6 +4241,15 @@ async function loadDashboard(forceRefresh){
       ...managerMap[id]
     })).sort((a,b) => b.wonSum - a.wonSum);
 
+    // Остальные сотрудники портала (fetchUserNames тянет ВСЕХ активных пользователей, а не
+    // только тех, кто есть в managerMap) — те, на кого не назначено ни одной сделки за текущий
+    // период/воронки. Раньше они были попросту невидимы: "Менеджеры" показывал только тех, у
+    // кого есть сделки, и компания с 48 сотрудниками видела в дашборде только 4 продажника.
+    const idleEmployees = Object.keys(nameMap)
+      .filter(id => !managerMap[id])
+      .map(id => ({id, name: nameMap[id].name, position: nameMap[id].position || ''}))
+      .sort((a,b) => a.name.localeCompare(b.name, 'ru'));
+
     // динамика продаж — календарь всех дней текущего месяца (включая дни без продаж)
     lastWonPoints = wonPoints;
     const dailyEntries = buildMonthDays(wonPoints);
@@ -3979,9 +4278,14 @@ async function loadDashboard(forceRefresh){
 
     lastFunnels = displayFunnels;
     lastManagers = managers;
+    lastIdleEmployees = idleEmployees;
     lastDailyEntries = dailyEntries;
     lastNamesResolved = namesResolved;
-    lastNamesErrorMsg = namesErrorMsg; logError("Пользователи", "Не удалось получить имена сотрудников", namesErrorMsg);
+    lastNamesErrorMsg = namesErrorMsg;
+    // Раньше logError() вызывался безусловно на каждой загрузке — в журнал ошибок писалась
+    // запись "Не удалось получить имена сотрудников" даже когда имена резолвились нормально
+    // (namesResolved === true), потому что проверка на namesResolved отсутствовала.
+    if(!namesResolved) logError("Пользователи", "Не удалось получить имена сотрудников", namesErrorMsg);
     lastHasManagers = managerIds.length > 0;
     lastLostReasons = lostReasons;
 
@@ -4060,6 +4364,7 @@ async function loadDashboard(forceRefresh){
     if(currentSection === 'calls') renderCallsSection(callFilterType);
     else if(currentSection === 'leads') renderLeadsSection(leadFilterType);
     else if(currentSection === 'tasks') renderTasksSection();
+    else if(currentSection === 'employees') renderEmployeesSection();
     else if(currentSection === 'managers') renderManagersSection();
     else if(currentSection === 'funnels') renderStagesSection();
     else if(currentSection === 'analytics') openAnalytics(currentAnalyticsTab);
@@ -4113,6 +4418,15 @@ function pluralDays(n){
   if(n10 === 1 && n100 !== 11) return 'день';
   if([2,3,4].includes(n10) && ![12,13,14].includes(n100)) return 'дня';
   return 'дней';
+}
+
+// Общее правило русской плюрализации (1 воронка / 2 воронки / 5 воронок) — то же самое,
+// что и в pluralDays выше, но параметризовано для любого слова, а не только "день".
+function pluralRu(n, one, few, many){
+  const n10 = n % 10, n100 = n % 100;
+  if(n10 === 1 && n100 !== 11) return one;
+  if([2,3,4].includes(n10) && ![12,13,14].includes(n100)) return few;
+  return many;
 }
 
 function renderChartHero(entries, currency){
@@ -4351,6 +4665,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           <div><span class="calls-label">${t('unsuccessfulLabel')}</span><span class="calls-value calls-bad">${lastCallStats.missed + lastCallStats.noAnswer}</span></div>
         </div>
         <div class="calls-duration">${fmtDuration(lastCallStats.totalDuration)} ${currentLang === 'uz' ? 'davr uchun suhbat' : 'разговоров за период'}</div>
+        ${buildCallsGoalMini(lastCallStats.total)}
       </div>
     `;
   } else if(lastCallStatsError){
@@ -4367,7 +4682,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
     const taskStats = aggregateTaskStats(lastRawTasks, taskFilterManagerId);
     const uniqueResp = [...new Set(lastRawTasks.map(t => String(t.responsibleId)))];
     const managerOptions = uniqueResp.map(id => {
-      const found = lastManagers.find(m => String(m.id) === id);
+      const found = lastManagers.find(m => String(m.id) === id) || lastIdleEmployees.find(m => String(m.id) === id);
       const name = found ? found.name : `Сотрудник ID ${id}`;
       return `<option value="${id}" ${taskFilterManagerId === id ? 'selected' : ''}>${name}</option>`;
     }).join('');
@@ -4406,18 +4721,41 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <tr class="manager-row" data-detail="manager" data-idx="${idx}">
           <td>${escapeHtml(m.name)}</td>
           <td style="text-align:right;white-space:nowrap;">${fmtMoney(m.wonSum, currency)}</td>
+          <td style="text-align:right;white-space:nowrap;">${m.wonCount}</td>
           <td style="text-align:right;white-space:nowrap;">${m.dealsCount}</td>
           <td style="text-align:right;white-space:nowrap;">${conv}%</td>
+          <td style="text-align:right;white-space:nowrap;" data-mgr-goal-cell="${m.id}">${mgrGoalCellHtml(m, currency)}</td>
         </tr>
       `;
     }).join('');
+
+    // Итоговая строка — сумма/среднее по всем менеджерам из таблицы выше (включая admin/
+    // "без ответственного", если он там есть — итого должно совпадать с тем, что реально видно).
+    const totalWonSum = managers.reduce((a,m) => a + m.wonSum, 0);
+    const totalWonCount = managers.reduce((a,m) => a + m.wonCount, 0);
+    const totalDealsCount = managers.reduce((a,m) => a + m.dealsCount, 0);
+    const totalLostCount = managers.reduce((a,m) => a + m.lostCount, 0);
+    const totalConv = (totalWonCount + totalLostCount) > 0 ? Math.round(100 * totalWonCount / (totalWonCount + totalLostCount)) : 0;
+    const totalPlan = managers.reduce((a,m) => a + (managerGoals[m.id] || 0), 0);
+    const totalPlanCell = totalPlan > 0
+      ? `${fmtMoney(totalPlan, currency)} <span class="mgr-goal-pct ${totalWonSum >= totalPlan ? 'done' : ''}">${Math.round(100 * totalWonSum / totalPlan)}%</span>`
+      : '—';
+
     managersHtml = `
       <div class="fcard tile tile-managers">
         <p class="section-title">${t('byManagers')}</p>
         <div class="tile-body-scroll">
           <table class="modal-list-table" style="width:100%;">
-            <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;">${t('convLabel')}</th></tr></thead>
+            <thead><tr><th>${t('managerCol')}</th><th style="text-align:right;">${t('amountCol')}</th><th style="text-align:right;" data-tooltip="${t('tipPaymentsCol')}">${t('paymentsCountCol')}</th><th style="text-align:right;">${t('dealsLabel')}</th><th style="text-align:right;" data-tooltip="${t('tipConvCol')}">${t('convLabel')}</th><th style="text-align:right;" data-tooltip="${t('tipPlanCol')}">${t('planCol')}</th></tr></thead>
             <tbody>${rows}</tbody>
+            <tfoot><tr class="manager-total-row">
+              <td>${t('totalRowLabel')}</td>
+              <td style="text-align:right;white-space:nowrap;">${fmtMoney(totalWonSum, currency)}</td>
+              <td style="text-align:right;white-space:nowrap;">${totalWonCount}</td>
+              <td style="text-align:right;white-space:nowrap;">${totalDealsCount}</td>
+              <td style="text-align:right;white-space:nowrap;">${totalConv}%</td>
+              <td style="text-align:right;white-space:nowrap;">${totalPlanCell}</td>
+            </tr></tfoot>
           </table>
           ${namesResolved ? '' : `<div class="managers-note">Не удалось получить имена сотрудников${lastNamesErrorMsg ? ': ' + lastNamesErrorMsg : ''} — показаны ID.</div>`}
         </div>
@@ -4723,7 +5061,7 @@ function buildDealListRows(deals, limit){
     const idx = isMonthScoped ? d._monthFlatIdx : d._flatIdx;
     const src = isMonthScoped ? 'month' : 'all';
     return `
-      <div class="modal-deal-row-rich" data-detail="dealdetail" data-idx="${idx}" data-src="${src}">
+      <div class="modal-deal-row-rich" data-detail="dealdetail" data-idx="${idx}" data-src="${src}" data-deal-id="${d.id}">
         <div class="modal-deal-row-top">
           <span class="modal-deal-title">${title}</span>
           <span class="modal-deal-sum">${fmtMoney(d.amount, d.currency)}</span>
@@ -4994,7 +5332,8 @@ function buildTasksHtml(filterStatus, standalone){
   };
 
   const rows = tasks.slice(0, 100).map(tsk => {
-    const mgr = lastManagers.find(m => String(m.id) === String(tsk.responsibleId));
+    const mgr = lastManagers.find(m => String(m.id) === String(tsk.responsibleId))
+      || lastIdleEmployees.find(m => String(m.id) === String(tsk.responsibleId));
     const mgrName = mgr ? mgr.name : (tsk.responsibleId ? `ID ${tsk.responsibleId}` : '—');
     const deadline = tsk.deadline ? new Date(tsk.deadline).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
     const created = tsk.createdDate ? new Date(tsk.createdDate).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
@@ -5041,6 +5380,63 @@ function renderTasksSection(filterStatus){
   content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${built.title}</h2></div>${built.html}</div>`;
 }
 
+// Единый список сотрудников для раздела "Сотрудники" — продажники (lastManagers, у которых
+// есть хотя бы одна сделка) и все остальные (lastIdleEmployees, без сделок), в одном месте,
+// специально чтобы контролировать нагрузку по задачам независимо от того, ведёт человек
+// сделки или нет. В отличие от таблицы "По менеджерам" (раздел Менеджеры), тут это нарочно
+// не разделяется визуально — сам раздел целиком про задачи, а не про рейтинг продаж.
+function buildEmployeeRoster(){
+  const fromManagers = lastManagers.filter(m => m.id !== 'unknown').map(m => ({id: m.id, name: m.name, position: m.position || ''}));
+  const fromIdle = lastIdleEmployees.map(e => ({id: e.id, name: e.name, position: e.position || ''}));
+  return [...fromManagers, ...fromIdle];
+}
+
+function renderEmployeesSection(){
+  const roster = buildEmployeeRoster();
+  if(!roster.length){
+    content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('employeesNav')}</h2></div><div class="modal-note">${t('noData')}</div></div>`;
+    return;
+  }
+
+  const rows = roster
+    .map(emp => ({emp, stats: aggregateTaskStats(lastRawTasks, emp.id)}))
+    .sort((a,b) => b.stats.overdue - a.stats.overdue || b.stats.total - a.stats.total);
+
+  const trs = rows.map(({emp, stats}) => `
+    <tr class="employee-row" data-emp-id="${emp.id}" style="cursor:pointer;">
+      <td>
+        <div style="font-weight:600;font-size:12.5px;">${escapeHtml(emp.name)}</div>
+        ${emp.position ? `<div style="font-size:10.5px;color:var(--ink-soft);">${escapeHtml(emp.position)}</div>` : ''}
+      </td>
+      <td style="text-align:center;">${stats.total}</td>
+      <td style="text-align:center;">${stats.neW}</td>
+      <td style="text-align:center;">${stats.inProgress}</td>
+      <td style="text-align:center;color:var(--accent-strong);">${stats.completed}</td>
+      <td style="text-align:center;${stats.overdue > 0 ? 'color:var(--red-bad);font-weight:700;' : ''}">${stats.overdue}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div class="analytics-section">
+      <div class="modal-note" style="margin-bottom:14px;">${t('employeesPageNote')}</div>
+      <div class="section-list-scroll">
+        <table class="modal-list-table" style="width:100%;">
+          <thead><tr>
+            <th>${t('employeeCol')}</th>
+            <th style="text-align:center;">${t('totalShort')}</th>
+            <th style="text-align:center;">${t('newTasks')}</th>
+            <th style="text-align:center;">${t('inWork')}</th>
+            <th style="text-align:center;">${t('completed')}</th>
+            <th style="text-align:center;">${t('overdue')}</th>
+          </tr></thead>
+          <tbody>${trs}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('employeesNav')}</h2></div>${html}</div>`;
+}
+
 function openLossDetail(idx){
   const r = lastLostReasons[idx];
   if(!r) return;
@@ -5051,14 +5447,65 @@ function openLossDetail(idx){
   // Причина — либо текст кастомного поля (Tift), либо название стадии (остальные клиенты) —
   // должно совпадать с тем же приоритетом, что использовался при подсчёте lostReasonMap выше.
   const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && (d.lossReasonText || d.stageName) === r.name);
+  const shown = matchingDeals.slice(0, 100);
   const html = statRow(t('dealsLabel'), r.count)
     + statRow(t('amountCol'), fmtMoney(r.sum, currency))
     + statRow(t('shareAmongLosses'), share + '%')
     + `<div class="modal-note">${t('lossReasonNote')}</div>`
     + `<div class="modal-subtitle" style="margin-top:16px;">${t('lostDealsListTitle')}</div>`
-    + (matchingDeals.length > 0 ? buildDealListRows(matchingDeals, 100) : `<div class="modal-note">${t('noDealsForReason')}</div>`);
+    + (matchingDeals.length > 0 ? `<div id="lossDetailDealList">${buildDealListRows(matchingDeals, 100)}</div>` : `<div class="modal-note">${t('noDealsForReason')}</div>`);
   openModal(r.name, html);
   document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+  loadCommentsForDeals(shown, '#lossDetailDealList');
+}
+
+// Клик по строке в карточке "Причины отказов" (buildLossReasonsDealsTable) — та же логика,
+// что и openLossDetail выше, но по другому исходному массиву (lastLossReasonBreakdown — считает
+// причины по ВСЕМ провалам за период, включая те воронки/стадии, которых нет в lastLostReasons).
+function openLossReasonDetail(idx){
+  const r = lastLossReasonBreakdown[idx];
+  if(!r) return;
+  const currency = getDisplayCurrency();
+  const matchingDeals = lastDealsFlat.filter(d => d.semantic === 'F' && (d.lossReasonText || d.stageName) === r.reason);
+  const totalSum = matchingDeals.reduce((a,d) => a + d.amount, 0);
+  const shown = matchingDeals.slice(0, 100);
+  const html = statRow(t('dealsLabel'), r.count)
+    + statRow(t('amountCol'), fmtMoney(totalSum, currency))
+    + `<div class="modal-subtitle" style="margin-top:16px;">${t('lostDealsListTitle')}</div>`
+    + (matchingDeals.length > 0 ? `<div id="lossReasonDealList">${buildDealListRows(matchingDeals, 100)}</div>` : `<div class="modal-note">${t('noDealsForReason')}</div>`);
+  openModal(r.reason, html);
+  document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
+  loadCommentsForDeals(shown, '#lossReasonDealList');
+}
+
+// Комментарии по сделке (COMMENTS) в Bitrix24 не входят в основной набор полей, который тянется
+// пакетно для ВСЕХ сделок за период (для клиентов с 50к+ сделок это было бы очень тяжело) —
+// подгружаем их отдельным точечным запросом только для уже показанных в модалке сделок (макс. 100,
+// укладывается в один вызов crm.deal.list с фильтром по @ID, без пагинации).
+async function loadCommentsForDeals(deals, containerSelector){
+  if(!currentConn?.webhook || !deals.length) return;
+  const ids = deals.map(d => d.id);
+  try{
+    const res = await callMethod(currentConn.webhook, 'crm.deal.list', {filter: {'@ID': ids}, select: ['ID','COMMENTS']});
+    // COMMENTS у Bitrix24 приходит с HTML-разметкой — прогоняем через detached-элемент, чтобы
+    // корректно убрать теги И раскодировать сущности вроде &nbsp;, не рискуя выполнением скриптов
+    // (innerHTML на элементе, который никогда не попадает в live DOM, тегов не исполняет).
+    const stripHtml = html => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html || '';
+      return tmp.textContent.replace(/\s+/g, ' ').trim();
+    };
+    (res || []).forEach(d => {
+      const raw = stripHtml(d.COMMENTS);
+      if(!raw) return;
+      const row = document.querySelector(`${containerSelector} [data-deal-id="${d.ID}"]`);
+      if(!row) return;
+      const div = document.createElement('div');
+      div.className = 'modal-deal-comment';
+      div.textContent = raw.length > 220 ? raw.slice(0, 220) + '…' : raw;
+      row.appendChild(div);
+    });
+  }catch(e){ /* комментарии необязательны — молча пропускаем, чтобы не ломать уже открытую модалку */ }
 }
 
 function openDayDetail(idx){
@@ -5089,6 +5536,18 @@ function openBestDealDetail(){
   openModal(t('biggestDealTitle'), html);
 }
 
+// lastManagers содержит только тех, у кого есть сделки — сотрудник, который лишь звонит
+// (например, оператор без своих сделок), туда не попадает. Поэтому для звонков имя сначала
+// ищем в полном справочнике сотрудников портала (structureCache.userNames, туда попадают
+// все, включая уволенных — см. fetchUserNames), и только если там тоже нет — показываем ID.
+function resolveCallManagerName(id){
+  const found = lastManagers.find(m => String(m.id) === id);
+  if(found) return found.name;
+  const cached = structureCache.userNames && structureCache.userNames[id];
+  if(cached) return cached.name;
+  return `${t('employeeIdPrefix')} ${id}`;
+}
+
 function buildCallsHtml(filterType, standalone){
   if(!lastCallStats && lastRawCalls.length === 0) return null;
   filterType = filterType || 'all';
@@ -5096,8 +5555,7 @@ function buildCallsHtml(filterType, standalone){
   // Фильтр по менеджеру — по всем звонкам, которые реально есть в загруженных данных
   const uniqueCallManagers = [...new Set(lastRawCalls.map(c => String(c.PORTAL_USER_ID || '')))].filter(Boolean);
   const callManagerOptions = uniqueCallManagers.map(id => {
-    const found = lastManagers.find(m => String(m.id) === id);
-    const name = found ? found.name : `${t('employeeIdPrefix')} ${id}`;
+    const name = resolveCallManagerName(id);
     return `<option value="${id}" ${callFilterManagerId === id ? 'selected' : ''}>${escapeHtml(name)}</option>`;
   }).join('');
   const managerFilterHtml = uniqueCallManagers.length > 0 ? `
@@ -5141,23 +5599,26 @@ function buildCallsHtml(filterType, standalone){
   const byManagerMap = {};
   lastRawCalls.forEach(call => {
     const id = String(call.PORTAL_USER_ID || 'unknown');
-    if(!byManagerMap[id]) byManagerMap[id] = {total: 0, outgoing: 0, incoming: 0, successful: 0, duration: 0};
+    if(!byManagerMap[id]) byManagerMap[id] = {total: 0, outgoing: 0, incoming: 0, successful: 0, successfulOut: 0, successfulIn: 0, duration: 0};
     byManagerMap[id].total += 1;
-    if(String(call.CALL_TYPE) === '2') byManagerMap[id].incoming += 1; else byManagerMap[id].outgoing += 1;
+    const isIncoming = String(call.CALL_TYPE) === '2';
+    if(isIncoming) byManagerMap[id].incoming += 1; else byManagerMap[id].outgoing += 1;
     const dur = parseInt(call.CALL_DURATION, 10) || 0;
-    if(dur > 0) byManagerMap[id].successful += 1;
+    if(dur > 0){
+      byManagerMap[id].successful += 1;
+      if(isIncoming) byManagerMap[id].successfulIn += 1; else byManagerMap[id].successfulOut += 1;
+    }
     byManagerMap[id].duration += dur;
   });
   const managerRows = Object.entries(byManagerMap)
     .sort((a,b) => b[1].total - a[1].total)
     .map(([id, s]) => {
-      const found = lastManagers.find(m => String(m.id) === id);
-      const name = found ? found.name : (id === 'unknown' ? '—' : `${t('employeeIdPrefix')} ${id}`);
+      const name = id === 'unknown' ? '—' : resolveCallManagerName(id);
       const rate = s.total > 0 ? Math.round(100 * s.successful / s.total) : 0;
       // Средняя длительность считаем только по дозвонившимся звонкам — иначе
       // куча "не дозвонились" (0 секунд) искусственно занижает среднее
       const avgDuration = s.successful > 0 ? Math.round(s.duration / s.successful) : 0;
-      return `<tr><td>${escapeHtml(name)}</td><td>${s.total} <span style="color:var(--ink-soft);font-size:11px;">(${t('outgoingShort')} ${s.outgoing} / ${t('incomingShort')} ${s.incoming})</span></td><td>${s.successful} (${rate}%)</td><td>${fmtDuration(avgDuration)}</td><td>${fmtDuration(s.duration)}</td></tr>`;
+      return `<tr><td>${escapeHtml(name)}</td><td>${s.total} <span style="color:var(--ink-soft);font-size:11px;">(${t('outgoingShort')} ${s.outgoing} / ${t('incomingShort')} ${s.incoming})</span></td><td>${s.successful} (${rate}%) <span style="color:var(--ink-soft);font-size:11px;">(${t('outgoingShort')} ${s.successfulOut} / ${t('incomingShort')} ${s.successfulIn})</span></td><td>${fmtDuration(avgDuration)}</td><td>${fmtDuration(s.duration)}</td></tr>`;
     }).join('');
   const managerTableHtml = managerRows ? `
     <div class="modal-subtitle">${t('callsByManagerTitle')}</div>
@@ -5190,8 +5651,7 @@ function buildCallsHtml(filterType, standalone){
     const dur = parseInt(call.CALL_DURATION, 10) || 0;
     const isOk = dur > 0;
     const date = call.CALL_START_DATE ? new Date(call.CALL_START_DATE).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
-    const mgr = lastManagers.find(m => String(m.id) === String(call.PORTAL_USER_ID));
-    const mgrName = mgr ? mgr.name : (call.PORTAL_USER_ID ? `ID ${call.PORTAL_USER_ID}` : '—');
+    const mgrName = call.PORTAL_USER_ID ? resolveCallManagerName(String(call.PORTAL_USER_ID)) : '—';
     const durStr = dur > 0 ? fmtDuration(dur) : '—';
     const phone = call.PHONE_NUMBER || call.CALLER_ID || '—';
     const dirBadge = isIn
@@ -5232,7 +5692,14 @@ function buildCallsHtml(filterType, standalone){
 
   const note = calls.length > 100 ? `<div class="modal-note">${t('last100shown')} ${calls.length} ${t('callsWord')}.</div>` : '';
 
+  // Мини-виджет плана по звонкам (тот же, что на Обзоре) — показываем только в standalone-версии
+  // (раздел "Звонки" в сайдбаре). В модалке его не рендерим: кнопки set/edit-calls-goal обрабатывает
+  // обработчик клика, повешенный на #dashboardView, а модалка #detailModal лежит вне него в DOM —
+  // кнопка внутри модалки была бы нерабочей.
+  const callsGoalHtml = (standalone && lastCallStats) ? buildCallsGoalMini(lastCallStats.total) : '';
+
   const html = managerTableHtml + analysisSettingsLink + managerFilterHtml + summary
+    + callsGoalHtml
     + `<div class="modal-filter-row" id="callsFilterRow">${chips}</div>`
     + table + note;
 
@@ -5526,6 +5993,13 @@ document.addEventListener('click', (e) => {
     return;
   }
 
+  const empRow = e.target.closest('[data-emp-id]');
+  if(empRow){
+    taskFilterManagerId = empRow.dataset.empId;
+    openTasksDetail('all');
+    return;
+  }
+
   const el = e.target.closest('[data-detail]');
   if(!el) return;
   const type = el.dataset.detail;
@@ -5537,6 +6011,7 @@ document.addEventListener('click', (e) => {
   if(type === 'funnel') openFunnelDetail(idx);
   else if(type === 'manager') openManagerDetail(idx);
   else if(type === 'loss') openLossDetail(idx);
+  else if(type === 'lossreason') openLossReasonDetail(idx);
   else if(type === 'day') openDayDetail(idx);
   else if(type === 'avgdeal') openAvgDealDetail();
   else if(type === 'bestdeal') openBestDealDetail();
@@ -5915,6 +6390,9 @@ function applyPlanRestrictions(){
   if(demoBtn) demoBtn.style.display = planHas('analytics') ? 'inline-flex' : 'none';
   // Показываем бейдж плана в шапке
   updatePlanBadge();
+  // Вкладка "Скорость и конверсия" — платная функция addon advancedMetrics (сейчас только TestBor)
+  const advTab = document.getElementById('advancedMetricsTab');
+  if(advTab) advTab.style.display = addonEnabled('advancedMetrics') ? '' : 'none';
 }
 
 function updatePlanBadge(){
@@ -5951,9 +6429,10 @@ const CLIENT_ACCOUNTS = [
   //   advancedMetrics    — расширенные метрики (Contact Rate, Revenue per Lead и т.д. из отдельного ТЗ)
   { login: 'Unidream', hash: '93115a15604b001f826bf0f18ce93ba0e2699ddbfa573c87b01487cf4fbe969c', webhook: 'https://unidream.bitrix24.uz/rest/163/42ohi3v7a5smqvi2/', plan: 'pro', addons: {preciseAccounting: true}, currency: 'UZS' },
   { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true, customLossReasonField: 'UF_CRM_1757586704285'}, currency: 'UZS' }, // customLossReasonField — код кастомного поля "Bekor qilish sababi" в Bitrix24 Tift, используется вместо названия стадии в "Причинах отказов"
-  { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'business', addons: {preciseAccounting: true}, currency: 'UZS' },
+  { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'business', addons: {preciseAccounting: true}, currency: 'UZS', expires: '2025-01-01' }, // ДОСТУП ОТКЛЮЧЁН по просьбе — просроченная дата блокирует вход, данные сохранены для возможного включения обратно
   { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', addons: {callRating: true}, currency: 'UZS' }, // callRating — платный рейтинг менеджеров по ИИ-оценкам звонков, включается по тарифу/оплате отдельно от остальных addon'ов
-  { login: 'TestBor', hash: '9e7e971dab5cf1496af9762430b6cc6e4d93d8b9965d765316a38b7749c5c114', webhook: '', plan: 'business', addons: {advancedMetrics: true}, currency: 'UZS' }, // ВЕБХУК ЕЩЁ НЕ ДОБАВЛЕН — ждём от пользователя. preciseAccounting сознательно выключен: у клиента ожидается 100k+ сделок, сначала проверим скорость базовой загрузки, потом решим включать ли
+  { login: 'Utas', hash: 'bf1c34f720109bea5d53268fcd3f047a6b2df333996bdd91621bbd86affab6b7', webhook: 'https://bitrix.utas.uz/rest/55/f3h2zp7b2m58axj4/', plan: 'business', currency: 'UZS' },
+  { login: 'TestBor', hash: '9e7e971dab5cf1496af9762430b6cc6e4d93d8b9965d765316a38b7749c5c114', webhook: 'https://testbor.bitrix24.kz/rest/370/ydv5vzo8x7uji99m/', plan: 'business', addons: {advancedMetrics: true}, currency: 'UZS' }, // preciseAccounting сознательно выключен: у клиента ожидается 100k+ сделок, сначала проверим скорость базовой загрузки, потом решим включать ли
 ];
 
 const AUTH_SESSION_KEY = 'salesPulseAuth_v1';
@@ -6019,6 +6498,10 @@ function showLoginView(){
 function hideLoginView(){
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('mainWrap').style.display = 'block';
+  // Верхняя панель (уведомления/журнал ошибок/кабинет) вне #mainWrap — performLogout() её
+  // прячет при выходе, здесь возвращаем обратно при успешном входе.
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = '';
 }
 
 const loginBtn = document.getElementById('loginBtn');
@@ -6216,10 +6699,32 @@ disconnectBtn.addEventListener('click', () => { /* clearSessionAccount(); */ });
 const CONN_STORAGE_KEY = 'salesPulseConnection_v1';
 const SETTINGS_STORAGE_KEY = 'salesPulseSettings_v1';
 
+// Раньше настройки (план продаж и т.п.) хранились под одним общим ключом localStorage
+// на все аккаунты сразу — если на одном браузере/устройстве заходили под разными клиентами
+// (агентство ведёт несколько порталов, демонстрация нескольких клиентов и т.п.), план,
+// заданный для одного клиента, тут же "утекал" и показывался у всех остальных. Приводим
+// ключ к конкретному Bitrix24-порталу (домен вебхука), а если он ещё не известен — к логину
+// текущей сессии, чтобы у каждого клиента были свои настройки.
+function getSettingsNamespace(){
+  try{
+    const wh = (currentConn && currentConn.webhook) || connFields.querySelector('[data-field="webhook"]')?.value;
+    if(wh) return new URL(wh).hostname;
+  }catch(e){ /* невалидный/пустой URL — пробуем следующий источник */ }
+  const session = getSessionAccount();
+  return (session && session.login) ? session.login : null;
+}
+
+function settingsStorageKey(){
+  const ns = getSettingsNamespace();
+  return ns ? `${SETTINGS_STORAGE_KEY}_${ns}` : SETTINGS_STORAGE_KEY;
+}
+
 function saveSettings(){
   try{
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+    localStorage.setItem(settingsStorageKey(), JSON.stringify({
       goalAmount,
+      callsGoalAmount,
+      managerGoals,
       selectedFunnelIds: selectedFunnelIds ? Array.from(selectedFunnelIds) : null,
       autoRefreshMinutes: parseInt(autoRefreshSelect.value, 10) || 0
     }));
@@ -6228,7 +6733,7 @@ function saveSettings(){
 
 function loadSettings(){
   try{
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const raw = localStorage.getItem(settingsStorageKey());
     return raw ? JSON.parse(raw) : null;
   }catch(e){
     return null;
@@ -6236,13 +6741,15 @@ function loadSettings(){
 }
 
 function clearSettings(){
-  try{ localStorage.removeItem(SETTINGS_STORAGE_KEY); }catch(e){ /* игнорируем */ }
+  try{ localStorage.removeItem(settingsStorageKey()); }catch(e){ /* игнорируем */ }
 }
 
 function restoreSettings(){
   const s = loadSettings();
   if(!s) return;
   if(typeof s.goalAmount === 'number' && s.goalAmount > 0) goalAmount = s.goalAmount;
+  if(typeof s.callsGoalAmount === 'number' && s.callsGoalAmount > 0) callsGoalAmount = s.callsGoalAmount;
+  if(s.managerGoals && typeof s.managerGoals === 'object') managerGoals = s.managerGoals;
   if(Array.isArray(s.selectedFunnelIds) && s.selectedFunnelIds.length > 0){
     selectedFunnelIds = new Set(s.selectedFunnelIds);
   }
@@ -6286,10 +6793,14 @@ function attemptConnect(){
   currentAdapter = adapter;
   currentConn = adapter.buildConnection(raw);
   if(adapter.status === 'ready') saveConnection(adapter.id, raw);
-  // Если это первое подключение вебхука для залогиненного (саморегистрированного) клиента —
-  // сохраняем вебхук на сервере тоже, чтобы он подхватывался при входе с другого устройства.
+  // Сохраняем вебхук на сервере для залогиненного (саморегистрированного) клиента — не только
+  // при первом подключении, но и при любом изменении (например, клиент перевыпустил вебхук
+  // в Bitrix24 после того, как старый перестал работать/истекли права). Раньше условие было
+  // "!session.webhook" (только первый раз) — из-за этого повторное подключение с НОВЫМ вебхуком
+  // чинило дашборд только в текущей вкладке браузера, а на сервере оставался старый: при следующем
+  // входе (перезагрузка страницы, другое устройство) клиенту снова подставлялся протухший вебхук.
   const session = getSessionAccount();
-  if(session && session.hash && !session.webhook && adapter.status === 'ready' && raw.webhook){
+  if(session && session.hash && session.webhook !== raw.webhook && adapter.status === 'ready' && raw.webhook){
     fetch(SAVE_WEBHOOK_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -6312,22 +6823,48 @@ function stripWebhookFromUrl(){
   }catch(e){ /* если history API недоступен — просто игнорируем, не критично */ }
 }
 
-disconnectBtn.addEventListener('click', () => {
-  isDemoMode = false;
-  const topbarIconsEl = document.querySelector('.topbar-icons');
-  if(topbarIconsEl) topbarIconsEl.style.display = '';
-  document.body.classList.remove('cine-active');
+// Общий сброс всех данных загруженной сессии — и "забыть подключение" (обратно на экран
+// подключения), и "выйти из аккаунта" (обратно на экран логина) должны одинаково полно
+// чистить бизнес-данные текущего клиента (сделки/звонки/лиды/кэши/рендер), а не только
+// само подключение. Раньше это делал только disconnectBtn, и то не полностью (errorLog,
+// например, не чистился нигде) — после logout в памяти и в DOM оставались данные
+// предыдущего клиента вплоть до первой успешной загрузки следующего: если #mainWrap
+// станет видимым до её завершения, можно на мгновение увидеть чужие цифры.
+function resetDashboardState(){
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
   clearTimeout(cineLoopTimer);
-  clearSavedConnection();
-  clearSettings();
+  document.body.classList.remove('cine-active');
+  isDemoMode = false;
   currentAdapter = null;
   currentConn = null;
   structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
   monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
   goalAmount = null;
+  callsGoalAmount = null;
+  managerGoals = {};
   selectedFunnelIds = null;
   availableFunnels = [];
   hasLoadedOnce = false;
+
+  lastFunnels = [];
+  lastManagers = [];
+  lastIdleEmployees = [];
+  lastDailyEntries = [];
+  lastNamesResolved = true;
+  lastNamesErrorMsg = '';
+  lastHasManagers = false;
+  lastLostReasons = [];
+  lastBestDeal = null;
+  lastDealsFlat = [];
+  lastMonthDealsFlat = [];
+  lastMonthRevenue = 0;
+  lastMonthCurrency = '';
+  lastPrevMonthRevenue = 0;
+  lastMonthDealsTotal = 0;
+  lastMonthWonCount = 0;
+  lastMonthLostCount = 0;
+  lastNewClientsCount = null;
+  lastPrevNewClientsCount = null;
   lastCallStats = null;
   lastCallStatsError = '';
   lastRawCalls = [];
@@ -6338,31 +6875,42 @@ disconnectBtn.addEventListener('click', () => {
   lastRawTasks = [];
   lastTasksFetched = false;
   lastTaskStatsError = '';
+  lastWonPoints = [];
   taskFilterManagerId = 'all';
   callFilterManagerId = 'all';
   callFilterType = 'all';
   leadFilterManagerId = 'all';
   leadFilterType = 'all';
-  lastNewClientsCount = null;
-  lastPrevNewClientsCount = null;
-  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
-  connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
+
   content.innerHTML = '';
   document.getElementById('chartHeroContainer').innerHTML = '';
   document.getElementById('companyBadge').style.display = 'none';
   document.getElementById('assistantToggleBtn').style.display = 'none';
   document.getElementById('errorLogBtn').style.display = 'none';
   document.getElementById('notifBtn').style.display = 'none';
-  notifications.length = 0;
-  updateNotifBadge();
-  hideSearchBar();
   document.getElementById('assistantPanel').style.display = 'none';
   const assistantLogEl = document.getElementById('assistantLog');
   if(assistantLogEl) assistantLogEl.innerHTML = '';
+  notifications.length = 0;
+  updateNotifBadge();
+  errorLog.length = 0;
+  updateErrorLogBadge();
+  hideSearchBar();
   dupWarning.style.display = 'none';
   periodBar.style.display = 'none';
   toolbar2.style.display = 'none';
   refreshBtn.style.display = 'none';
+  const planBadgeEl = document.getElementById('planBadge');
+  if(planBadgeEl) planBadgeEl.style.display = 'none';
+}
+
+disconnectBtn.addEventListener('click', () => {
+  resetDashboardState();
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = '';
+  clearSavedConnection();
+  clearSettings();
+  connFields.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
   disconnectBtn.style.display = 'none';
   helpBox.style.display = CRM_ADAPTERS[crmSelect.value]?.helpHtml ? 'block' : 'none';
   statusLine.className = 'status-line';
@@ -6727,38 +7275,138 @@ const REGISTER_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/reg
 const LOGIN_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/login';
 const SAVE_WEBHOOK_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-webhook';
 const SAVE_CALL_PROMPT_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-call-prompt';
+const CALL_SCRIPTS_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/call-scripts';
+const SAVE_CALL_SCRIPTS_URL = 'https://bold-breeze-9711.liverpoolonelove1.workers.dev/save-call-scripts';
+const CALL_SCRIPTS_LIMIT = 5;
 
 const CALL_PROMPT_STORAGE_KEY = 'salesPulseCallPrompt';
 
-function openCallAnalysisSettings(){
-  const saved = localStorage.getItem(CALL_PROMPT_STORAGE_KEY) || '';
-  const html = `
-    <p class="modal-note" style="margin-bottom:12px;">${t('customAnalysisDesc')}</p>
-    <textarea id="callPromptInput" style="width:100%;min-height:160px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;resize:vertical;" placeholder="${t('customAnalysisPlaceholder')}">${escapeHtml(saved)}</textarea>
-    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
-      <button class="btn btn-ghost" id="callPromptClearBtn" type="button">${t('customAnalysisReset')}</button>
-      <button class="btn btn-primary" id="callPromptSaveBtn" type="button">${t('customAnalysisSave')}</button>
+// Скрипты продаж хранятся на сервере по домену портала (а не по логину дашборда, как раньше
+// единственный кастомный промпт) — так их видит и дашборд, и виджет в карточке сделки
+// Bitrix24, у которого нет доступа к логину/паролю дашборда. Несколько скриптов позволяют
+// завести разные сценарии (для холодных звонков, повторных клиентов и т.п.) — ИИ сам
+// определяет, какой из них ближе всего конкретному разговору.
+let callScriptsCache = null;
+
+function getPortalDomain(){
+  try{ return new URL(currentConn.webhook).hostname; }catch(e){ return null; }
+}
+
+async function fetchCallScripts(){
+  const portal = getPortalDomain();
+  if(!portal) return [];
+  const res = await fetch(CALL_SCRIPTS_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({portal})
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data.scripts || [];
+}
+
+async function persistCallScripts(scripts){
+  const portal = getPortalDomain();
+  if(!portal) throw new Error('Нет подключения к порталу');
+  const res = await fetch(SAVE_CALL_SCRIPTS_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({portal, scripts})
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data.scripts || [];
+}
+
+async function openCallAnalysisSettings(){
+  openModal(t('customAnalysisTitle'), `<div class="modal-note">${t('loadingRecording')}</div>`);
+  try{
+    callScriptsCache = await fetchCallScripts();
+  }catch(e){
+    openModal(t('customAnalysisTitle'), `<div class="modal-note" style="color:var(--red-bad);">${escapeHtml(t('callScriptsLoadError'))}: ${escapeHtml(e.message || String(e))}</div>`);
+    return;
+  }
+  renderCallScriptsList();
+}
+
+function renderCallScriptsList(){
+  const scripts = callScriptsCache || [];
+  const rows = scripts.map((s, i) => `
+    <div class="call-script-row" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="min-width:0;">
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(s.name)}</div>
+          <div style="font-size:12px;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(s.text)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex:none;">
+          <button class="btn btn-ghost btn-sm" type="button" data-edit-script="${i}">${t('customAnalysisEdit')}</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-delete-script="${i}">${t('callScriptsDeleteBtn')}</button>
+        </div>
+      </div>
     </div>
+  `).join('');
+  const emptyHtml = !scripts.length ? `<div class="modal-note" style="margin-bottom:12px;">${t('callScriptsEmpty')}</div>` : '';
+  const addBtnHtml = scripts.length < CALL_SCRIPTS_LIMIT
+    ? `<button class="btn btn-primary" id="callScriptAddBtn" type="button" style="width:100%;margin-top:4px;">+ ${t('callScriptsAddBtn')}</button>`
+    : `<div class="modal-note" style="margin-top:4px;">${t('callScriptsLimitNote')}</div>`;
+  const html = `
+    <p class="modal-note" style="margin-bottom:14px;">${t('customAnalysisDesc')}</p>
+    ${emptyHtml}
+    ${rows}
+    ${addBtnHtml}
   `;
   openModal(t('customAnalysisTitle'), html);
-  document.getElementById('callPromptSaveBtn').addEventListener('click', () => {
-    const val = document.getElementById('callPromptInput').value.trim();
-    if(val) localStorage.setItem(CALL_PROMPT_STORAGE_KEY, val);
-    else localStorage.removeItem(CALL_PROMPT_STORAGE_KEY);
-    // Сохраняем и на сервере, чтобы подхватывалось на любом устройстве этого клиента
-    const session = getSessionAccount();
-    if(session && session.login && session.hash){
-      fetch(SAVE_CALL_PROMPT_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({login: session.login, hash: session.hash, callPrompt: val})
-      }).catch(() => {}); // не критично, если не получилось — на этом устройстве всё равно сохранено локально
-    }
-    closeModal();
+  if(document.getElementById('callScriptAddBtn')){
+    document.getElementById('callScriptAddBtn').addEventListener('click', () => openCallScriptEditor(null));
+  }
+  document.querySelectorAll('[data-edit-script]').forEach(el => {
+    el.addEventListener('click', () => openCallScriptEditor(parseInt(el.dataset.editScript, 10)));
   });
-  document.getElementById('callPromptClearBtn').addEventListener('click', () => {
-    localStorage.removeItem(CALL_PROMPT_STORAGE_KEY);
-    document.getElementById('callPromptInput').value = '';
+  document.querySelectorAll('[data-delete-script]').forEach(el => {
+    el.addEventListener('click', async () => {
+      if(!confirm(t('callScriptsDeleteConfirm'))) return;
+      const idx = parseInt(el.dataset.deleteScript, 10);
+      const updated = callScriptsCache.slice();
+      updated.splice(idx, 1);
+      try{
+        callScriptsCache = await persistCallScripts(updated);
+        renderCallScriptsList();
+      }catch(e){
+        alert(`${t('callScriptsLoadError')}: ${e.message || String(e)}`);
+      }
+    });
+  });
+}
+
+function openCallScriptEditor(idx){
+  const isNew = idx === null;
+  const script = isNew ? {name: '', text: ''} : callScriptsCache[idx];
+  const html = `
+    <input type="text" id="callScriptNameInput" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;margin-bottom:10px;" placeholder="${t('callScriptsNamePlaceholder')}" value="${escapeHtml(script.name)}" maxlength="80">
+    <textarea id="callScriptTextInput" style="width:100%;min-height:200px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;resize:vertical;" placeholder="${t('customAnalysisPlaceholder')}">${escapeHtml(script.text)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+      <button class="btn btn-ghost" id="callScriptCancelBtn" type="button">${t('callScriptsCancelBtn')}</button>
+      <button class="btn btn-primary" id="callScriptSaveBtn" type="button">${t('customAnalysisSave')}</button>
+    </div>
+  `;
+  openModal(isNew ? t('callScriptsAddBtn') : t('customAnalysisEdit'), html);
+  document.getElementById('callScriptCancelBtn').addEventListener('click', renderCallScriptsList);
+  document.getElementById('callScriptSaveBtn').addEventListener('click', async () => {
+    const name = document.getElementById('callScriptNameInput').value.trim();
+    const text = document.getElementById('callScriptTextInput').value.trim();
+    if(!text) return;
+    const updated = callScriptsCache.slice();
+    const entry = {id: isNew ? undefined : script.id, name: name || t('callScriptsNamePlaceholder'), text};
+    if(isNew) updated.push(entry); else updated[idx] = entry;
+    const btn = document.getElementById('callScriptSaveBtn');
+    btn.disabled = true;
+    try{
+      callScriptsCache = await persistCallScripts(updated);
+      renderCallScriptsList();
+    }catch(e){
+      btn.disabled = false;
+      alert(`${t('callScriptsLoadError')}: ${e.message || String(e)}`);
+    }
   });
 }
 document.addEventListener('click', (e) => {
@@ -7274,6 +7922,10 @@ function buildManagersLoadTab(){
       <div id="callRatingBody" class="analytics-empty">…</div>
     </div>` : '';
 
+  // Список сотрудников без сделок раньше дублировался тут же простым списком имён — убрано,
+  // т.к. для этого теперь есть отдельный раздел "Сотрудники" (renderEmployeesSection) с
+  // реальной пользой (нагрузка по задачам), а не просто список без применения. lastIdleEmployees
+  // по-прежнему используется в buildEmployeeRoster() для того раздела.
   return dateRangeHtml + callRatingHtml + (sections ? overviewCards + sections : `<div class="analytics-empty">${t("noManagerData")}</div>`);
 }
 
@@ -7788,6 +8440,132 @@ function buildRoiTab(){
   `;
 }
 
+// Вкладка "Скорость и конверсия" — платный addon advancedMetrics (сейчас только TestBor,
+// по отдельному ТЗ от клиента). Всё считается из уже загруженных lastRawLeads/lastRawCalls —
+// без дополнительных запросов к Bitrix24, это важно для клиента с 100k+ записей.
+function buildAdvancedMetricsTab(){
+  if(!lastRawLeads.length && !lastRawCalls.length){
+    return `<div class="analytics-empty">${t('noAdvancedData')}</div>`;
+  }
+  const currency = getDisplayCurrency();
+  const fmt = n => fmtMoney(n, currency);
+
+  function fmtMinutes(min){
+    if(min === null || min === undefined) return '—';
+    if(min < 60) return `${min} ${t('minShort') || 'мин'}`;
+    const h = Math.floor(min/60), m = min % 60;
+    return `${h} ч ${m} мин`;
+  }
+
+  // ===== CONVERSION =====
+  const totalLeads = lastRawLeads.length;
+  const convertedLeads = lastRawLeads.filter(l => (l.STATUS_ID || 'NEW') === 'CONVERTED').length;
+  const qualificationRate = totalLeads > 0 ? Math.round(100 * convertedLeads / totalLeads) : 0;
+
+  // Contact Rate — лиды с хотя бы одним результативным (dur>0) звонком, привязанным НАПРЯМУЮ
+  // к лиду (CRM_ENTITY_TYPE=LEAD). У части клиентов телефония привязывает звонки к контакту
+  // или сделке уже после конвертации — тогда реальный охват выше показанного (см. advContactRateNote).
+  const contactedLeadIds = new Set();
+  lastRawCalls.forEach(c => {
+    if(c.CRM_ENTITY_TYPE === 'LEAD' && c.CRM_ENTITY_ID && (parseInt(c.CALL_DURATION, 10) || 0) > 0){
+      contactedLeadIds.add(String(c.CRM_ENTITY_ID));
+    }
+  });
+  const leadsContacted = lastRawLeads.filter(l => contactedLeadIds.has(String(l.ID))).length;
+  const contactRate = totalLeads > 0 ? Math.round(100 * leadsContacted / totalLeads) : 0;
+
+  // ===== REVENUE =====
+  const revenuePerLead = totalLeads > 0 ? Math.round(lastMonthRevenue / totalLeads) : 0;
+
+  // ===== SPEED: Lead Response Time =====
+  const firstCallByLead = {};
+  lastRawCalls.forEach(c => {
+    if(c.CRM_ENTITY_TYPE !== 'LEAD' || !c.CRM_ENTITY_ID || !c.CALL_START_DATE) return;
+    const key = String(c.CRM_ENTITY_ID);
+    const ts = new Date(c.CALL_START_DATE).getTime();
+    if(!firstCallByLead[key] || ts < firstCallByLead[key]) firstCallByLead[key] = ts;
+  });
+  const responseTimes = [];
+  const responseByManager = {};
+  lastRawLeads.forEach(l => {
+    const firstCallTs = firstCallByLead[String(l.ID)];
+    if(!firstCallTs || !l.DATE_CREATE) return;
+    const createdTs = new Date(l.DATE_CREATE).getTime();
+    const diffMin = Math.round((firstCallTs - createdTs) / 60000);
+    if(diffMin < 0 || diffMin > 60 * 24 * 30) return; // защита от аномалий/сбоев данных (>30 дней или отрицательное)
+    responseTimes.push(diffMin);
+    const mgrId = String(l.ASSIGNED_BY_ID || 'unknown');
+    if(!responseByManager[mgrId]) responseByManager[mgrId] = {sum: 0, count: 0};
+    responseByManager[mgrId].sum += diffMin;
+    responseByManager[mgrId].count += 1;
+  });
+  const avgResponseMin = responseTimes.length ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) : null;
+  const mgrResponseRows = Object.entries(responseByManager)
+    .map(([id, s]) => {
+      const mgr = lastManagers.find(m => String(m.id) === id);
+      const name = mgr ? mgr.name : (id === 'unknown' ? t('sourceNotSet') : `${t('employeeIdPrefix')}${id}`);
+      return {name, avg: Math.round(s.sum / s.count), count: s.count};
+    })
+    .sort((a, b) => a.avg - b.avg)
+    .map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${fmtMinutes(r.avg)}</td><td>${r.count}</td></tr>`)
+    .join('');
+
+  // ===== ACTIVITY: разбивка недозвонов по CALL_FAILED_CODE =====
+  // 486 (SIP Busy Here) и 480 (SIP Temporarily Unavailable, обычно "не отвечает") — стандартные
+  // SIP-коды, интерпретируем уверенно. Остальные коды (например 304, 500 — не документированы
+  // явно для Bitrix24/Voximplant) намеренно не подписываем конкретной причиной, чтобы не гадать
+  // и не показывать клиенту неверный ярлык — только общий счётчик "прочие сбои".
+  let connectedCount = 0, busyCount = 0, noAnswerCount = 0, otherFailCount = 0;
+  lastRawCalls.forEach(c => {
+    const dur = parseInt(c.CALL_DURATION, 10) || 0;
+    if(dur > 0){ connectedCount++; return; }
+    const code = String(c.CALL_FAILED_CODE || '');
+    if(code === '486') busyCount++;
+    else if(code === '480') noAnswerCount++;
+    else otherFailCount++;
+  });
+  const totalCallsCount = lastRawCalls.length;
+  const pct = n => totalCallsCount > 0 ? Math.round(100 * n / totalCallsCount) : 0;
+
+  return `
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advConversionTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${contactRate}%</div><div class="analytics-card-lbl">${t('advContactRate')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${qualificationRate}%</div><div class="analytics-card-lbl">${t('advQualificationRate')}</div></div>
+      </div>
+      <div class="modal-note" style="margin-top:8px;">${t('advContactRateNote')}</div>
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advRevenueTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${fmt(revenuePerLead)}</div><div class="analytics-card-lbl">${t('revenuePerLead')}</div></div>
+      </div>
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advSpeedTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val">${fmtMinutes(avgResponseMin)}</div><div class="analytics-card-lbl">${t('advLeadResponseTime')}</div></div>
+      </div>
+      <div class="modal-note" style="margin-top:8px;">${t('advResponseTimeNote')}</div>
+      ${mgrResponseRows ? `
+      <table class="analytics-table" style="margin-top:12px;">
+        <thead><tr><th>${t('managerCol')}</th><th>${t('advLeadResponseTime')}</th><th>${t('advLeadsCountedCol')}</th></tr></thead>
+        <tbody>${mgrResponseRows}</tbody>
+      </table>` : ''}
+    </div>
+    <div class="analytics-section">
+      <div class="analytics-title">${t('advActivityTitle')}</div>
+      <div class="analytics-cards">
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--accent-strong)">${pct(connectedCount)}%</div><div class="analytics-card-lbl">${t('successful')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:var(--red-bad)">${pct(busyCount)}%</div><div class="analytics-card-lbl">${t('advBusyRate')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val" style="color:#F59E0B">${pct(noAnswerCount)}%</div><div class="analytics-card-lbl">${t('advNoAnswerRate')}</div></div>
+        <div class="analytics-card"><div class="analytics-card-val">${otherFailCount}</div><div class="analytics-card-lbl">${t('advOtherFailLbl')}</div></div>
+      </div>
+    </div>
+  `;
+}
+
 function buildFinanceTab(){
   const currency = getDisplayCurrency();
   const fmt = n => fmtMoney(n, currency);
@@ -7958,7 +8736,8 @@ const ANALYTICS_BUILDERS = {
   clients: buildClientsTab,
   finance: buildFinanceTab,
   roi: buildRoiTab,
-  forecast: buildForecastTab
+  forecast: buildForecastTab,
+  advanced: buildAdvancedMetricsTab
 };
 
 let currentAnalyticsTab = 'sources';
@@ -8059,6 +8838,8 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
     renderLeadsSection();
   } else if(nav === 'tasks'){
     renderTasksSection();
+  } else if(nav === 'employees'){
+    renderEmployeesSection();
   } else if(nav === 'settings'){
     setSidebarActive('overview');
     currentSection = 'overview';
@@ -8841,10 +9622,13 @@ function closeAccountPanel(){
 function performLogout(){
   closeAccountPanel();
   clearSessionAccount();
-  currentAdapter = null;
-  currentConn = null;
-  isDemoMode = false;
-  document.body.classList.remove('cine-active');
+  // resetDashboardState() чистит не только шапку (бейдж тарифа, уведомления, журнал ошибок),
+  // но и сами загруженные бизнес-данные клиента (сделки/звонки/лиды/кэши/рендер) — без этого
+  // при входе другим аккаунтом на этом же устройстве можно было на мгновение увидеть
+  // остаточные данные предыдущего клиента, пока не подгрузятся новые.
+  resetDashboardState();
+  const topbarIconsEl = document.querySelector('.topbar-icons');
+  if(topbarIconsEl) topbarIconsEl.style.display = 'none';
   showLoginView();
 }
 document.getElementById('accountBtn').addEventListener('click', openAccountPanel);
@@ -8963,6 +9747,10 @@ content.addEventListener('mouseout', (e) => {
 });
 
 dashboardView.addEventListener('click', (e) => {
+  // Ячейка плана менеджера и мини-виджет плана звонков живут внутри строк/карточек,
+  // у которых есть свой data-detail (открывает модалку по менеджеру/звонкам) — без этого
+  // клик по инпуту или кнопке плана параллельно открывал бы чужую модалку поверх редактора.
+  if(e.target.closest('[data-mgr-goal-cell], .calls-goal-block')) e.stopPropagation();
   const btn = e.target.closest('[data-action]');
   if(!btn) return;
   if(btn.dataset.action === 'set-goal'){
@@ -8982,6 +9770,27 @@ dashboardView.addEventListener('click', (e) => {
     goalCelebrated = false;
     saveSettings();
     rerenderCached();
+  } else if(btn.dataset.action === 'set-calls-goal'){
+    const input = document.getElementById('callsGoalInput');
+    const val = parseInt(input.value, 10);
+    if(val > 0 && val <= 1000000){
+      callsGoalAmount = val;
+      saveSettings();
+      rerenderCached();
+    } else if(val > 1000000){
+      input.classList.add('input-error');
+      setTimeout(() => input.classList.remove('input-error'), 900);
+    }
+  } else if(btn.dataset.action === 'edit-calls-goal'){
+    callsGoalAmount = null;
+    saveSettings();
+    rerenderCached();
+  } else if(btn.dataset.action === 'edit-mgr-goal'){
+    openMgrGoalEditor(btn.dataset.mid);
+  } else if(btn.dataset.action === 'save-mgr-goal'){
+    const cell = btn.closest('[data-mgr-goal-cell]');
+    const input = cell && cell.querySelector('.mgr-goal-input');
+    if(input) saveMgrGoal(btn.dataset.mid, input.value);
   }
 });
 
@@ -8995,6 +9804,17 @@ dashboardView.addEventListener('keydown', (e) => {
       saveSettings();
       rerenderCached();
     } else if(val > GOAL_MAX){
+      e.target.classList.add('input-error');
+      setTimeout(() => e.target.classList.remove('input-error'), 900);
+    }
+  } else if(e.key === 'Enter' && e.target.id === 'callsGoalInput'){
+    e.preventDefault();
+    const val = parseInt(e.target.value, 10);
+    if(val > 0 && val <= 1000000){
+      callsGoalAmount = val;
+      saveSettings();
+      rerenderCached();
+    } else if(val > 1000000){
       e.target.classList.add('input-error');
       setTimeout(() => e.target.classList.remove('input-error'), 900);
     }
