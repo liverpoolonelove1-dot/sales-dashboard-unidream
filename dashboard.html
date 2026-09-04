@@ -1191,6 +1191,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h6l3 9-3.5 2.5A11 11 0 0 0 14 21h7"/><path d="M21 3h-6l-3 9 3.5 2.5"/></svg>
         <span>Воронки</span>
       </button>
+      <button class="sbnav-item" id="sbnavFunnelEntryStats" data-nav="funnelEntryStats" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+        <span data-i18n="funnelEntryStatsTitle">Заявки по стадиям</span>
+      </button>
       <button class="sbnav-item" data-nav="managers">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Менеджеры</span>
@@ -1415,6 +1419,12 @@ const TRANSLATIONS = {
     chartHeroTitle: 'Динамика продаж',
     navOverview: 'Обзор',
     navFunnels: 'Воронки',
+    funnelEntryStatsTitle: 'Заявки по стадиям',
+    funnelEverEnteredCol: 'Всего заходило',
+    funnelCurrentlyHereCol: 'Сейчас здесь',
+    funnelConvFromPrevCol: 'Конверсия с пред. стадии',
+    funnelEntryStatsHint: 'Здесь показано, сколько заявок ВООБЩЕ КОГДА-ЛИБО проходило через каждую стадию за выбранный период — в отличие от обычного отчёта «По стадиям», который показывает только текущее положение сделок. Конверсия — доля заявок, дошедших до этой стадии от предыдущей.',
+    loadingText: 'Загрузка…',
     navManagers: 'Менеджеры',
     navCalls: 'Звонки',
     navTasks: 'Задачи',
@@ -1939,6 +1949,12 @@ const TRANSLATIONS = {
     chartHeroTitle: 'Savdo dinamikasi',
     navOverview: 'Umumiy',
     navFunnels: 'Voronkalar',
+    funnelEntryStatsTitle: 'Bosqichlar bo\'yicha arizalar',
+    funnelEverEnteredCol: 'Jami kirgan',
+    funnelCurrentlyHereCol: 'Hozir shu yerda',
+    funnelConvFromPrevCol: 'Oldingi bosqichdan konversiya',
+    funnelEntryStatsHint: 'Bu yerda ko\'rsatilgan — tanlangan davrda har bir bosqichdan UMUMAN QANCHA ariza o\'tgan — oddiy "Bosqichlar bo\'yicha" hisobotdan farqli, u faqat bitimlarning hozirgi holatini ko\'rsatadi. Konversiya — oldingi bosqichdan shu bosqichgacha yetib kelgan arizalar ulushi.',
+    loadingText: 'Yuklanmoqda…',
     navManagers: 'Menejerlar',
     navCalls: 'Qo\'ng\'iroqlar',
     navTasks: 'Vazifalar',
@@ -3236,6 +3252,30 @@ async function fetchStageHistoryAll(webhook, params){
   return all;
 }
 
+// Спешл-функция (сейчас только для Utas, addon funnelEntryStats): считает, сколько сделок
+// ВООБЩЕ КОГДА-ЛИБО заходило на каждую стадию за период — в отличие от обычного отчёта
+// "По стадиям", который показывает только ТЕКУЩИЙ снимок (где сделки сейчас). Это разные вещи:
+// сделка могла зайти на стадию "Звонок назначен" и уйти дальше — в обычном отчёте она там уже
+// не будет видна, а здесь — будет учтена, потому что реально проходила через эту стадию.
+async function fetchFunnelEntryCounts(webhook, categoryId, period){
+  const filter = {'CATEGORY_ID': categoryId};
+  if(period && period.from) filter['>=CREATED_TIME'] = `${period.from} 00:00:00`;
+  if(period && period.to) filter['<=CREATED_TIME'] = `${period.to} 23:59:59`;
+  const entries = await fetchStageHistoryAll(webhook, {
+    entityTypeId: 2,
+    filter,
+    select: ['OWNER_ID', 'STAGE_ID']
+  });
+  const byStage = {};
+  entries.forEach(e => {
+    if(!byStage[e.STAGE_ID]) byStage[e.STAGE_ID] = new Set();
+    byStage[e.STAGE_ID].add(e.OWNER_ID);
+  });
+  const result = {};
+  Object.keys(byStage).forEach(stageId => { result[stageId] = byStage[stageId].size; });
+  return result; // {stageId: количество уникальных сделок, когда-либо заходивших на эту стадию}
+}
+
 async function fetchDealsForCategory(webhook, categoryId, period){
   const DEAL_SELECT = ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID'];
   const lossReasonField = currentAddons.customLossReasonField || null;
@@ -4367,6 +4407,7 @@ async function loadDashboard(forceRefresh){
     else if(currentSection === 'employees') renderEmployeesSection();
     else if(currentSection === 'managers') renderManagersSection();
     else if(currentSection === 'funnels') renderStagesSection();
+    else if(currentSection === 'funnelEntryStats') renderFunnelEntryStatsSection();
     else if(currentSection === 'analytics') openAnalytics(currentAnalyticsTab);
 
     if(dupPairs.length > 0){
@@ -6393,6 +6434,9 @@ function applyPlanRestrictions(){
   // Вкладка "Скорость и конверсия" — платная функция addon advancedMetrics (сейчас только TestBor)
   const advTab = document.getElementById('advancedMetricsTab');
   if(advTab) advTab.style.display = addonEnabled('advancedMetrics') ? '' : 'none';
+  // Раздел "Заявки по стадиям" — спешл-функция addon funnelEntryStats (сейчас только Utas)
+  const funnelEntryNav = document.getElementById('sbnavFunnelEntryStats');
+  if(funnelEntryNav) funnelEntryNav.style.display = addonEnabled('funnelEntryStats') ? '' : 'none';
 }
 
 function updatePlanBadge(){
@@ -6431,7 +6475,7 @@ const CLIENT_ACCOUNTS = [
   { login: 'Tift', hash: 'e2bf6317c7d739dfe25372d5b8fe6dc28297f248c59b22ca53ad748afdce7497', webhook: 'https://tift.bitrix24.kz/rest/1/i79txqw420f978hb/', plan: 'business', addons: {preciseAccounting: true, customLossReasonField: 'UF_CRM_1757586704285'}, currency: 'UZS' }, // customLossReasonField — код кастомного поля "Bekor qilish sababi" в Bitrix24 Tift, используется вместо названия стадии в "Причинах отказов"
   { login: 'Umconsulting', hash: 'e56431b49a07381bcec00e8fef4fd489288609eec124f2592ed826be9e688ba8', webhook: 'https://um-consulting.bitrix24.uz/rest/13/p9fr1h0699g0b8sq/', plan: 'business', addons: {preciseAccounting: true}, currency: 'UZS', expires: '2025-01-01' }, // ДОСТУП ОТКЛЮЧЁН по просьбе — просроченная дата блокирует вход, данные сохранены для возможного включения обратно
   { login: 'BrraufAcademy', hash: 'de21713296fa4c112130946c4c167cd19b631b839e191a00ce34f5c0cd1929c8', webhook: 'https://brrauf-academy.bitrix24.kz/rest/3971/envzs4e30muqp17u/', plan: 'pro', addons: {callRating: true}, currency: 'UZS' }, // callRating — платный рейтинг менеджеров по ИИ-оценкам звонков, включается по тарифу/оплате отдельно от остальных addon'ов
-  { login: 'Utas', hash: 'bf1c34f720109bea5d53268fcd3f047a6b2df333996bdd91621bbd86affab6b7', webhook: 'https://bitrix.utas.uz/rest/55/f3h2zp7b2m58axj4/', plan: 'business', currency: 'UZS' },
+  { login: 'Utas', hash: 'bf1c34f720109bea5d53268fcd3f047a6b2df333996bdd91621bbd86affab6b7', webhook: 'https://bitrix.utas.uz/rest/55/f3h2zp7b2m58axj4/', plan: 'business', addons: {funnelEntryStats: true}, currency: 'UZS' }, // funnelEntryStats — спешл-функция: реальное число заявок, когда-либо зашедших на каждую стадию (не только текущий снимок), плюс конверсия между соседними стадиями
   { login: 'TestBor', hash: '9e7e971dab5cf1496af9762430b6cc6e4d93d8b9965d765316a38b7749c5c114', webhook: 'https://testbor.bitrix24.kz/rest/370/ydv5vzo8x7uji99m/', plan: 'business', addons: {advancedMetrics: true}, currency: 'UZS' }, // preciseAccounting сознательно выключен: у клиента ожидается 100k+ сделок, сначала проверим скорость базовой загрузки, потом решим включать ли
 ];
 
@@ -7830,6 +7874,55 @@ function renderStagesSection(){
   content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('navFunnels')}</h2></div>${html}</div>`;
 }
 
+// Спешл-раздел (сейчас только для Utas, addon funnelEntryStats): реальное количество заявок,
+// когда-либо ЗАШЕДШИХ на каждую стадию (не только текущий снимок) + конверсия между соседними
+// стадиями. Данные подгружаются отдельным запросом при заходе на страницу — не кэшируются
+// вместе с остальным дашбордом, т.к. это специфичный, редко просматриваемый отчёт.
+async function renderFunnelEntryStatsSection(){
+  content.innerHTML = `<div class="section-page"><div class="section-page-header"><h2>${t('funnelEntryStatsTitle')}</h2></div>
+    <div id="funnelEntryStatsBody"><div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')}</div></div>
+  </div>`;
+  const body = document.getElementById('funnelEntryStatsBody');
+  if(!currentConn || !lastFunnels.length){
+    body.innerHTML = `<div class="analytics-empty">${t('noData')}</div>`;
+    return;
+  }
+  try{
+    const results = await Promise.all(lastFunnels.map(f =>
+      fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod).then(counts => ({funnel: f, counts}))
+    ));
+    const sections = results.map(({funnel, counts}) => {
+      const rows = funnel.stages.map((s, idx) => {
+        const everEntered = counts[s.id] || 0;
+        const prevEverEntered = idx > 0 ? (counts[funnel.stages[idx-1].id] || 0) : null;
+        const convFromPrev = (prevEverEntered && prevEverEntered > 0) ? Math.round(100 * everEntered / prevEverEntered) : null;
+        return `<tr>
+          <td>${escapeHtml(s.name)}</td>
+          <td>${everEntered}</td>
+          <td>${s.count}</td>
+          <td>${convFromPrev !== null ? convFromPrev + '%' : '—'}</td>
+        </tr>`;
+      }).join('');
+      return `
+        <div class="analytics-section">
+          <div class="analytics-title">${escapeHtml(funnel.name)}</div>
+          <table class="analytics-table">
+            <thead><tr>
+              <th>${t('stageCol')}</th>
+              <th>${t('funnelEverEnteredCol')}</th>
+              <th>${t('funnelCurrentlyHereCol')}</th>
+              <th>${t('funnelConvFromPrevCol')}</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+    body.innerHTML = `<div class="modal-note" style="margin-bottom:16px;">${t('funnelEntryStatsHint')}</div>` + sections;
+  }catch(e){
+    body.innerHTML = `<div class="modal-note" style="color:var(--red-bad)">${escapeHtml(e.message || String(e))}</div>`;
+  }
+}
+
 function buildManagersLoadTab(){
   let deals = lastDealsFlat;
   const currency = getDisplayCurrency();
@@ -8827,6 +8920,8 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
     rerenderCached();
   } else if(nav === 'funnels'){
     renderStagesSection();
+  } else if(nav === 'funnelEntryStats'){
+    renderFunnelEntryStatsSection();
   } else if(nav === 'managers'){
     renderManagersSection();
   } else if(nav === 'analytics'){
