@@ -3238,17 +3238,43 @@ async function fetchFieldOptions(webhook, fieldCode){
 
 // crm.stagehistory.list отвечает НЕ так, как обычные list-методы Bitrix24 — у него
 // result.items (объект с полем items), а не сразу массив, поэтому общий fetchAllPaged
-// сюда не подходит, нужен свой загрузчик с постраничной навигацией
+// сюда не подходит, нужен свой загрузчик с постраничной навигацией.
+// ОПТИМИЗАЦИЯ: после получения первой страницы (которая сообщает total) запрашиваем
+// все оставшиеся страницы ПАРАЛЛЕЛЬНО через batch API, а не ждём каждую по очереди.
 async function fetchStageHistoryAll(webhook, params){
-  let all = [];
-  let start = 0;
-  for(let page = 0; page < 200; page++){ // жёсткий предохранитель от бесконечного цикла
-    const data = await callMethod(webhook, 'crm.stagehistory.list', {...params, start});
-    const items = (data.result && Array.isArray(data.result.items)) ? data.result.items : [];
-    all = all.concat(items);
-    if(!data.next) break;
-    start = data.next;
-  }
+  const PAGE_SIZE = 50;
+  const MAX_RECORDS = 50000;
+  // Первая страница — узнаём total
+  const first = await callMethod(webhook, 'crm.stagehistory.list', {...params, start: 0});
+  const firstItems = (first.result && Array.isArray(first.result.items)) ? first.result.items : [];
+  const total = typeof first.total === 'number' ? first.total : firstItems.length;
+  if(!first.next || total <= PAGE_SIZE) return firstItems;
+  // Остальные страницы — параллельно через batch (до 50 страниц в одном HTTP-вызове)
+  const cappedTotal = Math.min(total, MAX_RECORDS);
+  const starts = [];
+  for(let s = PAGE_SIZE; s < cappedTotal; s += PAGE_SIZE) starts.push(s);
+  const BATCH_CHUNK = 50;
+  let all = [...firstItems];
+  const chunks = [];
+  for(let i = 0; i < starts.length; i += BATCH_CHUNK) chunks.push(starts.slice(i, i + BATCH_CHUNK));
+  await Promise.all(chunks.map(async chunk => {
+    const cmd = {};
+    chunk.forEach((s, i) => {
+      const qs = new URLSearchParams();
+      appendParams(qs, 'entityTypeId', params.entityTypeId || 2);
+      if(params.filter) appendParams(qs, 'filter', params.filter);
+      if(params.select) appendParams(qs, 'select', params.select);
+      qs.set('start', s);
+      cmd['c' + i] = `crm.stagehistory.list?${qs.toString()}`;
+    });
+    const batchResult = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+    chunk.forEach((s, i) => {
+      const key = 'c' + i;
+      const items = batchResult.result && batchResult.result[key] && Array.isArray(batchResult.result[key].items)
+        ? batchResult.result[key].items : [];
+      all = all.concat(items);
+    });
+  }));
   return all;
 }
 
@@ -3969,37 +3995,18 @@ async function loadDashboard(forceRefresh){
     if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
     }
-    const rawFunnels = structureCache.funnels || await adapter.fetchFunnels(conn);
-    structureCache.funnels = rawFunnels;
-    const seenIds = new Set();
-    const allFunnels = rawFunnels.filter(c => {
-      const key = String(c.id);
-      if(seenIds.has(key)) return false;
-      seenIds.add(key);
-      return true;
-    });
+    // Запускаем загрузку воронок сразу, но НЕ ждём результата прямо здесь —
+    // пока идёт этот сетевой запрос, параллельно вычисляем диапазоны периодов
+    // (CPU-операции) и позволяем вызывающему коду тоже продолжить, без блокировки.
+    const funnelsPromise = structureCache.funnels
+      ? Promise.resolve(structureCache.funnels)
+      : adapter.fetchFunnels(conn).then(r => { structureCache.funnels = r; return r; });
 
-    availableFunnels = allFunnels;
-    if(funnelFilterPanel.style.display !== 'none') renderFunnelFilterPanel();
-
-    const funnelsToLoad = selectedFunnelIds
-      ? allFunnels.filter(f => selectedFunnelIds.has(String(f.id)))
-      : allFunnels;
-
-    // Периоды "Сегодня"/"Эта неделя"/"Этот месяц" — все являются подмножеством текущего месяца
-    // В БОЛЬШИНСТВЕ случаев. НО "Эта неделя" может выходить за границы календарного месяца
-    // (например, неделя началась в конце июля, а сейчас август) — раньше в этом случае часть
-    // данных недели просто не подгружалась, и цифры выглядели нелогично. Теперь кэшируемый
-    // диапазон — это ОБЪЕДИНЕНИЕ месяца и недели, чтобы неделя была покрыта целиком всегда.
+    // Диапазоны периодов считаем немедленно — CPU, никакой сети не нужно
     const thisMonthRange = computePeriod('month');
     const thisWeekRange = computePeriod('week');
     const cacheFrom = thisWeekRange.from < thisMonthRange.from ? thisWeekRange.from : thisMonthRange.from;
     const cacheTo = thisWeekRange.to > thisMonthRange.to ? thisWeekRange.to : thisMonthRange.to;
-    // ВАЖНО: два разных периода с разным назначением, легко перепутать —
-    // cacheFetchPeriod — расширенный диапазон (месяц ∪ неделя), используется ТОЛЬКО как
-    //   параметр самого запроса к серверу (звонки/лиды/задачи/сделки) при кэшировании.
-    // thisMonthPeriod — ИСТИННЫЙ календарный месяц, используется для статистики "за этот
-    //   месяц" (сравнения план/факт, "Динамика продаж" и т.д.) — всегда узкий, без недели.
     const cacheFetchPeriod = {type: 'month', from: cacheFrom, to: cacheTo};
     const thisMonthPeriod = {type: 'month', from: thisMonthRange.from, to: thisMonthRange.to};
     const monthKey = `${cacheFrom}_${cacheTo}`;
@@ -4008,6 +4015,10 @@ async function loadDashboard(forceRefresh){
     if(canUseMonthCache && !monthCacheValid){
       monthDealsCache = { connKey, monthKey, byFunnelId: {}, calls: null, leads: null, tasks: null };
     }
+
+    // Звонки/лиды/задачи/новые клиенты стартуют СРАЗУ — параллельно с загрузкой воронок,
+    // а не дожидаясь её. При первой загрузке (структура воронок ещё не в кэше) это экономит
+    // N-N секунд в зависимости от скорости портала клиента.
     // Помощник: фильтрует уже загруженный (расширенный) диапазон до нужного под-периода по дате.
     // Раньше для периода "месяц" фильтрация пропускалась (весь загруженный диапазон и так был
     // ровно месяцем) — теперь загруженный диапазон может быть ШИРЕ месяца (из-за недели), поэтому
@@ -4075,7 +4086,23 @@ async function loadDashboard(forceRefresh){
     // "сделки за период" и "сделки за этот месяц" — буквально один и тот же запрос. Раньше
     // они всё равно запрашивались дважды. То же самое с прошлым периодом/прошлым месяцем.
     // Теперь такие дубли не отправляются вообще — экономит до 40% запросов в самом частом случае.
-    const prevIsSameAsPrevMonth = periodIsMonth; // при periodIsMonth prevPeriod всегда совпадает с prevMonthRange
+    // Здесь впервые нужны данные воронок — ждём результата загрузки. К этому моменту запросы
+    // звонков/лидов/задач/контактов уже тоже летят — они стартовали параллельно выше.
+    const rawFunnels = await funnelsPromise;
+    const seenIds = new Set();
+    const allFunnels = rawFunnels.filter(c => {
+      const key = String(c.id);
+      if(seenIds.has(key)) return false;
+      seenIds.add(key);
+      return true;
+    });
+    availableFunnels = allFunnels;
+    if(funnelFilterPanel.style.display !== 'none') renderFunnelFilterPanel();
+    const funnelsToLoad = selectedFunnelIds
+      ? allFunnels.filter(f => selectedFunnelIds.has(String(f.id)))
+      : allFunnels;
+
+    const prevIsSameAsPrevMonth = periodIsMonth;
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${pluralRu(funnelsToLoad.length, 'воронка', 'воронки', 'воронок')}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const stagesPromise = structureCache.stagesByFunnelId[fn.id]
