@@ -2561,6 +2561,48 @@ let lastFunnels = [];
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
 let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null }; // + статусы лидов, имена сотрудников и семантика стадий — тоже структура, не данные, незачем перезапрашивать каждый раз. lossReasonOptions — ID→текст кастомного поля причины отказа (только у клиентов с addon customLossReasonField)
 let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null }; // сделки, звонки, лиды, задачи за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
+
+// ─── LocalStorage persistence cache ───────────────────────────────────────────
+// Структура воронок (ID/имена/стадии/семантика) хранится до 1 часа — она меняется редко,
+// и её получение занимает 1–3 сек при каждой перезагрузке страницы. Сделки хранятся 5 мин.
+// Если localStorage недоступен (Safari private mode и т.п.) — молча пропускаем кэш.
+const STRUCT_CACHE_TTL = 60 * 60 * 1000;  // 1 час
+const DEALS_CACHE_TTL  = 5 * 60 * 1000;   // 5 минут
+const DEALS_CACHE_MAX_BYTES = 4 * 1024 * 1024; // 4 МБ — при превышении сделки не кэшируем
+
+function lsGet(key){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function lsSet(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); return true; }catch(e){ return false; }
+}
+function lsDel(key){ try{ localStorage.removeItem(key); }catch(e){} }
+
+function cacheStructKey(connKey){ return 'pCRM_struct_' + btoa(connKey).slice(0, 32); }
+function cacheDealsKey(connKey, monthKey){ return 'pCRM_deals_' + btoa(connKey).slice(0, 24) + '_' + monthKey; }
+
+function loadStructureFromLS(connKey){
+  const entry = lsGet(cacheStructKey(connKey));
+  if(!entry || Date.now() - entry.ts > STRUCT_CACHE_TTL) return null;
+  return entry.data; // { funnels, stagesByFunnelId, semanticsByFunnelId, leadStatusMap, userNames, lossReasonOptions }
+}
+function saveStructureToLS(connKey, data){
+  lsSet(cacheStructKey(connKey), { ts: Date.now(), data });
+}
+
+function loadDealsFromLS(connKey, monthKey){
+  const entry = lsGet(cacheDealsKey(connKey, monthKey));
+  if(!entry || Date.now() - entry.ts > DEALS_CACHE_TTL) return null;
+  return entry.data; // { byFunnelId, calls, leads, tasks }
+}
+function saveDealsToLS(connKey, monthKey, data){
+  try{
+    const serialized = JSON.stringify({ ts: Date.now(), data });
+    if(serialized.length > DEALS_CACHE_MAX_BYTES) return; // слишком большой — не сохраняем
+    localStorage.setItem(cacheDealsKey(connKey, monthKey), serialized);
+  }catch(e){}
+}
+// ──────────────────────────────────────────────────────────────────────────────
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
 let lastIdleEmployees = []; // сотрудники Bitrix24 (из user.get), на которых за текущий выбор периода/воронок не назначено ни одной сделки — не входят в lastManagers, чтобы не мешаться с рейтингом продажников
@@ -3006,7 +3048,7 @@ function appendParams(qs, prefix, value){
 // Раньше все страницы и все воронки запрашивались строго по одной — это и была
 // главная причина долгой загрузки. Теперь запросы идут с ограниченным параллелизмом
 // (несколько одновременно, но не разом все), а при ошибке лимита — автоматический повтор.
-const REQUEST_CONCURRENCY = 4;
+const REQUEST_CONCURRENCY = 6; // было 4 — Bitrix24 batch API позволяет 6 параллельных без ощутимого роста 429
 let activeRequests = 0;
 const requestQueue = [];
 
@@ -3990,10 +4032,36 @@ async function loadDashboard(forceRefresh){
   try{
     const connKey = conn.webhook || JSON.stringify(conn);
     if(structureCache.connKey !== connKey || forceRefresh){
-      structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
+      // При смене подключения или принудительном обновлении — начинаем с чистого листа,
+      // но сначала смотрим, нет ли свежего снапшота в localStorage (экономит 1-3 сек)
+      const lsStruct = !forceRefresh ? loadStructureFromLS(connKey) : null;
+      if(lsStruct){
+        // semanticsByFunnelId восстанавливается как объект, а не Promise — оборачиваем обратно,
+        // т.к. adapter.fetchDeals делает await structureCache.semanticsByFunnelId[funnelId]
+        const semWrapped = {};
+        Object.entries(lsStruct.semanticsByFunnelId || {}).forEach(([id, v]) => {
+          semWrapped[id] = Promise.resolve(v);
+        });
+        structureCache = {
+          connKey,
+          funnels: lsStruct.funnels || null,
+          stagesByFunnelId: lsStruct.stagesByFunnelId || {},
+          semanticsByFunnelId: semWrapped,
+          leadStatusMap: lsStruct.leadStatusMap || null,
+          userNames: lsStruct.userNames || null,
+          lossReasonOptions: lsStruct.lossReasonOptions || null
+        };
+      } else {
+        structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
+      }
     }
     if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
+      // Удаляем все LS-ключи сделок для этого подключения (перебираем, т.к. точный monthKey пока неизвестен)
+      try{
+        const prefix = 'pCRM_deals_' + btoa(connKey).slice(0, 24);
+        Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => localStorage.removeItem(k));
+      }catch(e){}
     }
     // Запускаем загрузку воронок сразу, но НЕ ждём результата прямо здесь —
     // пока идёт этот сетевой запрос, параллельно вычисляем диапазоны периодов
@@ -4013,7 +4081,14 @@ async function loadDashboard(forceRefresh){
     const canUseMonthCache = ['today','week','month'].includes(currentPeriod.type);
     const monthCacheValid = monthDealsCache.connKey === connKey && monthDealsCache.monthKey === monthKey;
     if(canUseMonthCache && !monthCacheValid){
-      monthDealsCache = { connKey, monthKey, byFunnelId: {}, calls: null, leads: null, tasks: null };
+      // Пробуем поднять кэш сделок из localStorage (TTL 5 мин) — если свежий, перезагрузка
+      // страницы покажет данные почти мгновенно: экономит основную долю времени загрузки.
+      const lsDeals = !forceRefresh ? loadDealsFromLS(connKey, monthKey) : null;
+      if(lsDeals){
+        monthDealsCache = { connKey, monthKey, byFunnelId: lsDeals.byFunnelId || {}, calls: lsDeals.calls || null, leads: lsDeals.leads || null, tasks: lsDeals.tasks || null };
+      } else {
+        monthDealsCache = { connKey, monthKey, byFunnelId: {}, calls: null, leads: null, tasks: null };
+      }
     }
 
     // Звонки/лиды/задачи/новые клиенты стартуют СРАЗУ — параллельно с загрузкой воронок,
@@ -4103,6 +4178,44 @@ async function loadDashboard(forceRefresh){
       : allFunnels;
 
     const prevIsSameAsPrevMonth = periodIsMonth;
+
+    // Батчевая предзагрузка структуры стадий — вместо N отдельных HTTP-запросов (по одному
+    // на каждую воронку) объединяем все недостающие запросы stages+semantics в один batch-вызов.
+    // Для 5 воронок: было 10 HTTP-запросов → стало 1. Экономия ~1-2 сек на каждой загрузке.
+    if(conn.webhook){
+      const funnelsNeedingStages = funnelsToLoad.filter(fn => !structureCache.stagesByFunnelId[fn.id]);
+      const funnelsNeedingSem   = funnelsToLoad.filter(fn => !structureCache.semanticsByFunnelId[fn.id]);
+      if(funnelsNeedingStages.length > 0 || funnelsNeedingSem.length > 0){
+        const batchCalls = [];
+        const batchMeta = []; // {type:'stages'|'sem', funnelId}
+        funnelsNeedingStages.forEach(fn => {
+          batchCalls.push({method: 'crm.dealcategory.stage.list', params: {id: fn.id}});
+          batchMeta.push({type:'stages', funnelId: fn.id});
+        });
+        funnelsNeedingSem.forEach(fn => {
+          const entityId = (String(fn.id) === '0') ? 'DEAL_STAGE' : `DEAL_STAGE_${fn.id}`;
+          batchCalls.push({method: 'crm.status.list', params: {filter: {ENTITY_ID: entityId}}});
+          batchMeta.push({type:'sem', funnelId: fn.id});
+        });
+        try{
+          const batchResults = await callBatch(conn.webhook, batchCalls);
+          batchMeta.forEach((meta, i) => {
+            const res = batchResults[i];
+            if(meta.type === 'stages'){
+              const raw = Array.isArray(res) ? res : [];
+              structureCache.stagesByFunnelId[meta.funnelId] = raw.map(s => ({id: s.STATUS_ID, name: s.NAME}));
+            } else {
+              const semMap = {};
+              (Array.isArray(res) ? res : []).forEach(s => { semMap[s.STATUS_ID] = s.SEMANTICS; });
+              structureCache.semanticsByFunnelId[meta.funnelId] = Promise.resolve(semMap);
+            }
+          });
+        }catch(e){
+          // batch не прошёл — воронки подхватят stage/semantics по отдельности ниже (fallback)
+        }
+      }
+    }
+
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${pluralRu(funnelsToLoad.length, 'воронка', 'воронки', 'воронок')}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const stagesPromise = structureCache.stagesByFunnelId[fn.id]
@@ -4445,6 +4558,38 @@ async function loadDashboard(forceRefresh){
     } else {
       dupWarning.style.display = 'none';
     }
+
+    // Сохраняем структуру и сделки в localStorage — фоново, не блокируя UI
+    // (setTimeout убирает это из критического пути рендера)
+    setTimeout(() => {
+      try{
+        // semanticsByFunnelId хранит Promise'ы — нужно дождаться всех, чтобы сохранить значения
+        Promise.all(
+          Object.entries(structureCache.semanticsByFunnelId).map(([id, p]) =>
+            Promise.resolve(p).then(v => [id, v]).catch(() => null)
+          )
+        ).then(pairs => {
+          const semResolved = {};
+          pairs.forEach(pair => { if(pair) semResolved[pair[0]] = pair[1]; });
+          saveStructureToLS(connKey, {
+            funnels: structureCache.funnels,
+            stagesByFunnelId: structureCache.stagesByFunnelId,
+            semanticsByFunnelId: semResolved,
+            leadStatusMap: structureCache.leadStatusMap,
+            userNames: structureCache.userNames,
+            lossReasonOptions: structureCache.lossReasonOptions
+          });
+        }).catch(() => {});
+      }catch(e){}
+      if(canUseMonthCache && monthDealsCache.connKey === connKey){
+        saveDealsToLS(connKey, monthKey, {
+          byFunnelId: monthDealsCache.byFunnelId,
+          calls: monthDealsCache.calls,
+          leads: monthDealsCache.leads,
+          tasks: monthDealsCache.tasks
+        });
+      }
+    }, 0);
 
     statusLine.className = 'status-line ok';
     statusLine.textContent = `Подключено (${adapter.name}) · найдено воронок: ${displayFunnels.length}`;
