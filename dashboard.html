@@ -5158,6 +5158,42 @@ function openStageDetail(fidx, stageId){
   openModal(`${stageName}`, back + list);
 }
 
+function buildFunnelConversionBlock(f){
+  // Берём только активные (pipeline) стадии в порядке отображения, исключаем финальные
+  const activeStages = f.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
+  if(activeStages.length < 2) return '';
+  const firstCount = activeStages[0].count || 0;
+  if(firstCount === 0) return '';
+  const maxBarW = 220;
+  const rows = activeStages.map((s, i) => {
+    const prev = i > 0 ? activeStages[i-1] : null;
+    const convFromFirst = Math.round(100 * s.count / firstCount);
+    const convFromPrev = prev && prev.count > 0 ? Math.round(100 * s.count / prev.count) : null;
+    const barW = Math.round(maxBarW * s.count / firstCount);
+    const convTag = convFromPrev !== null
+      ? `<span style="font-size:10px;color:${convFromPrev>=50?'var(--accent-strong)':convFromPrev>=30?'var(--amber)':'var(--red-bad)'};margin-left:6px;">↓ ${convFromPrev}%</span>`
+      : '';
+    return `<div style="margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+        <span style="font-size:12px;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.name)}${convTag}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;white-space:nowrap;">${s.count}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);white-space:nowrap;min-width:34px;text-align:right;">${convFromFirst}%</span>
+      </div>
+      <div style="height:6px;background:var(--overlay-2);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:${barW}px;max-width:100%;background:var(--accent-strong);border-radius:4px;opacity:${0.5+0.5*(s.count/firstCount)};transition:width .6s ease;"></div>
+      </div>
+    </div>`;
+  }).join('');
+  const uz = (window.__lang === 'uz');
+  const title = uz ? 'Bosqichlar bo\'yicha konversiya' : 'Конверсия по стадиям воронки';
+  const hint = uz ? `Birinchi bosqichdan o\'tgan bitimlar soni asos (100%). ↓ — oldingi bosqichga nisbatan o\'tish.` : `Количество сделок на каждой стадии относительно первой (100%). ↓ — переход от предыдущей стадии.`;
+  return `<div style="margin:14px 0 4px;">
+    <div class="modal-subtitle" style="margin-bottom:10px;">${title}</div>
+    <div style="max-width:320px;">${rows}</div>
+    <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;">${hint}</div>
+  </div>`;
+}
+
 function openFunnelDetail(idx){
   const f = lastFunnels[idx];
   if(!f) return;
@@ -5172,6 +5208,7 @@ function openFunnelDetail(idx){
   let html = statRow(t('salesKpi'), fmtMoney(f.wonSum, f.currency))
     + statRow(t('dealsKpi'), f.deals)
     + statRow(t('convKpi'), fWinRate + '%')
+    + buildFunnelConversionBlock(f)
     + `<div class="modal-subtitle">${t('stagesClickNote')}</div>`
     + `<table class="modal-table modal-table-clickable" style="margin-top:4px;"><tbody>${stageRows}</tbody></table>`;
   if(f.bottleneck) html += `<div class="modal-note">${t('bottleneckTitle')} — «${f.bottleneck.name}», ${t('onAvgDays')} ${f.bottleneck.avgAgeDays} ${t('daysCycle')}.</div>`;
@@ -7919,29 +7956,63 @@ async function renderFunnelEntryStatsSection(){
       fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod).then(counts => ({funnel: f, counts}))
     ));
     const sections = results.map(({funnel, counts}) => {
-      const rows = funnel.stages.map((s, idx) => {
+      const activeStages = funnel.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
+      const firstEverEntered = activeStages.length > 0 ? (counts[activeStages[0].id] || 0) : 0;
+      // Visual funnel bars (based on ever-entered counts)
+      const visualRows = activeStages.map((s, i) => {
+        const everEntered = counts[s.id] || 0;
+        const prev = i > 0 ? activeStages[i-1] : null;
+        const prevEver = prev ? (counts[prev.id] || 0) : 0;
+        const convFromPrev = (prev && prevEver > 0) ? Math.round(100 * everEntered / prevEver) : null;
+        const convFromFirst = firstEverEntered > 0 ? Math.round(100 * everEntered / firstEverEntered) : 0;
+        const barPct = firstEverEntered > 0 ? Math.round(100 * everEntered / firstEverEntered) : 0;
+        const convColor = convFromPrev === null ? '' : convFromPrev >= 50 ? 'var(--accent-strong)' : convFromPrev >= 30 ? 'var(--amber)' : 'var(--red-bad)';
+        const arrowHtml = convFromPrev !== null
+          ? `<div style="text-align:center;font-size:11px;color:${convColor};margin:1px 0 1px;">↓ ${convFromPrev}%</div>`
+          : '';
+        return arrowHtml + `<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;">${escapeHtml(s.name)}</div>
+            <div style="height:8px;background:var(--overlay-2);border-radius:4px;overflow:hidden;">
+              <div style="height:100%;width:${barPct}%;background:var(--accent-strong);border-radius:4px;opacity:${0.45+0.55*barPct/100};"></div>
+            </div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;min-width:36px;text-align:right;">${everEntered}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-soft);min-width:34px;text-align:right;">${convFromFirst}%</div>
+        </div>`;
+      }).join('');
+
+      const tableRows = funnel.stages.map((s, idx) => {
         const everEntered = counts[s.id] || 0;
         const prevEverEntered = idx > 0 ? (counts[funnel.stages[idx-1].id] || 0) : null;
         const convFromPrev = (prevEverEntered && prevEverEntered > 0) ? Math.round(100 * everEntered / prevEverEntered) : null;
+        const convColor = convFromPrev === null ? '' : convFromPrev >= 50 ? 'color:var(--accent-strong)' : convFromPrev >= 30 ? 'color:var(--amber)' : 'color:var(--red-bad)';
         return `<tr>
           <td>${escapeHtml(s.name)}</td>
-          <td>${everEntered}</td>
-          <td>${s.count}</td>
-          <td>${convFromPrev !== null ? convFromPrev + '%' : '—'}</td>
+          <td style="text-align:right;font-weight:600;">${everEntered}</td>
+          <td style="text-align:right;">${s.count}</td>
+          <td style="text-align:right;${convColor};font-weight:600;">${convFromPrev !== null ? convFromPrev + '%' : '—'}</td>
         </tr>`;
       }).join('');
       return `
         <div class="analytics-section">
           <div class="analytics-title">${escapeHtml(funnel.name)}</div>
-          <table class="analytics-table">
-            <thead><tr>
-              <th>${t('stageCol')}</th>
-              <th>${t('funnelEverEnteredCol')}</th>
-              <th>${t('funnelCurrentlyHereCol')}</th>
-              <th>${t('funnelConvFromPrevCol')}</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
+            <div style="flex:1;min-width:220px;max-width:340px;">
+              ${visualRows}
+            </div>
+            <div style="flex:2;min-width:280px;overflow-x:auto;">
+              <table class="analytics-table">
+                <thead><tr>
+                  <th>${t('stageCol')}</th>
+                  <th style="text-align:right;">${t('funnelEverEnteredCol')}</th>
+                  <th style="text-align:right;">${t('funnelCurrentlyHereCol')}</th>
+                  <th style="text-align:right;">${t('funnelConvFromPrevCol')}</th>
+                </tr></thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+            </div>
+          </div>
         </div>`;
     }).join('');
     body.innerHTML = `<div class="modal-note" style="margin-bottom:16px;">${t('funnelEntryStatsHint')}</div>` + sections;
