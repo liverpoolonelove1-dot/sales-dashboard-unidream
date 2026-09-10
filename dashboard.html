@@ -1195,6 +1195,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
         <span data-i18n="funnelEntryStatsTitle">Заявки по стадиям</span>
       </button>
+      <button class="sbnav-item" id="sbnavTunnelConversion" data-nav="tunnelConversion" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14M5 3l4 6-4 6h14l-4-6 4-6"/></svg>
+        <span>Туннель конверсии</span>
+      </button>
       <button class="sbnav-item" data-nav="managers">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Менеджеры</span>
@@ -3320,6 +3324,22 @@ async function fetchStageHistoryAll(webhook, params){
   return all;
 }
 
+// Utas-специфика: по каждой воронке запрашивает список CONTACT_ID всех сделок за период.
+// Нужно для туннельной конверсии — матчим одного и того же клиента (контакт) между воронками,
+// т.к. сделки не закрываются как "выиграна", а клиент просто появляется в следующей воронке.
+async function fetchFunnelContactIds(webhook, categoryId, period){
+  const filter = {CATEGORY_ID: categoryId};
+  if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
+  if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
+  const deals = await fetchAllPaged(webhook, 'crm.deal.list', {
+    filter,
+    select: ['ID', 'CONTACT_ID']
+  });
+  const contacts = new Set();
+  deals.forEach(d => { if(d.CONTACT_ID && d.CONTACT_ID !== '0') contacts.add(String(d.CONTACT_ID)); });
+  return { total: deals.length, contacts }; // всего сделок + уникальные контакты
+}
+
 // Спешл-функция (сейчас только для Utas, addon funnelEntryStats): считает, сколько сделок
 // ВООБЩЕ КОГДА-ЛИБО заходило на каждую стадию за период — в отличие от обычного отчёта
 // "По стадиям", который показывает только ТЕКУЩИЙ снимок (где сделки сейчас). Это разные вещи:
@@ -4548,6 +4568,7 @@ async function loadDashboard(forceRefresh){
     else if(currentSection === 'managers') renderManagersSection();
     else if(currentSection === 'funnels') renderStagesSection();
     else if(currentSection === 'funnelEntryStats') renderFunnelEntryStatsSection();
+    else if(currentSection === 'tunnelConversion') renderTunnelConversionSection();
     else if(currentSection === 'analytics') openAnalytics(currentAnalyticsTab);
 
     if(dupPairs.length > 0){
@@ -6646,6 +6667,9 @@ function applyPlanRestrictions(){
   // Раздел "Заявки по стадиям" — спешл-функция addon funnelEntryStats (сейчас только Utas)
   const funnelEntryNav = document.getElementById('sbnavFunnelEntryStats');
   if(funnelEntryNav) funnelEntryNav.style.display = addonEnabled('funnelEntryStats') ? '' : 'none';
+  // Раздел "Туннель конверсии" — показываем тем же addon funnelEntryStats (Utas)
+  const tunnelNav = document.getElementById('sbnavTunnelConversion');
+  if(tunnelNav) tunnelNav.style.display = addonEnabled('funnelEntryStats') ? '' : 'none';
 }
 
 function updatePlanBadge(){
@@ -8166,6 +8190,161 @@ async function renderFunnelEntryStatsSection(){
   }
 }
 
+// ─── Туннель конверсии (Utas addon funnelEntryStats) ──────────────────────────
+// Показывает путь клиента ЧЕРЕЗ несколько воронок: клиент появляется в первой воронке
+// как новая сделка, а когда регистрируется/подаёт заявку — создаётся НОВАЯ сделка в
+// следующей воронке. Сопоставляем клиентов по CONTACT_ID, чтобы видеть реальную конверсию
+// между этапами пути, даже если исходная сделка никогда не переходила в "Выиграна".
+//
+// Раздел делится на два блока:
+//  1) Туннель — общий путь клиента по воронкам (крос-воронковая конверсия)
+//  2) По стадиям — внутри каждой воронки (история переходов, как в funnelEntryStats)
+async function renderTunnelConversionSection(){
+  const uz = (window.__lang === 'uz');
+  content.innerHTML = `<div class="section-page">
+    <div class="section-page-header"><h2>${uz ? 'Konversiya tunneli' : 'Туннель конверсии'}</h2></div>
+    <div id="tunnelBody"><div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')}</div></div>
+  </div>`;
+  const body = document.getElementById('tunnelBody');
+  if(!currentConn || !lastFunnels.length){
+    body.innerHTML = `<div class="analytics-empty">${t('noData')}</div>`;
+    return;
+  }
+
+  try{
+    // Параллельно: для каждой воронки загружаем CONTACT_ID + считаем количество сделок,
+    // а также историю переходов по стадиям (для нижнего блока "По стадиям")
+    const [contactResults, entryCounts] = await Promise.all([
+      Promise.all(lastFunnels.map(f =>
+        fetchFunnelContactIds(currentConn.webhook, f.id, currentPeriod)
+          .then(r => ({funnel: f, total: r.total, contacts: r.contacts}))
+      )),
+      Promise.all(lastFunnels.map(f =>
+        fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod)
+          .then(counts => ({funnelId: f.id, counts}))
+      ))
+    ]);
+
+    const entryCountsMap = {};
+    entryCounts.forEach(({funnelId, counts}) => { entryCountsMap[funnelId] = counts; });
+
+    // ── Блок 1: Туннель ──────────────────────────────────────────────────────
+    // Считаем уникальных клиентов в каждой воронке и конверсию к предыдущей
+    const firstTotal = contactResults[0]?.total || 0;
+    const firstContacts = contactResults[0]?.contacts || new Set();
+
+    const tunnelRows = contactResults.map((r, i) => {
+      const prev = i > 0 ? contactResults[i-1] : null;
+      // Конверсия из предыдущей воронки: сколько контактов есть и в предыдущей, и в этой
+      let crossConv = null;
+      let crossAbsolute = 0;
+      if(prev && prev.contacts.size > 0){
+        crossAbsolute = [...r.contacts].filter(id => prev.contacts.has(id)).length;
+        crossConv = Math.round(100 * crossAbsolute / prev.contacts.size);
+      }
+      // Конверсия от самой первой воронки
+      const convFromFirst = i === 0 ? 100 : (firstContacts.size > 0 ? Math.round(100 * [...r.contacts].filter(id => firstContacts.has(id)).length / firstContacts.size) : 0);
+      // Стандартная конверсия (выиграно/проиграно) внутри воронки
+      const funnelStats = lastFunnels[i];
+      const stdConv = (funnelStats.wonCount + funnelStats.lostCount) > 0
+        ? Math.round(100 * funnelStats.wonCount / (funnelStats.wonCount + funnelStats.lostCount)) : null;
+
+      const barW = Math.max(4, convFromFirst);
+      const crossColor = crossConv === null ? '' : crossConv >= 50 ? 'var(--accent-strong)' : crossConv >= 30 ? 'var(--amber)' : 'var(--red-bad)';
+
+      const arrowHtml = crossConv !== null ? `
+        <div style="display:flex;align-items:center;gap:6px;padding:4px 0 4px 18px;">
+          <div style="width:2px;height:20px;background:var(--line);border-radius:2px;"></div>
+          <span style="font-size:12px;font-weight:700;color:${crossColor};">↓ ${crossConv}%</span>
+          <span style="font-size:11px;color:var(--ink-soft);">${crossAbsolute} ${uz ? 'klient' : 'клиентов'}</span>
+        </div>` : '';
+
+      return arrowHtml + `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:0;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${escapeHtml(r.funnel.name)}</div>
+            <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">
+              ${r.total} ${uz ? 'bitim' : 'сделок'} · ${r.contacts.size} ${uz ? 'unikal kontakt' : 'уникальных контактов'}
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            ${stdConv !== null ? `<div style="text-align:right;">
+              <div style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;">${uz ? 'Standart konv.' : 'Конверсия'}</div>
+              <div style="font-weight:700;font-size:16px;color:${stdConv>=30?'var(--accent-strong)':stdConv>=15?'var(--amber)':'var(--red-bad)'};">${stdConv}%</div>
+            </div>` : ''}
+            ${i > 0 ? `<div style="text-align:right;">
+              <div style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;">${uz ? 'Birinchidan' : 'От входа'}</div>
+              <div style="font-weight:700;font-size:16px;color:var(--blue);">${convFromFirst}%</div>
+            </div>` : ''}
+          </div>
+        </div>
+        <div style="height:8px;background:var(--overlay-2);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${barW}%;background:var(--accent-strong);border-radius:4px;transition:width .6s ease;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // ── Блок 2: По стадиям внутри каждой воронки ─────────────────────────────
+    const stageBlocks = lastFunnels.map(f => {
+      const counts = entryCountsMap[f.id] || {};
+      const activeStages = f.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
+      const firstEver = activeStages.length > 0 ? (counts[activeStages[0].id] || 0) : 0;
+      if(!activeStages.length || firstEver === 0) return '';
+
+      const stageRows = activeStages.map((s, i) => {
+        const everEntered = counts[s.id] || 0;
+        const prev = i > 0 ? activeStages[i-1] : null;
+        const prevEver = prev ? (counts[prev.id] || 0) : 0;
+        const convFromPrev = (prev && prevEver > 0) ? Math.round(100 * everEntered / prevEver) : null;
+        const convFromFirst = firstEver > 0 ? Math.round(100 * everEntered / firstEver) : 0;
+        const barPct = convFromFirst;
+        const convColor = convFromPrev === null ? '' : convFromPrev >= 50 ? 'color:var(--accent-strong)' : convFromPrev >= 30 ? 'color:var(--amber)' : 'color:var(--red-bad)';
+        const arrowHtml = convFromPrev !== null
+          ? `<div style="font-size:11px;${convColor};padding:1px 0 1px 12px;">↓ ${convFromPrev}%</div>`
+          : '';
+        return arrowHtml + `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.name)}</div>
+            <div style="height:5px;background:var(--overlay-2);border-radius:3px;overflow:hidden;margin-top:2px;">
+              <div style="height:100%;width:${barPct}%;background:var(--blue);border-radius:3px;opacity:.7;"></div>
+            </div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;min-width:32px;text-align:right;">${everEntered}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-soft);min-width:32px;text-align:right;">${convFromFirst}%</div>
+        </div>`;
+      }).join('');
+
+      return `<div class="analytics-section">
+        <div class="analytics-title" style="font-size:13px;">${escapeHtml(f.name)}</div>
+        ${stageRows}
+      </div>`;
+    }).filter(Boolean).join('');
+
+    const currency = getDisplayCurrency();
+    const periodLabel = currentPeriod.from && currentPeriod.to
+      ? `${currentPeriod.from} — ${currentPeriod.to}` : (uz ? 'Tanlangan davr' : 'Выбранный период');
+
+    body.innerHTML = `
+      <div class="modal-note" style="margin-bottom:16px;">
+        ${uz
+          ? `Tunnel — bir klient bir nechta voronkada ko'rinadi (CONTACT_ID bo'yicha). Birinchi voronkaga kirgan va keyingi voronkaga o'tgan klientlar soni ko'rsatiladi. Davr: ${periodLabel}.`
+          : `Туннель — один клиент виден в нескольких воронках (сопоставление по CONTACT_ID). Показано, сколько клиентов вошло в первую воронку и прошло дальше. Период: ${periodLabel}.`}
+      </div>
+      <div style="margin-bottom:28px;">${tunnelRows}</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:12px;padding-top:8px;border-top:1px solid var(--line);">
+        ${uz ? 'Har bir voronkadagi bosqichlar bo\'yicha konversiya' : 'Конверсия по стадиям в каждой воронке'}
+      </div>
+      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:16px;">
+        ${uz ? 'HECH QACHON o\'tgan bitimlar soni (tarixdan), joriy snapshotdan farqli.' : 'Количество заявок, КОГДА-ЛИБО прошедших через стадию (из истории переходов), а не текущий снимок.'}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">${stageBlocks}</div>
+    `;
+  }catch(e){
+    body.innerHTML = `<div class="modal-note" style="color:var(--red-bad)">${escapeHtml(e.message || String(e))}</div>`;
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function buildManagersLoadTab(){
   let deals = lastDealsFlat;
   const currency = getDisplayCurrency();
@@ -9165,6 +9344,8 @@ document.getElementById('dashSidebar').addEventListener('click', (e) => {
     renderStagesSection();
   } else if(nav === 'funnelEntryStats'){
     renderFunnelEntryStatsSection();
+  } else if(nav === 'tunnelConversion'){
+    renderTunnelConversionSection();
   } else if(nav === 'managers'){
     renderManagersSection();
   } else if(nav === 'analytics'){
