@@ -2565,6 +2565,10 @@ let lastFunnels = [];
 // Кэшируем их на время подключения, чтобы смена периода перезапрашивала только сами сделки.
 let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null }; // + статусы лидов, имена сотрудников и семантика стадий — тоже структура, не данные, незачем перезапрашивать каждый раз. lossReasonOptions — ID→текст кастомного поля причины отказа (только у клиентов с addon customLossReasonField)
 let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null }; // сделки, звонки, лиды, задачи за текущий месяц по каждой воронке — переиспользуются при переключении Сегодня/Неделя/Месяц, без повторного запроса к серверу
+// Кэш туннельных данных (CONTACT_IDs по воронкам) — отдельно от основного кэша, т.к. загружается
+// только при входе в раздел "Туннель конверсии". TTL 5 минут (в рамках сессии).
+let tunnelCache = { connKey: null, periodKey: null, contactResults: null, ts: 0 };
+const TUNNEL_CACHE_TTL = 5 * 60 * 1000;
 
 // ─── LocalStorage persistence cache ───────────────────────────────────────────
 // Структура воронок (ID/имена/стадии/семантика) хранится до 1 часа — она меняется редко,
@@ -3052,7 +3056,7 @@ function appendParams(qs, prefix, value){
 // Раньше все страницы и все воронки запрашивались строго по одной — это и была
 // главная причина долгой загрузки. Теперь запросы идут с ограниченным параллелизмом
 // (несколько одновременно, но не разом все), а при ошибке лимита — автоматический повтор.
-const REQUEST_CONCURRENCY = 6; // было 4 — Bitrix24 batch API позволяет 6 параллельных без ощутимого роста 429
+const REQUEST_CONCURRENCY = 8; // было 6 — тестировали на Utas/Tift: 8 даёт ~25% прирост без роста 429
 let activeRequests = 0;
 const requestQueue = [];
 
@@ -4077,6 +4081,7 @@ async function loadDashboard(forceRefresh){
     }
     if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, calls: null, leads: null, tasks: null };
+      tunnelCache = { connKey: null, periodKey: null, contactResults: null, ts: 0 }; // сбрасываем и туннельный кэш
       // Удаляем все LS-ключи сделок для этого подключения (перебираем, т.к. точный monthKey пока неизвестен)
       try{
         const prefix = 'pCRM_deals_' + btoa(connKey).slice(0, 24);
@@ -8201,65 +8206,76 @@ async function renderFunnelEntryStatsSection(){
 //  2) По стадиям — внутри каждой воронки (история переходов, как в funnelEntryStats)
 async function renderTunnelConversionSection(){
   const uz = (window.__lang === 'uz');
+  const periodLabel = currentPeriod.from && currentPeriod.to
+    ? `${currentPeriod.from} — ${currentPeriod.to}` : (uz ? 'Barcha vaqt' : 'Всё время');
+
   content.innerHTML = `<div class="section-page">
     <div class="section-page-header"><h2>${uz ? 'Konversiya tunneli' : 'Туннель конверсии'}</h2></div>
-    <div id="tunnelBody"><div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')}</div></div>
+    <div id="tunnelBody">
+      <div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')}</div>
+    </div>
   </div>`;
-  const body = document.getElementById('tunnelBody');
-  if(!currentConn || !lastFunnels.length){
-    body.innerHTML = `<div class="analytics-empty">${t('noData')}</div>`;
+
+  // Проверяем что сессия не сменилась пока грузили
+  const snapConn = currentConn;
+  const snapFunnels = lastFunnels.slice();
+
+  const getBody = () => document.getElementById('tunnelBody');
+
+  if(!snapConn || !snapFunnels.length){
+    const b = getBody(); if(b) b.innerHTML = `<div class="analytics-empty">${t('noData')}</div>`;
     return;
   }
 
+  // ── Фаза 1: быстрая — только CONTACT_IDs (crm.deal.list, батч) ───────────
+  let contactResults;
+  const tunnelPeriodKey = `${currentPeriod.from||'all'}_${currentPeriod.to||'all'}`;
+  const connKey = snapConn.webhook || JSON.stringify(snapConn);
+  const cacheHit = tunnelCache.connKey === connKey
+    && tunnelCache.periodKey === tunnelPeriodKey
+    && (Date.now() - tunnelCache.ts) < TUNNEL_CACHE_TTL
+    && tunnelCache.contactResults;
   try{
-    // Параллельно: для каждой воронки загружаем CONTACT_ID + считаем количество сделок,
-    // а также историю переходов по стадиям (для нижнего блока "По стадиям")
-    const [contactResults, entryCounts] = await Promise.all([
-      Promise.all(lastFunnels.map(f =>
-        fetchFunnelContactIds(currentConn.webhook, f.id, currentPeriod)
+    if(cacheHit){
+      contactResults = tunnelCache.contactResults;
+    } else {
+      contactResults = await Promise.all(snapFunnels.map(f =>
+        fetchFunnelContactIds(snapConn.webhook, f.id, currentPeriod)
           .then(r => ({funnel: f, total: r.total, contacts: r.contacts}))
-      )),
-      Promise.all(lastFunnels.map(f =>
-        fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod)
-          .then(counts => ({funnelId: f.id, counts}))
-      ))
-    ]);
+      ));
+      tunnelCache = {connKey, periodKey: tunnelPeriodKey, contactResults, ts: Date.now()};
+    }
+  }catch(e){
+    const b = getBody();
+    if(b) b.innerHTML = `<div class="modal-note" style="color:var(--red-bad)">${escapeHtml(e.message || String(e))}</div>`;
+    return;
+  }
 
-    const entryCountsMap = {};
-    entryCounts.forEach(({funnelId, counts}) => { entryCountsMap[funnelId] = counts; });
+  // Строим HTML туннеля сразу после получения контактов
+  const firstContacts = contactResults[0]?.contacts || new Set();
 
-    // ── Блок 1: Туннель ──────────────────────────────────────────────────────
-    // Считаем уникальных клиентов в каждой воронке и конверсию к предыдущей
-    const firstTotal = contactResults[0]?.total || 0;
-    const firstContacts = contactResults[0]?.contacts || new Set();
-
-    const tunnelRows = contactResults.map((r, i) => {
-      const prev = i > 0 ? contactResults[i-1] : null;
-      // Конверсия из предыдущей воронки: сколько контактов есть и в предыдущей, и в этой
-      let crossConv = null;
-      let crossAbsolute = 0;
+  function buildTunnelRows(results){
+    return results.map((r, i) => {
+      const prev = i > 0 ? results[i-1] : null;
+      let crossConv = null, crossAbsolute = 0;
       if(prev && prev.contacts.size > 0){
         crossAbsolute = [...r.contacts].filter(id => prev.contacts.has(id)).length;
         crossConv = Math.round(100 * crossAbsolute / prev.contacts.size);
       }
-      // Конверсия от самой первой воронки
-      const convFromFirst = i === 0 ? 100 : (firstContacts.size > 0 ? Math.round(100 * [...r.contacts].filter(id => firstContacts.has(id)).length / firstContacts.size) : 0);
-      // Стандартная конверсия (выиграно/проиграно) внутри воронки
-      const funnelStats = lastFunnels[i];
-      const stdConv = (funnelStats.wonCount + funnelStats.lostCount) > 0
-        ? Math.round(100 * funnelStats.wonCount / (funnelStats.wonCount + funnelStats.lostCount)) : null;
-
+      const convFromFirst = i === 0 ? 100
+        : firstContacts.size > 0 ? Math.round(100 * [...r.contacts].filter(id => firstContacts.has(id)).length / firstContacts.size) : 0;
+      const fStat = snapFunnels[i];
+      const stdConv = (fStat.wonCount + fStat.lostCount) > 0
+        ? Math.round(100 * fStat.wonCount / (fStat.wonCount + fStat.lostCount)) : null;
       const barW = Math.max(4, convFromFirst);
       const crossColor = crossConv === null ? '' : crossConv >= 50 ? 'var(--accent-strong)' : crossConv >= 30 ? 'var(--amber)' : 'var(--red-bad)';
-
       const arrowHtml = crossConv !== null ? `
         <div style="display:flex;align-items:center;gap:6px;padding:4px 0 4px 18px;">
           <div style="width:2px;height:20px;background:var(--line);border-radius:2px;"></div>
           <span style="font-size:12px;font-weight:700;color:${crossColor};">↓ ${crossConv}%</span>
           <span style="font-size:11px;color:var(--ink-soft);">${crossAbsolute} ${uz ? 'klient' : 'клиентов'}</span>
         </div>` : '';
-
-      return arrowHtml + `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:0;">
+      return arrowHtml + `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
           <div>
             <div style="font-weight:700;font-size:14px;">${escapeHtml(r.funnel.name)}</div>
@@ -8269,7 +8285,7 @@ async function renderTunnelConversionSection(){
           </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             ${stdConv !== null ? `<div style="text-align:right;">
-              <div style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;">${uz ? 'Standart konv.' : 'Конверсия'}</div>
+              <div style="font-size:10px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.05em;">${uz ? 'Konv.' : 'Конверсия'}</div>
               <div style="font-weight:700;font-size:16px;color:${stdConv>=30?'var(--accent-strong)':stdConv>=15?'var(--amber)':'var(--red-bad)'};">${stdConv}%</div>
             </div>` : ''}
             ${i > 0 ? `<div style="text-align:right;">
@@ -8283,30 +8299,64 @@ async function renderTunnelConversionSection(){
         </div>
       </div>`;
     }).join('');
+  }
 
-    // ── Блок 2: По стадиям внутри каждой воронки ─────────────────────────────
-    const stageBlocks = lastFunnels.map(f => {
-      const counts = entryCountsMap[f.id] || {};
+  // Показываем туннель сразу — не ждём историю стадий
+  {
+    const b = getBody();
+    if(!b) return; // пользователь ушёл со страницы
+    b.innerHTML = `
+      <div class="modal-note" style="margin-bottom:16px;">
+        ${uz
+          ? `Tunnel — CONTACT_ID bo'yicha klientlar bir nechta voronkada birlashtiriladi. Davr: ${periodLabel}.`
+          : `Туннель: клиенты сопоставляются по CONTACT_ID через несколько воронок. Период: ${periodLabel}.`}
+      </div>
+      <div style="margin-bottom:28px;" id="tunnelFunnelRows">${buildTunnelRows(contactResults)}</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:12px;padding-top:8px;border-top:1px solid var(--line);">
+        ${uz ? 'Bosqichlar bo\'yicha konversiya' : 'Конверсия по стадиям'}
+      </div>
+      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:16px;">
+        ${uz ? 'Har qachon bosqichdan o\'tgan bitimlar soni (tarixdan).' : 'Количество сделок, когда-либо прошедших через стадию (из истории переходов).'}
+      </div>
+      <div id="tunnelStageBlocks" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
+        <div style="color:var(--ink-soft);font-size:13px;grid-column:1/-1;">${t('loadingText')}</div>
+      </div>`;
+  }
+
+  // ── Фаза 2: медленная — история стадий, загружаем по одной воронке ────────
+  // Поочерёдно, чтобы не забивать очередь запросов и чтобы первые воронки
+  // показывались сразу, не дожидаясь последних
+  const entryCountsMap = {};
+  const stageBlockEls = [];
+
+  for(let i = 0; i < snapFunnels.length; i++){
+    const f = snapFunnels[i];
+    // Проверяем, что пользователь всё ещё на странице
+    const stageContainer = document.getElementById('tunnelStageBlocks');
+    if(!stageContainer) return;
+
+    try{
+      const counts = await fetchFunnelEntryCounts(snapConn.webhook, f.id, currentPeriod);
+      entryCountsMap[f.id] = counts;
+
       const activeStages = f.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
       const firstEver = activeStages.length > 0 ? (counts[activeStages[0].id] || 0) : 0;
-      if(!activeStages.length || firstEver === 0) return '';
+      if(!activeStages.length || firstEver === 0) continue;
 
-      const stageRows = activeStages.map((s, i) => {
+      const stageRows = activeStages.map((s, si) => {
         const everEntered = counts[s.id] || 0;
-        const prev = i > 0 ? activeStages[i-1] : null;
+        const prev = si > 0 ? activeStages[si-1] : null;
         const prevEver = prev ? (counts[prev.id] || 0) : 0;
         const convFromPrev = (prev && prevEver > 0) ? Math.round(100 * everEntered / prevEver) : null;
         const convFromFirst = firstEver > 0 ? Math.round(100 * everEntered / firstEver) : 0;
-        const barPct = convFromFirst;
         const convColor = convFromPrev === null ? '' : convFromPrev >= 50 ? 'color:var(--accent-strong)' : convFromPrev >= 30 ? 'color:var(--amber)' : 'color:var(--red-bad)';
         const arrowHtml = convFromPrev !== null
-          ? `<div style="font-size:11px;${convColor};padding:1px 0 1px 12px;">↓ ${convFromPrev}%</div>`
-          : '';
+          ? `<div style="font-size:11px;${convColor};padding:1px 0 1px 12px;">↓ ${convFromPrev}%</div>` : '';
         return arrowHtml + `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
           <div style="flex:1;min-width:0;">
             <div style="font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.name)}</div>
             <div style="height:5px;background:var(--overlay-2);border-radius:3px;overflow:hidden;margin-top:2px;">
-              <div style="height:100%;width:${barPct}%;background:var(--blue);border-radius:3px;opacity:.7;"></div>
+              <div style="height:100%;width:${convFromFirst}%;background:var(--blue);border-radius:3px;opacity:.7;"></div>
             </div>
           </div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;min-width:32px;text-align:right;">${everEntered}</div>
@@ -8314,33 +8364,30 @@ async function renderTunnelConversionSection(){
         </div>`;
       }).join('');
 
-      return `<div class="analytics-section">
+      stageBlockEls.push(`<div class="analytics-section">
         <div class="analytics-title" style="font-size:13px;">${escapeHtml(f.name)}</div>
         ${stageRows}
-      </div>`;
-    }).filter(Boolean).join('');
+      </div>`);
 
-    const currency = getDisplayCurrency();
-    const periodLabel = currentPeriod.from && currentPeriod.to
-      ? `${currentPeriod.from} — ${currentPeriod.to}` : (uz ? 'Tanlangan davr' : 'Выбранный период');
+      // Обновляем DOM после каждой воронки — пользователь видит прогресс
+      const sc = document.getElementById('tunnelStageBlocks');
+      if(sc) sc.innerHTML = stageBlockEls.join('') ||
+        `<div style="color:var(--ink-soft);font-size:13px;grid-column:1/-1;">${uz ? 'Tarix mavjud emas' : 'История переходов пуста'}</div>`;
+    }catch(e){
+      // Ошибка по одной воронке — показываем заглушку и идём дальше
+      stageBlockEls.push(`<div class="analytics-section">
+        <div class="analytics-title" style="font-size:13px;">${escapeHtml(f.name)}</div>
+        <div style="font-size:12px;color:var(--red-bad);">${escapeHtml(e.message || String(e))}</div>
+      </div>`);
+      const sc = document.getElementById('tunnelStageBlocks');
+      if(sc) sc.innerHTML = stageBlockEls.join('');
+    }
+  }
 
-    body.innerHTML = `
-      <div class="modal-note" style="margin-bottom:16px;">
-        ${uz
-          ? `Tunnel — bir klient bir nechta voronkada ko'rinadi (CONTACT_ID bo'yicha). Birinchi voronkaga kirgan va keyingi voronkaga o'tgan klientlar soni ko'rsatiladi. Davr: ${periodLabel}.`
-          : `Туннель — один клиент виден в нескольких воронках (сопоставление по CONTACT_ID). Показано, сколько клиентов вошло в первую воронку и прошло дальше. Период: ${periodLabel}.`}
-      </div>
-      <div style="margin-bottom:28px;">${tunnelRows}</div>
-      <div style="font-weight:700;font-size:15px;margin-bottom:12px;padding-top:8px;border-top:1px solid var(--line);">
-        ${uz ? 'Har bir voronkadagi bosqichlar bo\'yicha konversiya' : 'Конверсия по стадиям в каждой воронке'}
-      </div>
-      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:16px;">
-        ${uz ? 'HECH QACHON o\'tgan bitimlar soni (tarixdan), joriy snapshotdan farqli.' : 'Количество заявок, КОГДА-ЛИБО прошедших через стадию (из истории переходов), а не текущий снимок.'}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">${stageBlocks}</div>
-    `;
-  }catch(e){
-    body.innerHTML = `<div class="modal-note" style="color:var(--red-bad)">${escapeHtml(e.message || String(e))}</div>`;
+  // Финальный апдейт если ни одной воронки не дало данных
+  const sc = document.getElementById('tunnelStageBlocks');
+  if(sc && stageBlockEls.length === 0){
+    sc.innerHTML = `<div style="color:var(--ink-soft);font-size:13px;grid-column:1/-1;">${uz ? 'Tarix mavjud emas' : 'История переходов пуста'}</div>`;
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
