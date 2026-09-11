@@ -3305,15 +3305,17 @@ async function fetchStageHistoryAll(webhook, params){
   const firstItems = (first.result && Array.isArray(first.result.items)) ? first.result.items : [];
   const total = typeof first.total === 'number' ? first.total : firstItems.length;
   if(!first.next || total <= PAGE_SIZE) return firstItems;
-  // Остальные страницы — параллельно через batch (до 50 страниц в одном HTTP-вызове)
+  // Остальные страницы — через batch, но небольшими чанками чтобы не перегружать сервер.
+  // crm.stagehistory.list — тяжёлый метод, 50 в одном batch вызывает таймаут на слабых серверах.
+  // Чанки обрабатываем последовательно (не Promise.all) — каждый batch ждёт предыдущего.
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let s = PAGE_SIZE; s < cappedTotal; s += PAGE_SIZE) starts.push(s);
-  const BATCH_CHUNK = 50;
+  const BATCH_CHUNK = 10; // уменьшено с 50: stagehistory тяжелее обычных list-методов
   let all = [...firstItems];
   const chunks = [];
   for(let i = 0; i < starts.length; i += BATCH_CHUNK) chunks.push(starts.slice(i, i + BATCH_CHUNK));
-  await Promise.all(chunks.map(async chunk => {
+  for(const chunk of chunks){
     const cmd = {};
     chunk.forEach((s, i) => {
       const qs = new URLSearchParams();
@@ -3330,7 +3332,7 @@ async function fetchStageHistoryAll(webhook, params){
         ? batchResult.result[key].items : [];
       all = all.concat(items);
     });
-  }));
+  }
   return all;
 }
 
