@@ -3113,7 +3113,9 @@ async function callBatchRaw(webhook, cmd, attempt){
   // вебхуке (сам вебхук отвечает за <0.5 сек — проверено вручную), и весь Promise.all в
   // callBatch() падает из-за одного медленного чанка. Подняли лимит и добавили повтор ниже —
   // таймаут тут не значит "сломано", чаще просто "в этот раз Bitrix24 ответил медленнее".
-  const timeout = setTimeout(() => controller.abort(), 90000);
+  // 30с на один запрос (было 90с) — маленькие чанки (10 команд) укладываются легко;
+  // если медленный сервер не отвечает — быстро ловим и ретраим, не ждём 4.5 минуты.
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try{
     const body = new URLSearchParams();
     body.append('halt', '0');
@@ -3142,8 +3144,8 @@ async function callBatchRaw(webhook, cmd, attempt){
   }catch(e){
     clearTimeout(timeout);
     if(e.name === 'AbortError'){
-      if(attempt < 2){
-        await sleep(500 * (attempt + 1));
+      if(attempt < 4){
+        await sleep(1000 * (attempt + 1));
         return callBatchRaw(webhook, cmd, attempt + 1);
       }
       throw new Error('Превышено время ожидания batch-запроса.');
@@ -3156,14 +3158,15 @@ async function callBatchRaw(webhook, cmd, attempt){
   }
 }
 
-// calls: [{method, params}] — выполняет их одним (или несколькими, если больше 50) batch-запросом,
-// возвращает массив "сырых" result-массивов в том же порядке, что и calls
+// calls: [{method, params}] — выполняет их через batch, по CHUNK команд за запрос.
+// Уменьшено с 50 до 10: на медленных серверах (Utas) большой batch таймаутится — маленький проходит.
+// Чанки параллельны через очередь (REQUEST_CONCURRENCY=8), не Promise.all напрямую.
 async function callBatch(webhook, calls){
-  const CHUNK = 50; // лимит Bitrix24 на команд в одном batch
+  const CHUNK = 10;
   const out = new Array(calls.length);
   const chunks = [];
-  for(let i = 0; i < calls.length; i += CHUNK) chunks.push(calls.slice(i, i + CHUNK));
-  await Promise.all(chunks.map(async (chunk, chunkIdx) => {
+  for(let i = 0; i < calls.length; i += CHUNK) chunks.push({chunk: calls.slice(i, i + CHUNK), startIdx: i});
+  await Promise.all(chunks.map(async ({chunk, startIdx}) => {
     const cmd = {};
     chunk.forEach((c, i) => {
       const qs = new URLSearchParams();
@@ -3173,7 +3176,7 @@ async function callBatch(webhook, calls){
     const result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
     chunk.forEach((c, i) => {
       const key = 'c' + i;
-      out[chunkIdx * CHUNK + i] = (result.result_error && result.result_error[key])
+      out[startIdx + i] = (result.result_error && result.result_error[key])
         ? { __batchError: result.result_error[key].error_description || result.result_error[key].error }
         : (result.result ? result.result[key] : []) || [];
     });
