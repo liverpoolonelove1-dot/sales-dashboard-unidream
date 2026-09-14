@@ -4252,41 +4252,36 @@ async function loadDashboard(forceRefresh){
 
     const prevIsSameAsPrevMonth = periodIsMonth;
 
-    // Батчевая предзагрузка структуры стадий — вместо N отдельных HTTP-запросов (по одному
-    // на каждую воронку) объединяем все недостающие запросы stages+semantics в один batch-вызов.
-    // Для 5 воронок: было 10 HTTP-запросов → стало 1. Экономия ~1-2 сек на каждой загрузке.
+    // Предзагрузка структуры стадий через индивидуальные запросы, параллельно через очередь.
+    // Раньше делали 1 batch на все воронки — но на медленных серверах (Utas) один большой batch
+    // таймаутится (90с × 3 попытки = 270с ожидания), тогда как 10 лёгких запросов проходят быстро.
     if(conn.webhook){
       const funnelsNeedingStages = funnelsToLoad.filter(fn => !structureCache.stagesByFunnelId[fn.id]);
       const funnelsNeedingSem   = funnelsToLoad.filter(fn => !structureCache.semanticsByFunnelId[fn.id]);
-      if(funnelsNeedingStages.length > 0 || funnelsNeedingSem.length > 0){
-        const batchCalls = [];
-        const batchMeta = []; // {type:'stages'|'sem', funnelId}
-        funnelsNeedingStages.forEach(fn => {
-          batchCalls.push({method: 'crm.dealcategory.stage.list', params: {id: fn.id}});
-          batchMeta.push({type:'stages', funnelId: fn.id});
-        });
-        funnelsNeedingSem.forEach(fn => {
-          const entityId = (String(fn.id) === '0') ? 'DEAL_STAGE' : `DEAL_STAGE_${fn.id}`;
-          batchCalls.push({method: 'crm.status.list', params: {filter: {ENTITY_ID: entityId}}});
-          batchMeta.push({type:'sem', funnelId: fn.id});
-        });
-        try{
-          const batchResults = await callBatch(conn.webhook, batchCalls);
-          batchMeta.forEach((meta, i) => {
-            const res = batchResults[i];
-            if(meta.type === 'stages'){
-              const raw = Array.isArray(res) ? res : [];
-              structureCache.stagesByFunnelId[meta.funnelId] = raw.map(s => ({id: s.STATUS_ID, name: s.NAME}));
-            } else {
+      const structFetches = [];
+      funnelsNeedingStages.forEach(fn => {
+        structFetches.push(
+          callMethod(conn.webhook, 'crm.dealcategory.stage.list', {id: fn.id})
+            .then(d => {
+              const raw = Array.isArray(d.result) ? d.result : [];
+              structureCache.stagesByFunnelId[fn.id] = raw.map(s => ({id: s.STATUS_ID, name: s.NAME}));
+            })
+            .catch(() => {}) // воронка подхватит по отдельности ниже
+        );
+      });
+      funnelsNeedingSem.forEach(fn => {
+        const entityId = (String(fn.id) === '0') ? 'DEAL_STAGE' : `DEAL_STAGE_${fn.id}`;
+        structFetches.push(
+          callMethod(conn.webhook, 'crm.status.list', {filter: {ENTITY_ID: entityId}})
+            .then(d => {
               const semMap = {};
-              (Array.isArray(res) ? res : []).forEach(s => { semMap[s.STATUS_ID] = s.SEMANTICS; });
-              structureCache.semanticsByFunnelId[meta.funnelId] = Promise.resolve(semMap);
-            }
-          });
-        }catch(e){
-          // batch не прошёл — воронки подхватят stage/semantics по отдельности ниже (fallback)
-        }
-      }
+              (Array.isArray(d.result) ? d.result : []).forEach(s => { semMap[s.STATUS_ID] = s.SEMANTICS; });
+              structureCache.semanticsByFunnelId[fn.id] = Promise.resolve(semMap);
+            })
+            .catch(() => {})
+        );
+      });
+      if(structFetches.length > 0) await Promise.all(structFetches);
     }
 
     // Запускаем fetchUserNames параллельно с загрузкой сделок — экономит ~500ms на холодном кэше.
