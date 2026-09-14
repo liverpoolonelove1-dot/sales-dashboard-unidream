@@ -3071,7 +3071,7 @@ function appendParams(qs, prefix, value){
 // Раньше все страницы и все воронки запрашивались строго по одной — это и была
 // главная причина долгой загрузки. Теперь запросы идут с ограниченным параллелизмом
 // (несколько одновременно, но не разом все), а при ошибке лимита — автоматический повтор.
-const REQUEST_CONCURRENCY = 8; // было 6 — тестировали на Utas/Tift: 8 даёт ~25% прирост без роста 429
+const REQUEST_CONCURRENCY = 12; // 8→12: больше параллельных batch-запросов, быстрее на крупных объёмах
 let activeRequests = 0;
 const requestQueue = [];
 
@@ -3168,28 +3168,50 @@ async function callBatchRaw(webhook, cmd, attempt){
 }
 
 // calls: [{method, params}] — выполняет их через batch, по CHUNK команд за запрос.
-// chunkSize: кол-во команд в одном batch-запросе. Default=10 (безопасно на медленных серверах).
-// fetchAllPaged передаёт 25 — меньше HTTP-запросов при тех же гарантиях от таймаута.
+// Все чанки параллельны через очередь REQUEST_CONCURRENCY. Прогресс обновляется после каждого чанка.
+// Если batch с CHUNK=50 завис (таймаут) — автоматически разбиваем пополам и повторяем.
 async function callBatch(webhook, calls, chunkSize){
-  const CHUNK = chunkSize || 10;
+  const CHUNK = Math.min(chunkSize || 50, 50); // 50 — лимит Bitrix24 batch API
   const out = new Array(calls.length);
   const chunks = [];
   for(let i = 0; i < calls.length; i += CHUNK) chunks.push({chunk: calls.slice(i, i + CHUNK), startIdx: i});
-  await Promise.all(chunks.map(async ({chunk, startIdx}) => {
+
+  async function runChunk(chunk, startIdx, fallbackChunk){
     const cmd = {};
     chunk.forEach((c, i) => {
       const qs = new URLSearchParams();
       for(const k in c.params) appendParams(qs, k, c.params[k]);
       cmd['c' + i] = `${c.method}?${qs.toString()}`;
     });
-    const result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+    let result;
+    try{
+      result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+    }catch(e){
+      // При таймауте большого чанка — разбиваем пополам и ретраим каждую половину отдельно.
+      // Это даёт максимальный CHUNK=50 для быстрых серверов и автоматический fallback для медленных.
+      if(chunk.length > 1 && !fallbackChunk && e.message && e.message.includes('время ожидания')){
+        const half = Math.ceil(chunk.length / 2);
+        await Promise.all([
+          runChunk(chunk.slice(0, half), startIdx, true),
+          runChunk(chunk.slice(half), startIdx + half, true)
+        ]);
+        return;
+      }
+      throw e;
+    }
+    let added = 0;
     chunk.forEach((c, i) => {
       const key = 'c' + i;
-      out[startIdx + i] = (result.result_error && result.result_error[key])
+      const val = (result.result_error && result.result_error[key])
         ? { __batchError: result.result_error[key].error_description || result.result_error[key].error }
         : (result.result ? result.result[key] : []) || [];
+      out[startIdx + i] = val;
+      if(Array.isArray(val)) added += val.length;
     });
-  }));
+    if(added > 0) _updateLoadingProgress(added);
+  }
+
+  await Promise.all(chunks.map(({chunk, startIdx}) => runChunk(chunk, startIdx, false)));
   return out;
 }
 
@@ -3226,12 +3248,8 @@ async function callMethodRaw(webhook, method, qs, attempt){
   }
 }
 
-// opts.chunkSize: кол-во страниц пагинации в одном batch-запросе (default 25).
-// opts.onProgress(loaded, total): вызывается после каждого batch-чанка для UI-прогресса.
-async function fetchAllPaged(webhook, method, params, opts){
+async function fetchAllPaged(webhook, method, params){
   const MAX_RECORDS = 200000;
-  const chunkSize = (opts && opts.chunkSize) || 25;
-  const onProgress = (opts && opts.onProgress) || null;
   const first = await callMethod(webhook, method, {...params, start: 0});
   let all = Array.isArray(first.result) ? first.result.slice() : [];
   const total = typeof first.total === 'number' ? first.total : null;
@@ -3239,26 +3257,16 @@ async function fetchAllPaged(webhook, method, params, opts){
     if(total !== null) all.__total = total;
     return all;
   }
+  // Все оставшиеся страницы — через callBatch, параллельно через очередь REQUEST_CONCURRENCY.
+  // callBatch сам разбивает на чанки по 50 (лимит Bitrix24) и отслеживает прогресс.
   const pageSize = all.length;
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
   if(starts.length){
-    // Запускаем batch постепенно — по chunkSize страниц за один HTTP-запрос.
-    // После каждого чанка вызываем onProgress чтобы обновлять UI.
     const calls = starts.map(start => ({method, params: {...params, start}}));
-    const CHUNK = chunkSize;
-    const out = [];
-    for(let i = 0; i < calls.length; i += CHUNK){
-      const slice = calls.slice(i, i + CHUNK);
-      const prevLen = out.length;
-      const pages = await callBatch(webhook, slice, CHUNK);
-      pages.forEach(p => { if(Array.isArray(p)) out.push(...p); });
-      const added = out.length - prevLen;
-      if(added > 0) _updateLoadingProgress(added);
-      if(onProgress) onProgress(all.length + out.length, total);
-    }
-    all = all.concat(out);
+    const pages = await callBatch(webhook, calls);
+    pages.forEach(p => { if(Array.isArray(p)) all = all.concat(p); });
   }
   all.__total = total;
   all.__truncated = total > MAX_RECORDS;
