@@ -3249,7 +3249,6 @@ async function callMethodRaw(webhook, method, qs, attempt){
 }
 
 async function fetchAllPaged(webhook, method, params){
-  const MAX_RECORDS = 200000;
   const first = await callMethod(webhook, method, {...params, start: 0});
   let all = Array.isArray(first.result) ? first.result.slice() : [];
   const total = typeof first.total === 'number' ? first.total : null;
@@ -3260,16 +3259,14 @@ async function fetchAllPaged(webhook, method, params){
   // Все оставшиеся страницы — через callBatch, параллельно через очередь REQUEST_CONCURRENCY.
   // callBatch сам разбивает на чанки по 50 (лимит Bitrix24) и отслеживает прогресс.
   const pageSize = all.length;
-  const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
-  for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
+  for(let start = pageSize; start < total; start += pageSize) starts.push(start);
   if(starts.length){
     const calls = starts.map(start => ({method, params: {...params, start}}));
     const pages = await callBatch(webhook, calls);
     pages.forEach(p => { if(Array.isArray(p)) all = all.concat(p); });
   }
   all.__total = total;
-  all.__truncated = total > MAX_RECORDS;
   return all;
 }
 
@@ -3325,15 +3322,13 @@ async function fetchFieldOptions(webhook, fieldCode){
 // все оставшиеся страницы ПАРАЛЛЕЛЬНО через batch API, а не ждём каждую по очереди.
 async function fetchStageHistoryAll(webhook, params){
   const PAGE_SIZE = 50;
-  const MAX_RECORDS = 100000;
   // Первая страница — узнаём total
   const first = await callMethod(webhook, 'crm.stagehistory.list', {...params, start: 0});
   const firstItems = (first.result && Array.isArray(first.result.items)) ? first.result.items : [];
   const total = typeof first.total === 'number' ? first.total : firstItems.length;
   if(!first.next || total <= PAGE_SIZE) return firstItems;
-  const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
-  for(let s = PAGE_SIZE; s < cappedTotal; s += PAGE_SIZE) starts.push(s);
+  for(let s = PAGE_SIZE; s < total; s += PAGE_SIZE) starts.push(s);
   // BATCH_CHUNK=8 (было 5) — больше страниц за один запрос, меньше round-trips.
   // PARALLEL=5 (было 3) — больше параллельных batch-запросов одновременно.
   // Итог: ~4x меньше round-trips по сравнению с исходными значениями.
@@ -3594,17 +3589,14 @@ async function fetchTaskStats(webhook, period){
   const total = typeof first.total === 'number' ? first.total : null;
   if(!first.next || !total || all.length === 0) return all;
   const pageSize = all.length;
-  const MAX_RECORDS = 200000; // см. обоснование цифры в комментарии у fetchAllPaged выше
-  const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
-  for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
+  for(let start = pageSize; start < total; start += pageSize) starts.push(start);
   if(starts.length){
     const calls = starts.map(start => ({method: 'tasks.task.list', params: {filter, select, start}}));
     const pages = await callBatch(webhook, calls);
     pages.forEach(p => { if(p && p.tasks) all = all.concat(p.tasks); });
   }
   all.__total = total;
-  all.__truncated = total > MAX_RECORDS;
   return all;
 }
 
