@@ -3113,7 +3113,7 @@ async function callBatchRaw(webhook, cmd, attempt){
   // вебхуке (сам вебхук отвечает за <0.5 сек — проверено вручную), и весь Promise.all в
   // callBatch() падает из-за одного медленного чанка. Подняли лимит и добавили повтор ниже —
   // таймаут тут не значит "сломано", чаще просто "в этот раз Bitrix24 ответил медленнее".
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), 90000);
   try{
     const body = new URLSearchParams();
     body.append('halt', '0');
@@ -8157,9 +8157,15 @@ async function renderFunnelEntryStatsSection(){
     return;
   }
   try{
-    const results = await Promise.all(lastFunnels.map(f =>
-      fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod).then(counts => ({funnel: f, counts}))
-    ));
+    // Загружаем воронки последовательно — crm.stagehistory.list очень тяжёлый,
+    // параллельная загрузка всех воронок одновременно перегружала сервер Bitrix24 и вызывала таймаут.
+    const results = [];
+    for(let fi = 0; fi < lastFunnels.length; fi++){
+      const f = lastFunnels[fi];
+      body.innerHTML = `<div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')} (${fi+1}/${lastFunnels.length}: ${escapeHtml(f.name)})</div>`;
+      const counts = await fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod);
+      results.push({funnel: f, counts});
+    }
     const sections = results.map(({funnel, counts}) => {
       const activeStages = funnel.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
       const firstEverEntered = activeStages.length > 0 ? (counts[activeStages[0].id] || 0) : 0;
