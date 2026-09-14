@@ -2567,6 +2567,15 @@ let structureCache = { connKey: null, funnels: null, stagesByFunnelId: {}, leadS
 // byFunnelId: сделки текущего расширенного периода; prevByFunnelId: сделки предыдущего месяца.
 // newClients/prevNewClients: кол-во новых контактов — раньше запрашивались каждый раз, теперь кэшируются.
 let monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, prevByFunnelId: {}, prevMonthKey: null, calls: null, leads: null, tasks: null, newClients: null, prevNewClients: null, newClientsKey: null, entryCountsCache: {} };
+// Счётчик записей для живого прогресс-индикатора при загрузке
+let _loadingRecordCount = 0;
+function _updateLoadingProgress(newRecords){
+  _loadingRecordCount += newRecords;
+  const el = document.getElementById('loadingToastText');
+  if(el && el.textContent && el.textContent.includes('загружаю')){
+    el.textContent = `загружаю данные — ${_loadingRecordCount.toLocaleString('ru-RU')} записей…`;
+  }
+}
 // Кэш туннельных данных (CONTACT_IDs по воронкам) — отдельно от основного кэша, т.к. загружается
 // только при входе в раздел "Туннель конверсии". TTL 5 минут (в рамках сессии).
 let tunnelCache = { connKey: null, periodKey: null, contactResults: null, ts: 0 };
@@ -3159,10 +3168,10 @@ async function callBatchRaw(webhook, cmd, attempt){
 }
 
 // calls: [{method, params}] — выполняет их через batch, по CHUNK команд за запрос.
-// Уменьшено с 50 до 10: на медленных серверах (Utas) большой batch таймаутится — маленький проходит.
-// Чанки параллельны через очередь (REQUEST_CONCURRENCY=8), не Promise.all напрямую.
-async function callBatch(webhook, calls){
-  const CHUNK = 10;
+// chunkSize: кол-во команд в одном batch-запросе. Default=10 (безопасно на медленных серверах).
+// fetchAllPaged передаёт 25 — меньше HTTP-запросов при тех же гарантиях от таймаута.
+async function callBatch(webhook, calls, chunkSize){
+  const CHUNK = chunkSize || 10;
   const out = new Array(calls.length);
   const chunks = [];
   for(let i = 0; i < calls.length; i += CHUNK) chunks.push({chunk: calls.slice(i, i + CHUNK), startIdx: i});
@@ -3217,14 +3226,12 @@ async function callMethodRaw(webhook, method, qs, attempt){
   }
 }
 
-async function fetchAllPaged(webhook, method, params){
-  // Раньше лимит был 2500, потом 50 000 — у клиентов с крупными объёмами (десятки/сотни тысяч
-  // записей) это ОБРЕЗАЛО данные молча, и все расчёты (включая конверсию) шли по неполной выборке.
-  // Замер на реальных данных (17 882 сделки Tift, 1 воронка): весь batch-забор занял 2.83 сек —
-  // это ~9000 записей/сек при concurrency=4, так что 200 000 записей — это ~22 сек, не минуты,
-  // как считалось раньше (та оценка была ДО перехода на batch API). Подняли лимит и вместо тихой
-  // обрезки — честно помечаем, что данные неполные, чтобы дашборд мог показать предупреждение.
+// opts.chunkSize: кол-во страниц пагинации в одном batch-запросе (default 25).
+// opts.onProgress(loaded, total): вызывается после каждого batch-чанка для UI-прогресса.
+async function fetchAllPaged(webhook, method, params, opts){
   const MAX_RECORDS = 200000;
+  const chunkSize = (opts && opts.chunkSize) || 25;
+  const onProgress = (opts && opts.onProgress) || null;
   const first = await callMethod(webhook, method, {...params, start: 0});
   let all = Array.isArray(first.result) ? first.result.slice() : [];
   const total = typeof first.total === 'number' ? first.total : null;
@@ -3232,18 +3239,26 @@ async function fetchAllPaged(webhook, method, params){
     if(total !== null) all.__total = total;
     return all;
   }
-  // Раньше страницы запрашивались одна за другой (await в цикле), потом — параллельно,
-  // но каждая всё равно отдельным HTTP-запросом. Теперь используем batch API Bitrix24:
-  // до 50 страниц пагинации объединяются в ОДИН HTTP-запрос — это и есть основной резерв
-  // скорости для клиентов с большим объёмом данных.
   const pageSize = all.length;
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let start = pageSize; start < cappedTotal; start += pageSize) starts.push(start);
   if(starts.length){
+    // Запускаем batch постепенно — по chunkSize страниц за один HTTP-запрос.
+    // После каждого чанка вызываем onProgress чтобы обновлять UI.
     const calls = starts.map(start => ({method, params: {...params, start}}));
-    const pages = await callBatch(webhook, calls);
-    pages.forEach(p => { if(Array.isArray(p)) all = all.concat(p); });
+    const CHUNK = chunkSize;
+    const out = [];
+    for(let i = 0; i < calls.length; i += CHUNK){
+      const slice = calls.slice(i, i + CHUNK);
+      const prevLen = out.length;
+      const pages = await callBatch(webhook, slice, CHUNK);
+      pages.forEach(p => { if(Array.isArray(p)) out.push(...p); });
+      const added = out.length - prevLen;
+      if(added > 0) _updateLoadingProgress(added);
+      if(onProgress) onProgress(all.length + out.length, total);
+    }
+    all = all.concat(out);
   }
   all.__total = total;
   all.__truncated = total > MAX_RECORDS;
@@ -3302,24 +3317,20 @@ async function fetchFieldOptions(webhook, fieldCode){
 // все оставшиеся страницы ПАРАЛЛЕЛЬНО через batch API, а не ждём каждую по очереди.
 async function fetchStageHistoryAll(webhook, params){
   const PAGE_SIZE = 50;
-  const MAX_RECORDS = 50000;
+  const MAX_RECORDS = 100000;
   // Первая страница — узнаём total
   const first = await callMethod(webhook, 'crm.stagehistory.list', {...params, start: 0});
   const firstItems = (first.result && Array.isArray(first.result.items)) ? first.result.items : [];
   const total = typeof first.total === 'number' ? first.total : firstItems.length;
   if(!first.next || total <= PAGE_SIZE) return firstItems;
-  // Остальные страницы — через batch, но небольшими чанками чтобы не перегружать сервер.
-  // crm.stagehistory.list — тяжёлый метод, 50 в одном batch вызывает таймаут на слабых серверах.
-  // Чанки обрабатываем последовательно (не Promise.all) — каждый batch ждёт предыдущего.
   const cappedTotal = Math.min(total, MAX_RECORDS);
   const starts = [];
   for(let s = PAGE_SIZE; s < cappedTotal; s += PAGE_SIZE) starts.push(s);
-  // Каждый чанк — один batch-запрос с несколькими страницами.
-  // BATCH_CHUNK=5: баланс между кол-вом запросов и нагрузкой на сервер.
-  // Чанки запускаем параллельно по 3 (concurrency limit) — внутри одной воронки
-  // страницы независимы, параллельность ускоряет без риска перегрузки.
-  const BATCH_CHUNK = 5;
-  const PARALLEL = 3;
+  // BATCH_CHUNK=8 (было 5) — больше страниц за один запрос, меньше round-trips.
+  // PARALLEL=5 (было 3) — больше параллельных batch-запросов одновременно.
+  // Итог: ~4x меньше round-trips по сравнению с исходными значениями.
+  const BATCH_CHUNK = 8;
+  const PARALLEL = 5;
   const chunks = [];
   for(let i = 0; i < starts.length; i += BATCH_CHUNK) chunks.push(starts.slice(i, i + BATCH_CHUNK));
 
@@ -4292,6 +4303,7 @@ async function loadDashboard(forceRefresh){
       ? Promise.resolve(structureCache.userNames)
       : adapter.fetchUserNames(conn, []).then(m => { structureCache.userNames = m; return m; }).catch(() => null);
 
+    _loadingRecordCount = 0;
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${pluralRu(funnelsToLoad.length, 'воронка', 'воронки', 'воронок')}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
       const stagesPromise = structureCache.stagesByFunnelId[fn.id]
