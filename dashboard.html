@@ -3124,7 +3124,7 @@ async function callBatchRaw(webhook, cmd, attempt){
   // таймаут тут не значит "сломано", чаще просто "в этот раз Bitrix24 ответил медленнее".
   // 30с на один запрос (было 90с) — маленькие чанки (10 команд) укладываются легко;
   // если медленный сервер не отвечает — быстро ловим и ретраим, не ждём 4.5 минуты.
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 60000); // 60с: Utas и другие медленные серверы отвечают за 35-50с
   try{
     const body = new URLSearchParams();
     body.append('halt', '0');
@@ -3169,14 +3169,14 @@ async function callBatchRaw(webhook, cmd, attempt){
 
 // calls: [{method, params}] — выполняет их через batch, по CHUNK команд за запрос.
 // Все чанки параллельны через очередь REQUEST_CONCURRENCY. Прогресс обновляется после каждого чанка.
-// Если batch с CHUNK=50 завис (таймаут) — автоматически разбиваем пополам и повторяем.
+// При таймауте — автоматически разбивает пополам и повторяет рекурсивно вплоть до chunk=1.
 async function callBatch(webhook, calls, chunkSize){
   const CHUNK = Math.min(chunkSize || 50, 50); // 50 — лимит Bitrix24 batch API
   const out = new Array(calls.length);
   const chunks = [];
   for(let i = 0; i < calls.length; i += CHUNK) chunks.push({chunk: calls.slice(i, i + CHUNK), startIdx: i});
 
-  async function runChunk(chunk, startIdx, fallbackChunk){
+  async function runChunk(chunk, startIdx){
     const cmd = {};
     chunk.forEach((c, i) => {
       const qs = new URLSearchParams();
@@ -3187,13 +3187,13 @@ async function callBatch(webhook, calls, chunkSize){
     try{
       result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
     }catch(e){
-      // При таймауте большого чанка — разбиваем пополам и ретраим каждую половину отдельно.
-      // Это даёт максимальный CHUNK=50 для быстрых серверов и автоматический fallback для медленных.
-      if(chunk.length > 1 && !fallbackChunk && e.message && e.message.includes('время ожидания')){
+      // При таймауте — рекурсивно делим пополам пока chunk > 1.
+      // Это даёт CHUNK=50 для быстрых серверов и автоматическую деградацию до CHUNK=1 для медленных.
+      if(chunk.length > 1 && e.message && e.message.includes('время ожидания')){
         const half = Math.ceil(chunk.length / 2);
         await Promise.all([
-          runChunk(chunk.slice(0, half), startIdx, true),
-          runChunk(chunk.slice(half), startIdx + half, true)
+          runChunk(chunk.slice(0, half), startIdx),
+          runChunk(chunk.slice(half), startIdx + half)
         ]);
         return;
       }
@@ -3211,7 +3211,7 @@ async function callBatch(webhook, calls, chunkSize){
     if(added > 0) _updateLoadingProgress(added);
   }
 
-  await Promise.all(chunks.map(({chunk, startIdx}) => runChunk(chunk, startIdx, false)));
+  await Promise.all(chunks.map(({chunk, startIdx}) => runChunk(chunk, startIdx)));
   return out;
 }
 
@@ -4326,7 +4326,8 @@ async function loadDashboard(forceRefresh){
                 monthDealsCache.prevMonthKey = prevMonthKeyNow;
                 return d;
               });
-        return Promise.all([stagesPromise, monthDealsPromise, prevDealsPromise]);
+        return Promise.all([stagesPromise, monthDealsPromise, prevDealsPromise])
+          .catch(e => { logError('funnel ' + fn.id, e.message, e.stack); return [structureCache.stagesByFunnelId[fn.id] || [], {__funnelError: e.message}, []]; });
       }
 
       const promises = [
@@ -4336,14 +4337,21 @@ async function loadDashboard(forceRefresh){
         prevIsSameAsPrevMonth ? null : adapter.fetchDeals(conn, fn.id, prevMonthRange)
       ];
       if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod));
-      return Promise.all(promises);
+      return Promise.all(promises)
+        .catch(e => { logError('funnel ' + fn.id, e.message, e.stack); return [structureCache.stagesByFunnelId[fn.id] || [], {__funnelError: e.message}, null, null]; });
     }));
 
     const funnels = [];
+    const funnelErrors = []; // воронки, которые не загрузились из-за ошибки
     dataMayBeTruncated = false;
     for(let i = 0; i < funnelsToLoad.length; i++){
       const fn = funnelsToLoad[i];
       const results = funnelFetches[i];
+      // Если воронка не загрузилась (таймаут или другая ошибка) — пропускаем, не роняем дашборд
+      if(results[1] && results[1].__funnelError){
+        funnelErrors.push({name: fn.name, error: results[1].__funnelError});
+        continue;
+      }
       const stageOrder = results[0];
       let deals, monthDeals, prevDeals, prevMonthDeals;
       if(canUseMonthCache){
@@ -4691,7 +4699,8 @@ async function loadDashboard(forceRefresh){
     }, 0);
 
     statusLine.className = 'status-line ok';
-    statusLine.textContent = `Подключено (${adapter.name}) · найдено воронок: ${displayFunnels.length}`;
+    const funnelErrNote = funnelErrors.length ? ` · ⚠ ${funnelErrors.length} ${pluralRu(funnelErrors.length,'воронка','воронки','воронок')} не загрузились` : '';
+    statusLine.textContent = `Подключено (${adapter.name}) · найдено воронок: ${displayFunnels.length}${funnelErrNote}`;
     helpBox.style.display = 'none';
     refreshBtn.style.display = 'inline-block';
     disconnectBtn.style.display = 'inline-block';
@@ -4705,6 +4714,15 @@ async function loadDashboard(forceRefresh){
     document.getElementById('errorLogBtn').style.display = 'flex';
     document.getElementById('notifBtn').style.display = 'flex';
     showSearchBar();
+    // Если какие-то воронки не загрузились — показываем баннер ВНУТРИ дашборда, не сбрасываем на экран подключения
+    if(funnelErrors.length){
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:var(--warn-bg,#3a2a00);color:var(--warn-ink,#f5c542);padding:10px 16px;border-radius:8px;margin:12px 0;font-size:13px;';
+      banner.innerHTML = `⚠ Не удалось загрузить данные для ${funnelErrors.length === 1 ? 'воронки' : 'воронок'}: <b>${funnelErrors.map(e=>escapeHtml(e.name)).join(', ')}</b>. Сервер не отвечает. <a href="#" onclick="loadDashboard(true);return false;" style="color:inherit;text-decoration:underline;">Обновить</a>`;
+      const content = document.getElementById('content') || document.querySelector('.kpis');
+      if(content && content.parentNode) content.parentNode.insertBefore(banner, content);
+      funnelErrors.forEach(fe => logError('funnel load', fe.name + ': ' + fe.error, null));
+    }
     logInfo('CRM Connection', `Данные загружены успешно: ${funnels.length} воронок, ${managers.length} менеджеров`);
     checkAndNotify();
     applyEditorConfig();
@@ -4714,7 +4732,26 @@ async function loadDashboard(forceRefresh){
 
   }catch(e){
     if(myRequestId !== loadRequestId) return; // устаревший запрос — не перекрываем ошибкой то, что уже показал более новый
-    const errMsg = e.message || 'не удалось получить данные'; logError('CRM Connection', errMsg, e.stack || null); renderError(errMsg + '. Проверьте данные подключения и права доступа.', e);
+    const errMsg = e.message || 'не удалось получить данные';
+    logError('CRM Connection', errMsg, e.stack || null);
+    // Таймаут batch-запроса — это проблема скорости сервера, не подключения.
+    // НЕ сбрасываем на экран подключения — показываем ошибку в статус-строке, дашборд остаётся.
+    const isTimeout = errMsg.includes('время ожидания') || errMsg.includes('таймаут');
+    const isAuthError = errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('прав доступа');
+    if(isTimeout && hasLoadedOnce){
+      statusLine.className = 'status-line err';
+      statusLine.textContent = `Ошибка загрузки: сервер не отвечает. Данные могут быть устаревшими. Нажмите ↻`;
+      hideLoadingToast();
+    } else if(isTimeout && !isAuthError){
+      // Первая загрузка и таймаут — показываем ошибку но НЕ через renderError (не сбрасываем вебхук)
+      statusLine.className = 'status-line err';
+      statusLine.textContent = `Ошибка: ${errMsg}. Сервер медленный — попробуйте ещё раз.`;
+      hideLoadingToast();
+      connectBtn.disabled = false;
+      connectBtn.textContent = 'Подключить';
+    } else {
+      renderError(errMsg + '. Проверьте данные подключения и права доступа.', e);
+    }
   }finally{
     if(myRequestId === loadRequestId){
       connectBtn.disabled = false;
