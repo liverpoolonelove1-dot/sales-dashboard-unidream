@@ -3330,11 +3330,10 @@ async function fetchStageHistoryAll(webhook, params){
   if(!first.next || total <= PAGE_SIZE) return firstItems;
   const starts = [];
   for(let s = PAGE_SIZE; s < total; s += PAGE_SIZE) starts.push(s);
-  // BATCH_CHUNK=8 (было 5) — больше страниц за один запрос, меньше round-trips.
-  // PARALLEL=5 (было 3) — больше параллельных batch-запросов одновременно.
-  // Итог: ~4x меньше round-trips по сравнению с исходными значениями.
-  const BATCH_CHUNK = 8;
-  const PARALLEL = 5;
+  // BATCH_CHUNK=50 — максимум Bitrix24 batch API, минимум round-trips.
+  // Все чанки параллельны через глобальную очередь REQUEST_CONCURRENCY (как callBatch).
+  // 120k записей: 2400 страниц → 48 batch-запросов (было: 300 при BATCH_CHUNK=8).
+  const BATCH_CHUNK = 50;
   const chunks = [];
   for(let i = 0; i < starts.length; i += BATCH_CHUNK) chunks.push(starts.slice(i, i + BATCH_CHUNK));
 
@@ -3355,17 +3354,15 @@ async function fetchStageHistoryAll(webhook, params){
       const pageItems = batchResult.result && batchResult.result[key] && Array.isArray(batchResult.result[key].items)
         ? batchResult.result[key].items : [];
       items.push(...pageItems);
+      if(pageItems.length > 0) _updateLoadingProgress(pageItems.length);
     });
     return items;
   }
 
-  // Запускаем чанки параллельно, но не более PARALLEL одновременно
+  // Все чанки параллельно — enqueueRequest внутри runChunk ограничивает до REQUEST_CONCURRENCY
+  const results = await Promise.all(chunks.map(runChunk));
   let all = [...firstItems];
-  for(let i = 0; i < chunks.length; i += PARALLEL){
-    const batch = chunks.slice(i, i + PARALLEL);
-    const results = await Promise.all(batch.map(runChunk));
-    results.forEach(items => { all = all.concat(items); });
-  }
+  results.forEach(items => { all = all.concat(items); });
   return all;
 }
 
