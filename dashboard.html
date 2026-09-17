@@ -3071,7 +3071,7 @@ function appendParams(qs, prefix, value){
 // Раньше все страницы и все воронки запрашивались строго по одной — это и была
 // главная причина долгой загрузки. Теперь запросы идут с ограниченным параллелизмом
 // (несколько одновременно, но не разом все), а при ошибке лимита — автоматический повтор.
-const REQUEST_CONCURRENCY = 12; // 8→12: больше параллельных batch-запросов, быстрее на крупных объёмах
+const REQUEST_CONCURRENCY = 8; // 12 перегружало слабые серверы (Utas) и вызывало connection drop → вернули 8
 let activeRequests = 0;
 const requestQueue = [];
 
@@ -3159,8 +3159,9 @@ async function callBatchRaw(webhook, cmd, attempt){
       }
       throw new Error('Превышено время ожидания batch-запроса.');
     }
-    if(e instanceof TypeError && attempt < 3){
-      await sleep(500 * (attempt + 1));
+    if(e instanceof TypeError && attempt < 5){
+      // Failed to fetch: сервер сбросил соединение. Экспоненциальная пауза перед ретраем.
+      await sleep(Math.min(1000 * Math.pow(2, attempt), 16000));
       return callBatchRaw(webhook, cmd, attempt + 1);
     }
     throw e;
@@ -3240,8 +3241,8 @@ async function callMethodRaw(webhook, method, qs, attempt){
     if(e.name === 'AbortError') throw new Error('Превышено время ожидания (15 сек). Проверьте соединение.');
     // Сбой на уровне самого браузера (обрыв соединения, временная блокировка CORS,
     // "Load failed" в Safari) — раньше падало сразу без повтора. Теперь пробуем ещё раз с паузой.
-    if(e instanceof TypeError && attempt < 3){
-      await sleep(500 * (attempt + 1));
+    if(e instanceof TypeError && attempt < 5){
+      await sleep(Math.min(1000 * Math.pow(2, attempt), 16000));
       return callMethodRaw(webhook, method, qs, attempt + 1);
     }
     throw e;
@@ -4734,18 +4735,32 @@ async function loadDashboard(forceRefresh){
     if(myRequestId !== loadRequestId) return; // устаревший запрос — не перекрываем ошибкой то, что уже показал более новый
     const errMsg = e.message || 'не удалось получить данные';
     logError('CRM Connection', errMsg, e.stack || null);
-    // Таймаут batch-запроса — это проблема скорости сервера, не подключения.
-    // НЕ сбрасываем на экран подключения — показываем ошибку в статус-строке, дашборд остаётся.
     const isTimeout = errMsg.includes('время ожидания') || errMsg.includes('таймаут');
+    const isNetworkErr = e instanceof TypeError || errMsg.toLowerCase().includes('failed to fetch') || errMsg.toLowerCase().includes('load failed') || errMsg.toLowerCase().includes('networkerror');
     const isAuthError = errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('прав доступа');
-    if(isTimeout && hasLoadedOnce){
+
+    // Сетевая ошибка ("Failed to fetch") — сервер временно недоступен.
+    // Автоматически ретраим через 4с (один раз) — часто это кратковременный сбой.
+    if(isNetworkErr && !isAuthError && !forceRefresh && !loadDashboard._networkRetrying){
+      loadDashboard._networkRetrying = true;
       statusLine.className = 'status-line err';
-      statusLine.textContent = `Ошибка загрузки: сервер не отвечает. Данные могут быть устаревшими. Нажмите ↻`;
+      statusLine.textContent = 'Сервер не ответил — повторная попытка через 4 сек…';
       hideLoadingToast();
-    } else if(isTimeout && !isAuthError){
-      // Первая загрузка и таймаут — показываем ошибку но НЕ через renderError (не сбрасываем вебхук)
+      connectBtn.disabled = false;
+      connectBtn.textContent = 'Подключить';
+      setTimeout(() => { loadDashboard._networkRetrying = false; loadDashboard(); }, 4000);
+      return;
+    }
+    loadDashboard._networkRetrying = false;
+
+    // Таймаут или сетевая ошибка — не сбрасываем на экран подключения
+    if((isTimeout || isNetworkErr) && hasLoadedOnce){
       statusLine.className = 'status-line err';
-      statusLine.textContent = `Ошибка: ${errMsg}. Сервер медленный — попробуйте ещё раз.`;
+      statusLine.textContent = 'Сервер не отвечает. Данные могут быть устаревшими. Нажмите ↻';
+      hideLoadingToast();
+    } else if((isTimeout || isNetworkErr) && !isAuthError){
+      statusLine.className = 'status-line err';
+      statusLine.textContent = `Сервер недоступен. Попробуйте ещё раз.`;
       hideLoadingToast();
       connectBtn.disabled = false;
       connectBtn.textContent = 'Подключить';
