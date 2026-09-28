@@ -3581,11 +3581,14 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
   return promise;
 }
 
-async function fetchDealsForCategory(webhook, categoryId, period){
+// opts.wonOnly — только выигранные сделки (фильтр на стороне Bitrix24). Для прошлых периодов дашборду
+// нужна лишь сумма выигранных, а раньше грузились ВСЕ сделки прошлого месяца — второй полный объём.
+async function fetchDealsForCategory(webhook, categoryId, period, opts = {}){
   const DEAL_SELECT = ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID'];
   const lossReasonField = currentAddons.customLossReasonField || null;
   if(lossReasonField) DEAL_SELECT.push(lossReasonField);
   const filter = {CATEGORY_ID: categoryId};
+  if(opts.wonOnly) filter.STAGE_SEMANTIC_ID = 'S';
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   // Основной, проверенный путь — сделки, СОЗДАННЫЕ в периоде. Не трогаем эту часть вообще,
@@ -3603,7 +3606,7 @@ async function fetchDealsForCategory(webhook, categoryId, period){
       entityTypeId: 2, // сделки
       filter: {
         'CATEGORY_ID': categoryId,
-        '@STAGE_SEMANTIC_ID': ['S', 'F'], // только переходы в финальные стадии — выиграна/провалена
+        '@STAGE_SEMANTIC_ID': opts.wonOnly ? ['S'] : ['S', 'F'], // только переходы в финальные стадии — выиграна/провалена
         '>=CREATED_TIME': `${period.from} 00:00:00`,
         '<=CREATED_TIME': `${period.to} 23:59:59`
       },
@@ -3821,7 +3824,7 @@ const CRM_ADAPTERS = {
       const raw = await fetchStages(conn.webhook, funnelId);
       return raw.map(s => ({id: s.STATUS_ID, name: s.NAME}));
     },
-    async fetchDeals(conn, funnelId, period){
+    async fetchDeals(conn, funnelId, period, opts = {}){
       if(!structureCache.semanticsByFunnelId[funnelId]){
         structureCache.semanticsByFunnelId[funnelId] = fetchSemantics(conn.webhook, funnelId);
       }
@@ -3844,7 +3847,7 @@ const CRM_ADAPTERS = {
       if(!structureCache.sourceNamesPromise){
         structureCache.sourceNamesPromise = fetchSourceNames(conn.webhook).then(m => { portalSourceNames = m; return m; });
       }
-      const [raw] = await Promise.all([fetchDealsForCategory(conn.webhook, funnelId, period), structureCache.sourceNamesPromise]);
+      const [raw] = await Promise.all([fetchDealsForCategory(conn.webhook, funnelId, period, opts), structureCache.sourceNamesPromise]);
       const mapped = raw.map(d => ({
         id: d.ID,
         title: d.TITLE || '',
@@ -4494,7 +4497,7 @@ async function loadDashboard(forceRefresh){
         const prevDealsPromise = !prevPeriod ? Promise.resolve([])
           : (monthDealsCache.prevByFunnelId[fn.id] && monthDealsCache.prevMonthKey === prevMonthKeyNow)
             ? Promise.resolve(monthDealsCache.prevByFunnelId[fn.id])
-            : adapter.fetchDeals(conn, fn.id, prevPeriod).then(d => {
+            : adapter.fetchDeals(conn, fn.id, prevPeriod, {wonOnly: true}).then(d => {
                 monthDealsCache.prevByFunnelId[fn.id] = d;
                 monthDealsCache.prevMonthKey = prevMonthKeyNow;
                 return d;
@@ -4503,13 +4506,17 @@ async function loadDashboard(forceRefresh){
           .catch(e => { logError('funnel ' + fn.id, e.message, e.stack); return [structureCache.stagesByFunnelId[fn.id] || [], {__funnelError: e.message}, []]; });
       }
 
+      // «Всё время»: сделки этого и прошлого месяца — подмножество уже загружаемых «всех» сделок,
+      // отдельно их не качаем (раньше одна и та же база качалась до 4 раз). С preciseAccounting
+      // так нельзя — там месяц дополняется сделками, закрытыми в месяце, но созданными раньше.
+      const deriveFromAll = isAllTime && !addonEnabled('preciseAccounting');
       const promises = [
         stagesPromise,
         adapter.fetchDeals(conn, fn.id, currentPeriod),
-        periodIsMonth ? null : adapter.fetchDeals(conn, fn.id, thisMonthPeriod),
-        prevIsSameAsPrevMonth ? null : adapter.fetchDeals(conn, fn.id, prevMonthRange)
+        (periodIsMonth || deriveFromAll) ? null : adapter.fetchDeals(conn, fn.id, thisMonthPeriod),
+        (prevIsSameAsPrevMonth || deriveFromAll) ? null : adapter.fetchDeals(conn, fn.id, prevMonthRange, {wonOnly: true})
       ];
-      if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod));
+      if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod, {wonOnly: true}));
       return Promise.all(promises)
         .catch(e => { logError('funnel ' + fn.id, e.message, e.stack); return [structureCache.stagesByFunnelId[fn.id] || [], {__funnelError: e.message}, null, null]; });
     }));
@@ -4551,9 +4558,10 @@ async function loadDashboard(forceRefresh){
         if(deals.__truncated) dataMayBeTruncated = true;
         // Если период — это месяц, "сделки за период" и "сделки за месяц" совпадают:
         // переиспользуем уже полученный результат вместо повторного запроса.
-        monthDeals = periodIsMonth ? deals : results[2];
+        const inRange = (d, r) => d.createdAt && d.createdAt.slice(0,10) >= r.from && d.createdAt.slice(0,10) <= r.to;
+        monthDeals = periodIsMonth ? deals : (results[2] || deals.filter(d => inRange(d, thisMonthPeriod)));
         prevDeals = prevPeriod ? results[4] : [];
-        prevMonthDeals = prevIsSameAsPrevMonth ? prevDeals : results[3];
+        prevMonthDeals = prevIsSameAsPrevMonth ? prevDeals : (results[3] || (prevMonthRange ? deals.filter(d => d.semantic === 'S' && inRange(d, prevMonthRange)) : []));
       }
 
       monthDealsTotal += monthDeals.length;
@@ -6587,8 +6595,8 @@ function openKpiDetail(type){
       <div class="modal-summary-cell"><div class="val" style="color:#F59E0B">${warm.length}</div><div class="lbl">${t('warmLeadsFull')}</div></div>
       <div class="modal-summary-cell"><div class="val" style="color:var(--ink-soft)">${cold.length}</div><div class="lbl">${t('coldLeadsFull')}</div></div>
     </div>`
-    + (hot.length>0 ? `<div class="modal-subtitle" style="color:#EF4444">${t('hotLeadsAttention')}</div><div class="modal-deal-list">${buildDealListRows(hot.map((d,i)=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '')
-    + (cold.length>0 ? `<div class="modal-subtitle" style="color:var(--ink-soft)">${t('coldLeadsRisk')}</div><div class="modal-deal-list">${buildDealListRows(cold.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).map(d=>({...d,_flatIdx:lastDealsFlat.indexOf(d)})),10)}</div>` : '');
+    + (hot.length>0 ? `<div class="modal-subtitle" style="color:#EF4444">${t('hotLeadsAttention')}</div><div class="modal-deal-list">${buildDealListRows(hot.map(d=>({...d,_flatIdx:d._flatIdx ?? lastDealsFlat.indexOf(d)})),10)}</div>` : '')
+    + (cold.length>0 ? `<div class="modal-subtitle" style="color:var(--ink-soft)">${t('coldLeadsRisk')}</div><div class="modal-deal-list">${buildDealListRows(cold.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).map(d=>({...d,_flatIdx:d._flatIdx ?? lastDealsFlat.indexOf(d)})),10)}</div>` : '');
     openModal(title, html);
     document.getElementById('detailModal').querySelector('.modal-box').classList.add('modal-wide');
     return;
