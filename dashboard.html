@@ -2626,6 +2626,7 @@ function saveDealsToLS(connKey, monthKey, data){
   }catch(e){}
 }
 // ──────────────────────────────────────────────────────────────────────────────
+let secondaryLoading = false; // звонки/задачи/лиды ещё грузятся — дашборд уже нарисован по сделкам
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
 let lastIdleEmployees = []; // сотрудники Bitrix24 (из user.get), на которых за текущий выбор периода/воронок не назначено ни одной сделки — не входят в lastManagers, чтобы не мешаться с рейтингом продажников
@@ -3086,19 +3087,34 @@ function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 const RATE_LIMIT_MAX_ATTEMPTS = 8;
 function rateLimitBackoff(attempt){ return Math.min(500 * Math.pow(1.7, attempt), 8000) + Math.random() * 400; }
 
-function enqueueRequest(fn){
+// Приоритеты очереди: сделки (из них строится весь экран) идут первыми. Звонки/задачи/лиды —
+// «фоновые»: занимают не больше LOW_PRIORITY_SLOTS потоков, чтобы у крупных клиентов с тысячами
+// звонков они не забивали очередь и не задерживали появление дашборда.
+const LOW_PRIORITY_METHODS = new Set(['voximplant.statistic.get', 'tasks.task.list', 'crm.lead.list']);
+const LOW_PRIORITY_SLOTS = REQUEST_CONCURRENCY - 3;
+let activeLowRequests = 0;
+function isLowPriority(method){ return LOW_PRIORITY_METHODS.has(method); }
+
+function enqueueRequest(fn, low){
   return new Promise((resolve, reject) => {
-    requestQueue.push({fn, resolve, reject});
+    requestQueue.push({fn, resolve, reject, low: !!low});
     pumpQueue();
   });
 }
 
 function pumpQueue(){
   while(activeRequests < REQUEST_CONCURRENCY && requestQueue.length > 0){
-    const job = requestQueue.shift();
+    let idx = requestQueue.findIndex(j => !j.low);
+    if(idx < 0){
+      if(activeLowRequests >= LOW_PRIORITY_SLOTS) return;
+      idx = 0;
+    }
+    const job = requestQueue.splice(idx, 1)[0];
     activeRequests++;
+    if(job.low) activeLowRequests++;
     job.fn().then(job.resolve, job.reject).finally(() => {
       activeRequests--;
+      if(job.low) activeLowRequests--;
       pumpQueue();
     });
   }
@@ -3107,7 +3123,7 @@ function pumpQueue(){
 async function callMethod(webhook, method, params){
   const qs = new URLSearchParams();
   for(const k in params) appendParams(qs, k, params[k]);
-  return enqueueRequest(() => callMethodRaw(webhook, method, qs, 0));
+  return enqueueRequest(() => callMethodRaw(webhook, method, qs, 0), isLowPriority(method));
 }
 
 // Bitrix24 batch API — объединяет до 50 вызовов в ОДИН HTTP-запрос (POST, чтобы не упереться
@@ -3186,7 +3202,7 @@ async function callBatch(webhook, calls, chunkSize){
     });
     let result;
     try{
-      result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+      result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0), isLowPriority(chunk[0] && chunk[0].method));
     }catch(e){
       // При таймауте — рекурсивно делим пополам пока chunk > 1.
       // Это даёт CHUNK=50 для быстрых серверов и автоматическую деградацию до CHUNK=1 для медленных.
@@ -3340,7 +3356,7 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
       }
       let result;
       try{
-        result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+        result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0), isLowPriority(method));
       }catch(e){
         if(chainLen > 5 && e.message && e.message.includes('время ожидания')){ chainLen = Math.ceil(chainLen / 2); continue; }
         throw e;
@@ -4795,7 +4811,7 @@ async function loadDashboard(forceRefresh){
     lastNewClientsCount = await newClientsPromise;
     lastPrevNewClientsCount = await prevNewClientsPromise;
 
-    const callsResult = await callStatsPromise;
+    const applySecondary = (callsResult, tasksResult, leadsResult) => {
     if(callsResult && callsResult.__error){
       lastCallStats = null;
       lastRawCalls = [];
@@ -4810,7 +4826,6 @@ async function loadDashboard(forceRefresh){
       lastCallStatsError = '';
     }
 
-    const tasksResult = await taskStatsPromise;
     if(tasksResult && tasksResult.__error){
       lastRawTasks = [];
       lastTasksFetched = false;
@@ -4825,7 +4840,6 @@ async function loadDashboard(forceRefresh){
       lastTaskStatsError = '';
     }
 
-    const leadsResult = await leadStatsPromise;
     if(leadsResult && leadsResult.__error){
       lastLeadStats = null;
       lastRawLeads = [];
@@ -4843,6 +4857,8 @@ async function loadDashboard(forceRefresh){
       lastLeadStatsError = '';
     }
 
+    };
+    const renderAll = () => {
     renderDashboard(displayFunnels, managers, dailyEntries, namesResolved, managerIds.length > 0, lostReasons);
     // renderDashboard всегда рисует Обзор и заодно обновляет нужные глобальные переменные —
     // но если пользователь на самом деле смотрел другой раздел (Звонки/Лиды/Задачи/Аналитику),
@@ -4856,6 +4872,30 @@ async function loadDashboard(forceRefresh){
     else if(currentSection === 'funnelEntryStats') renderFunnelEntryStatsSection();
     else if(currentSection === 'tunnelConversion') renderTunnelConversionSection();
     else if(currentSection === 'analytics') openAnalytics(currentAnalyticsTab);
+    };
+
+    // Звонки/задачи/лиды больше не держат весь экран: если сделки готовы раньше, сразу рисуем дашборд
+    // (плитки звонков/задач/лидов — с пометкой «загружается»), а их дорисовываем, когда придут.
+    const secondary = Promise.all([callStatsPromise, taskStatsPromise, leadStatsPromise]);
+    const secondaryReady = await Promise.race([secondary.then(() => true, () => true), new Promise(r => setTimeout(() => r(false), 0))]);
+    if(!secondaryReady){
+      secondaryLoading = true;
+      applySecondary(null, null, null);
+      renderAll();
+      // только тост — renderLoading() нарисовал бы скелетон поверх уже готового дашборда
+      document.getElementById('loadingToastText').textContent = 'догружаю звонки, задачи и лиды…';
+      document.getElementById('loadingToast').style.display = 'flex';
+      const [c, tk, l] = await secondary;
+      if(myRequestId !== loadRequestId) return;
+      secondaryLoading = false;
+      applySecondary(c, tk, l);
+      renderAll();
+      hideLoadingToast();
+    } else {
+      const [c, tk, l] = await secondary;
+      applySecondary(c, tk, l);
+      renderAll();
+    }
 
     if(dupPairs.length > 0){
       dupWarning.style.display = 'block';
@@ -5219,6 +5259,8 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="managers-note">Не удалось получить лиды: ${lastLeadStatsError} — добавьте вебхуку право доступа <b>crm</b>.</div>
       </div>
     `;
+  } else if(secondaryLoading){
+    leadsTile = `<div class="fcard tile tile-calls"><p class="section-title">${t('leadsNav')}</p><div class="managers-note">загружается…</div></div>`;
   }
 
   let callsTile = '';
@@ -5243,6 +5285,8 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="managers-note">Не удалось получить статистику звонков: ${lastCallStatsError} — добавьте вебхуку право доступа <b>telephony</b> (Телефония).</div>
       </div>
     `;
+  } else if(secondaryLoading){
+    callsTile = `<div class="fcard tile tile-calls"><p class="section-title">${t('calls')}</p><div class="managers-note">загружается…</div></div>`;
   }
 
   let tasksTile = '';
@@ -5279,6 +5323,8 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
         <div class="managers-note">Не удалось получить задачи: ${lastTaskStatsError} — добавьте вебхуку право доступа <b>task</b> (Задачи).</div>
       </div>
     `;
+  } else if(secondaryLoading){
+    tasksTile = `<div class="fcard tile tile-calls"><p class="section-title">${t('tasks')}</p><div class="managers-note">загружается…</div></div>`;
   }
 
   let managersHtml = '';
@@ -5401,7 +5447,7 @@ function renderDashboard(funnels, managers, dailyEntries, namesResolved, hasMana
           </div>
         </div>` : '';
 
-      const showLeads = isBlockVisible('leads') && planHas('leads') && (lastLeadStats || lastLeadStatsError);
+      const showLeads = isBlockVisible('leads') && planHas('leads') && (lastLeadStats || lastLeadStatsError || secondaryLoading);
       const opsSection = (showCalls || showTasks || showLeads) ? `
         <div class="dash-section">
           <div class="dash-section-head"><span class="dot" style="background:var(--ink-soft)"></span><h3>${t('sectionOps')}</h3></div>
