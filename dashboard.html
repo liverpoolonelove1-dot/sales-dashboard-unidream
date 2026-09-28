@@ -3282,16 +3282,23 @@ async function fetchAllPaged(webhook, method, params){
 const KEYSET_MIN_TOTAL = 51; // порога по объёму нет: всё, что больше одной страницы, идёт быстрым путём
 const KEYSET_PAGE = 50; // размер страницы list-методов Bitrix24
 
-// opts.itemsKey — для методов, которые отдают не массив, а {items:[...]} (crm.stagehistory.list).
+// opts.itemsKey — для методов, которые отдают не массив, а {items:[...]} / {tasks:[...]}.
+// opts.idField  — имя поля ID в строках ответа (у tasks.task.list — 'id').
+// opts.filterKey — имя параметра фильтра (у voximplant.statistic.get — 'FILTER').
+// opts.orderFor(dir) — параметры сортировки по ID (у voximplant — {SORT:'ID', ORDER:dir}).
 // opts.fallback — чем грузить, если keyset неприменим (по умолчанию fetchAllPaged).
 async function fetchAllKeyset(webhook, method, params, opts = {}){
   const itemsKey = opts.itemsKey || null;
+  const idField = opts.idField || 'ID';
+  const filterKey = opts.filterKey || 'filter';
+  const orderFor = opts.orderFor || (dir => ({order: {ID: dir}}));
   const rowsOf = r => itemsKey ? (r && Array.isArray(r[itemsKey]) ? r[itemsKey] : null) : r;
+  const idOf = r => parseInt(r && r[idField], 10);
   const fallback = () => (opts.fallback || fetchAllPaged)(webhook, method, params);
   if(Array.isArray(params.select) && !params.select.includes("ID")) params = {...params, select: ["ID", ...params.select]};
   // Первый запрос — сразу полноценная первая страница: для маленьких выборок (≤ 1 страницы, а таких
   // большинство — пустые воронки, прошлые периоды) это единственный запрос, без лишних проб.
-  const first = await callMethod(webhook, method, {...params, order: {ID: 'ASC'}, start: 0});
+  const first = await callMethod(webhook, method, {...params, ...orderFor('ASC'), start: 0});
   const firstRows = rowsOf(first.result) || [];
   const total = typeof first.total === 'number' ? first.total : null;
   if(total !== null && (total <= firstRows.length || !first.next)){
@@ -3301,10 +3308,10 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
     return rows;
   }
   if(total === null || total < KEYSET_MIN_TOTAL) return fallback();
-  const last = await callMethod(webhook, method, {...params, select: ['ID'], order: {ID: 'DESC'}, start: -1});
+  const last = await callMethod(webhook, method, {...params, ...orderFor('DESC'), start: -1});
   const lastRows = rowsOf(last.result) || [];
-  const minId = parseInt(firstRows[0] && firstRows[0].ID, 10);
-  const maxId = parseInt(lastRows[0] && lastRows[0].ID, 10);
+  const minId = idOf(firstRows[0]);
+  const maxId = idOf(lastRows[0]);
   if(!(minId > 0) || !(maxId >= minId)) return fallback();
 
   // Стартовых отрезков — сколько потоков в очереди. Дальше каждый недокачанный отрезок сам делится
@@ -3315,7 +3322,7 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
   const segments = [];
   for(let lo = minId; lo <= maxId; lo += step) segments.push([lo, Math.min(lo + step, maxId + 1)]);
 
-  const baseParams = {...params, order: {ID: 'ASC'}, start: -1};
+  const baseParams = {...params, ...orderFor('ASC'), start: -1};
   const CHAIN = 25; // страниц на batch: короче цепочка — меньше пустых хвостов и быстрее ответ сервера
   async function fetchSegment([lo, hi]){
     const rows = [];
@@ -3325,10 +3332,10 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
       const cmd = {};
       for(let i = 0; i < chainLen; i++){
         const qs = new URLSearchParams();
-        const filter = {...(params.filter || {}), '<ID': hi};
-        filter['>ID'] = i === 0 ? afterId : `$result[c${i - 1}]${itemsKey ? `[${itemsKey}]` : ""}[${KEYSET_PAGE - 1}][ID]`;
-        for(const k in baseParams) if(k !== 'filter') appendParams(qs, k, baseParams[k]);
-        appendParams(qs, 'filter', filter);
+        const filter = {...(params[filterKey] || {}), '<ID': hi};
+        filter['>ID'] = i === 0 ? afterId : `$result[c${i - 1}]${itemsKey ? `[${itemsKey}]` : ""}[${KEYSET_PAGE - 1}][${idField}]`;
+        for(const k in baseParams) if(k !== filterKey) appendParams(qs, k, baseParams[k]);
+        appendParams(qs, filterKey, filter);
         cmd['c' + i] = `${method}?${qs.toString()}`;
       }
       let result;
@@ -3349,11 +3356,11 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
         if(!Array.isArray(page)) throw new Error('keyset: неожиданный формат ответа');
         // Защита: страница обязана начинаться строго после предыдущей, иначе ссылка $result
         // не подставилась — обрываем цепочку тут, дубли не попадают в результат.
-        if(page.length && parseInt(page[0].ID, 10) <= afterId) break;
+        if(page.length && idOf(page[0]) <= afterId) break;
         rows.push(...page);
         pagesTaken++;
         _updateLoadingProgress(page.length);
-        if(page.length) afterId = parseInt(page[page.length - 1].ID, 10);
+        if(page.length) afterId = idOf(page[page.length - 1]);
         if(page.length < KEYSET_PAGE){ done = true; break; }
       }
       if(done) return rows;
@@ -3372,7 +3379,7 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
   const parts = await Promise.all(segments.map(fetchSegment));
   const seen = new Set();
   const all = [];
-  parts.forEach(p => p.forEach(r => { if(!seen.has(r.ID)){ seen.add(r.ID); all.push(r); } }));
+  parts.forEach(p => p.forEach(r => { const id = r[idField]; if(!seen.has(id)){ seen.add(id); all.push(r); } }));
   // Сверка полноты: если ссылка $result где-то не подставилась, цепочка могла закончиться раньше
   // времени и тихо потерять записи. Пришло заметно меньше, чем сказал total, — не доверяем,
   // уходим на медленный, но гарантированно полный путь. (Небольшой допуск — на сделки,
@@ -3668,7 +3675,11 @@ async function fetchCallStats(webhook, period){
   const filter = {};
   if(period && period.from) filter['>=CALL_START_DATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=CALL_START_DATE'] = `${period.to} 23:59:59`;
-  return fetchAllPaged(webhook, 'voximplant.statistic.get', {FILTER: filter});
+  const params = {FILTER: filter};
+  return withKeyset(webhook, 'voximplant.statistic.get',
+    () => fetchAllKeyset(webhook, 'voximplant.statistic.get', params,
+      {filterKey: 'FILTER', orderFor: dir => ({SORT: 'ID', ORDER: dir})}),
+    () => fetchAllPaged(webhook, 'voximplant.statistic.get', params));
 }
 
 function aggregateCallStats(rawCalls){
@@ -3748,6 +3759,17 @@ function aggregateLeadStats(rawLeads, statusMap){
 }
 
 async function fetchTaskStats(webhook, period){
+  const filter = {};
+  if(period && period.from) filter['>=CREATED_DATE'] = `${period.from} 00:00:00`;
+  if(period && period.to) filter['<=CREATED_DATE'] = `${period.to} 23:59:59`;
+  const select = ['ID','TITLE','STATUS','DEADLINE','CREATED_DATE','RESPONSIBLE_ID'];
+  return withKeyset(webhook, 'tasks.task.list',
+    () => fetchAllKeyset(webhook, 'tasks.task.list', {filter, select},
+      {itemsKey: 'tasks', idField: 'id', fallback: () => fetchTaskStatsPaged(webhook, period)}),
+    () => fetchTaskStatsPaged(webhook, period));
+}
+
+async function fetchTaskStatsPaged(webhook, period){
   // ответ tasks.task.list оборачивает список в result.tasks — обычная fetchAllPaged тут не подходит
   const filter = {};
   if(period && period.from) filter['>=CREATED_DATE'] = `${period.from} 00:00:00`;
@@ -4349,9 +4371,9 @@ async function loadDashboard(forceRefresh){
     // Раньше для периода "месяц" фильтрация пропускалась (весь загруженный диапазон и так был
     // ровно месяцем) — теперь загруженный диапазон может быть ШИРЕ месяца (из-за недели), поэтому
     // фильтруем всегда, без исключений, чтобы "Этот месяц" не захватывал лишние дни соседнего месяца.
-    function filterToPeriod(records, dateField){
+    function filterToPeriod(records, dateField, altField){
       return records.filter(r => {
-        const raw = r[dateField];
+        const raw = r[dateField] || (altField ? r[altField] : null);
         if(!raw) return false;
         const d = raw.slice(0,10);
         return d >= currentPeriod.from && d <= currentPeriod.to;
@@ -4370,7 +4392,7 @@ async function loadDashboard(forceRefresh){
     const taskStatsPromise = (typeof adapter.fetchTasks !== 'function') ? Promise.resolve(null)
       : canUseMonthCache
         ? (monthDealsCache.tasks ? Promise.resolve(monthDealsCache.tasks) : adapter.fetchTasks(conn, cacheFetchPeriod).then(r => { monthDealsCache.tasks = r; return r; }))
-            .then(r => (r && r.__error) ? r : filterToPeriod(r, 'CREATED_DATE')).catch(e => ({__error: e.message || String(e)}))
+            .then(r => (r && r.__error) ? r : filterToPeriod(r, 'createdDate', 'CREATED_DATE') /* tasks.task.list отдаёт поля в camelCase — раньше тут искали CREATED_DATE, и задачи за месяц/неделю/сегодня всегда были пустыми */).catch(e => ({__error: e.message || String(e)}))
         : adapter.fetchTasks(conn, currentPeriod).catch(e => ({__error: e.message || String(e)}));
 
     // лиды — отдельная от сделок сущность в Bitrix24, запрашивается параллельно
