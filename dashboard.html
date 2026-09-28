@@ -3271,6 +3271,100 @@ async function fetchAllPaged(webhook, method, params){
   return all;
 }
 
+// Быстрый забор больших списков (keyset-пагинация) — для клиентов с десятками тысяч сделок.
+// Почему fetchAllPaged медленный на больших объёмах: каждая страница start=N заставляет Bitrix24
+// делать COUNT(*) по всей выборке + OFFSET N (сканировать N строк впустую). На 100к сделок
+// поздние страницы в разы дольше первых. Рекомендованный Bitrix24 способ — start=-1 (без COUNT)
+// + фильтр >ID (без OFFSET). Внутри одного batch-запроса страницы связываются ссылками
+// $result[cN][49][ID], а чтобы не терять параллельность, диапазон ID делится на отрезки,
+// которые качаются одновременно через ту же очередь REQUEST_CONCURRENCY.
+// Для маленьких выборок и при любой ошибке — прежний проверенный fetchAllPaged.
+const KEYSET_MIN_TOTAL = 2000;
+const KEYSET_PAGE = 50; // размер страницы list-методов Bitrix24
+
+async function fetchAllKeyset(webhook, method, params){
+  const idSelect = {...params, select: ['ID'], order: {ID: 'ASC'}};
+  const [first, last] = await Promise.all([
+    callMethod(webhook, method, {...idSelect, start: 0}),
+    callMethod(webhook, method, {...idSelect, order: {ID: 'DESC'}, start: -1})
+  ]);
+  const total = typeof first.total === 'number' ? first.total : null;
+  if(total === null || total < KEYSET_MIN_TOTAL) return fetchAllPaged(webhook, method, params);
+  const minId = parseInt(first.result && first.result[0] && first.result[0].ID, 10);
+  const maxId = parseInt(last.result && last.result[0] && last.result[0].ID, 10);
+  if(!(minId > 0) || !(maxId >= minId)) return fetchAllPaged(webhook, method, params);
+
+  const segCount = Math.max(1, Math.min(REQUEST_CONCURRENCY, Math.ceil(total / 2500)));
+  const step = Math.ceil((maxId - minId + 1) / segCount);
+  const segments = [];
+  for(let lo = minId; lo <= maxId; lo += step) segments.push([lo, Math.min(lo + step, maxId + 1)]);
+
+  const baseParams = {...params, order: {ID: 'ASC'}, start: -1};
+  async function fetchSegment([lo, hi]){
+    const rows = [];
+    let afterId = lo - 1;
+    let chainLen = 50;
+    for(;;){
+      const cmd = {};
+      for(let i = 0; i < chainLen; i++){
+        const qs = new URLSearchParams();
+        const filter = {...(params.filter || {}), '<ID': hi};
+        filter['>ID'] = i === 0 ? afterId : `$result[c${i - 1}][${KEYSET_PAGE - 1}][ID]`;
+        for(const k in baseParams) if(k !== 'filter') appendParams(qs, k, baseParams[k]);
+        appendParams(qs, 'filter', filter);
+        cmd['c' + i] = `${method}?${qs.toString()}`;
+      }
+      let result;
+      try{
+        result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+      }catch(e){
+        if(chainLen > 5 && e.message && e.message.includes('время ожидания')){ chainLen = Math.ceil(chainLen / 2); continue; }
+        throw e;
+      }
+      let done = false, pagesTaken = 0;
+      for(let i = 0; i < chainLen; i++){
+        const key = 'c' + i;
+        if(result.result_error && result.result_error[key]){
+          if(i === 0) throw new Error(result.result_error[key].error_description || result.result_error[key].error);
+          break; // хвост цепочки не разрешился — следующий batch продолжит с последнего ID
+        }
+        const page = (result.result && result.result[key]) || [];
+        if(!Array.isArray(page)) throw new Error('keyset: неожиданный формат ответа');
+        // Защита: страница обязана начинаться строго после предыдущей, иначе ссылка $result
+        // не подставилась — обрываем цепочку тут, дубли не попадают в результат.
+        if(page.length && parseInt(page[0].ID, 10) <= afterId) break;
+        rows.push(...page);
+        pagesTaken++;
+        _updateLoadingProgress(page.length);
+        if(page.length) afterId = parseInt(page[page.length - 1].ID, 10);
+        if(page.length < KEYSET_PAGE){ done = true; break; }
+      }
+      if(done) return rows;
+      // Полный первый ответ, но цепочка ни разу не продвинулась — связка $result на этом портале
+      // не работает; keyset здесь медленнее обычного пути, отдаём управление fallback'у.
+      if(pagesTaken <= 1 && chainLen > 1) throw new Error('keyset: цепочка batch не работает');
+    }
+  }
+
+  const parts = await Promise.all(segments.map(fetchSegment));
+  const seen = new Set();
+  const all = [];
+  parts.forEach(p => p.forEach(r => { if(!seen.has(r.ID)){ seen.add(r.ID); all.push(r); } }));
+  all.__total = total;
+  return all;
+}
+
+async function fetchAllFast(webhook, method, params){
+  const before = _loadingRecordCount;
+  try{
+    return await fetchAllKeyset(webhook, method, params);
+  }catch(e){
+    console.warn('keyset-загрузка не удалась, обычный путь:', e && e.message);
+    _loadingRecordCount = before;
+    return fetchAllPaged(webhook, method, params);
+  }
+}
+
 async function fetchCategories(webhook){
   const data = await callMethod(webhook, 'crm.category.list', {entityTypeId: 2});
   return (data.result && data.result.categories) ? data.result.categories : [];
@@ -3373,7 +3467,7 @@ async function fetchFunnelContactIds(webhook, categoryId, period){
   const filter = {CATEGORY_ID: categoryId};
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
-  const deals = await fetchAllPaged(webhook, 'crm.deal.list', {
+  const deals = await fetchAllFast(webhook, 'crm.deal.list', {
     filter,
     select: ['ID', 'CONTACT_ID']
   });
@@ -3432,7 +3526,7 @@ async function fetchDealsForCategory(webhook, categoryId, period){
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   // Основной, проверенный путь — сделки, СОЗДАННЫЕ в периоде. Не трогаем эту часть вообще,
   // чтобы не рисковать уже стабильно работающим поведением.
-  const createdInPeriod = await fetchAllPaged(webhook, 'crm.deal.list', { filter, select: DEAL_SELECT });
+  const createdInPeriod = await fetchAllFast(webhook, 'crm.deal.list', { filter, select: DEAL_SELECT });
 
   // Раньше на этом всё заканчивалось — и сделка, СОЗДАННАЯ в прошлом периоде, но ЗАКРЫТАЯ
   // (выиграна/провалена) в текущем, полностью пропадала из статистики. Отдельным, лёгким
