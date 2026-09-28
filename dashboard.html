@@ -5504,10 +5504,43 @@ async function openDealDetail(flatIdx, src){
   }
 }
 
+// Лимита на количество сделок нет: сначала рисуем первые `limit` строк (чтобы модалка открывалась
+// мгновенно даже на 100к сделок), остальные — кнопкой «Показать ещё» порциями, вплоть до всех.
+const dealListRegistry = new Map();
+let dealListSeq = 0;
 function buildDealListRows(deals, limit){
   const cap = limit || 50;
-  const shown = deals.slice(0, cap);
-  const rows = shown.map(d => {
+  const listId = 'dl' + (++dealListSeq);
+  if(deals.length > cap) dealListRegistry.set(listId, {deals, shown: cap});
+  return dealRowsHtml(deals.slice(0, cap)) + dealListMoreHtml(listId, deals.length, cap);
+}
+
+function dealListMoreHtml(listId, total, shown){
+  const rest = total - shown;
+  if(rest <= 0){ dealListRegistry.delete(listId); return ''; }
+  const next = Math.min(rest, DEAL_LIST_STEP);
+  return `<div class="modal-note deal-list-more" data-list-id="${listId}">Показано ${shown} из ${total}.
+    <button type="button" class="btn-ghost" data-deal-more="${listId}">Показать ещё ${next}</button>
+    <button type="button" class="btn-ghost" data-deal-more="${listId}" data-all="1">Показать все</button></div>`;
+}
+
+const DEAL_LIST_STEP = 200;
+document.addEventListener('click', e => {
+  const btn = e.target.closest && e.target.closest('[data-deal-more]');
+  if(!btn) return;
+  const listId = btn.getAttribute('data-deal-more');
+  const entry = dealListRegistry.get(listId);
+  const holder = btn.closest('.deal-list-more');
+  if(!entry || !holder) return;
+  const upto = btn.hasAttribute('data-all') ? entry.deals.length : Math.min(entry.deals.length, entry.shown + DEAL_LIST_STEP);
+  const tmp = document.createElement('div');
+  tmp.innerHTML = dealRowsHtml(entry.deals.slice(entry.shown, upto)) + dealListMoreHtml(listId, entry.deals.length, upto);
+  entry.shown = upto;
+  holder.replaceWith(...tmp.childNodes);
+});
+
+function dealRowsHtml(shown){
+  return shown.map(d => {
     const respName = lastManagers.find(m => String(m.id) === String(d.assignedTo))?.name
       || (d.assignedTo ? `Сотрудник ID ${d.assignedTo}` : 'Без ответственного');
     const created = d.createdAt ? new Date(d.createdAt).toLocaleDateString('ru-RU') : '—';
@@ -5525,8 +5558,6 @@ function buildDealListRows(deals, limit){
       </div>
     `;
   }).join('');
-  const note = deals.length > cap ? `<div class="modal-note">Показаны первые ${cap} из ${deals.length} сделок.</div>` : '';
-  return rows + note;
 }
 
 function openStageDetail(fidx, stageId){
