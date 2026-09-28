@@ -3282,17 +3282,24 @@ async function fetchAllPaged(webhook, method, params){
 const KEYSET_MIN_TOTAL = 51; // порога по объёму нет: всё, что больше одной страницы, идёт быстрым путём
 const KEYSET_PAGE = 50; // размер страницы list-методов Bitrix24
 
-async function fetchAllKeyset(webhook, method, params){
+// opts.itemsKey — для методов, которые отдают не массив, а {items:[...]} (crm.stagehistory.list).
+// opts.fallback — чем грузить, если keyset неприменим (по умолчанию fetchAllPaged).
+async function fetchAllKeyset(webhook, method, params, opts = {}){
+  const itemsKey = opts.itemsKey || null;
+  const rowsOf = r => itemsKey ? (r && Array.isArray(r[itemsKey]) ? r[itemsKey] : null) : r;
+  const fallback = () => (opts.fallback || fetchAllPaged)(webhook, method, params);
+  if(Array.isArray(params.select) && !params.select.includes("ID")) params = {...params, select: ["ID", ...params.select]};
   const idSelect = {...params, select: ['ID'], order: {ID: 'ASC'}};
   const [first, last] = await Promise.all([
     callMethod(webhook, method, {...idSelect, start: 0}),
     callMethod(webhook, method, {...idSelect, order: {ID: 'DESC'}, start: -1})
   ]);
   const total = typeof first.total === 'number' ? first.total : null;
-  if(total === null || total < KEYSET_MIN_TOTAL) return fetchAllPaged(webhook, method, params);
-  const minId = parseInt(first.result && first.result[0] && first.result[0].ID, 10);
-  const maxId = parseInt(last.result && last.result[0] && last.result[0].ID, 10);
-  if(!(minId > 0) || !(maxId >= minId)) return fetchAllPaged(webhook, method, params);
+  if(total === null || total < KEYSET_MIN_TOTAL) return fallback();
+  const firstRows = rowsOf(first.result) || [], lastRows = rowsOf(last.result) || [];
+  const minId = parseInt(firstRows[0] && firstRows[0].ID, 10);
+  const maxId = parseInt(lastRows[0] && lastRows[0].ID, 10);
+  if(!(minId > 0) || !(maxId >= minId)) return fallback();
 
   const segCount = Math.max(1, Math.min(REQUEST_CONCURRENCY, Math.ceil(total / 2500)));
   const step = Math.ceil((maxId - minId + 1) / segCount);
@@ -3309,7 +3316,7 @@ async function fetchAllKeyset(webhook, method, params){
       for(let i = 0; i < chainLen; i++){
         const qs = new URLSearchParams();
         const filter = {...(params.filter || {}), '<ID': hi};
-        filter['>ID'] = i === 0 ? afterId : `$result[c${i - 1}][${KEYSET_PAGE - 1}][ID]`;
+        filter['>ID'] = i === 0 ? afterId : `$result[c${i - 1}]${itemsKey ? `[${itemsKey}]` : ""}[${KEYSET_PAGE - 1}][ID]`;
         for(const k in baseParams) if(k !== 'filter') appendParams(qs, k, baseParams[k]);
         appendParams(qs, 'filter', filter);
         cmd['c' + i] = `${method}?${qs.toString()}`;
@@ -3328,7 +3335,7 @@ async function fetchAllKeyset(webhook, method, params){
           if(i === 0) throw new Error(result.result_error[key].error_description || result.result_error[key].error);
           break; // хвост цепочки не разрешился — следующий batch продолжит с последнего ID
         }
-        const page = (result.result && result.result[key]) || [];
+        const page = rowsOf(result.result && result.result[key]) || [];
         if(!Array.isArray(page)) throw new Error('keyset: неожиданный формат ответа');
         // Защита: страница обязана начинаться строго после предыдущей, иначе ссылка $result
         // не подставилась — обрываем цепочку тут, дубли не попадают в результат.
@@ -3350,6 +3357,11 @@ async function fetchAllKeyset(webhook, method, params){
   const seen = new Set();
   const all = [];
   parts.forEach(p => p.forEach(r => { if(!seen.has(r.ID)){ seen.add(r.ID); all.push(r); } }));
+  // Сверка полноты: если ссылка $result где-то не подставилась, цепочка могла закончиться раньше
+  // времени и тихо потерять записи. Пришло заметно меньше, чем сказал total, — не доверяем,
+  // уходим на медленный, но гарантированно полный путь. (Небольшой допуск — на сделки,
+  // удалённые прямо во время загрузки.)
+  if(all.length < total - Math.max(5, Math.ceil(total * 0.001))) throw new Error(`keyset: неполная выборка ${all.length} из ${total}`);
   all.__total = total;
   return all;
 }
@@ -3416,6 +3428,20 @@ async function fetchFieldOptions(webhook, fieldCode){
 // ОПТИМИЗАЦИЯ: после получения первой страницы (которая сообщает total) запрашиваем
 // все оставшиеся страницы ПАРАЛЛЕЛЬНО через batch API, а не ждём каждую по очереди.
 async function fetchStageHistoryAll(webhook, params){
+  // Быстрый путь (keyset, как у сделок): без COUNT/OFFSET на каждой странице. На 100к+ записей
+  // истории стадий разница в разы. При любой проблеме — прежний постраничный загрузчик ниже.
+  const before = _loadingRecordCount;
+  try{
+    return await fetchAllKeyset(webhook, "crm.stagehistory.list", {entityTypeId: 2, ...params},
+      {itemsKey: "items", fallback: () => fetchStageHistoryPaged(webhook, params)});
+  }catch(e){
+    console.warn("keyset-загрузка истории стадий не удалась, обычный путь:", e && e.message);
+    _loadingRecordCount = before;
+    return fetchStageHistoryPaged(webhook, params);
+  }
+}
+
+async function fetchStageHistoryPaged(webhook, params){
   const PAGE_SIZE = 50;
   // Первая страница — узнаём total
   const first = await callMethod(webhook, 'crm.stagehistory.list', {...params, start: 0});
@@ -3513,6 +3539,8 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
     delete monthDealsCache._entryCountsInflight[cacheKey];
     return result;
   })();
+  // Ошибка не должна «залипать» в in-flight кэше — следующий заход на страницу попробует заново
+  promise.catch(() => { if(monthDealsCache._entryCountsInflight) delete monthDealsCache._entryCountsInflight[cacheKey]; });
   monthDealsCache._entryCountsInflight[cacheKey] = promise;
   return promise;
 }
@@ -8387,15 +8415,18 @@ async function renderFunnelEntryStatsSection(){
     return;
   }
   try{
-    // Загружаем воронки последовательно — crm.stagehistory.list очень тяжёлый,
-    // параллельная загрузка всех воронок одновременно перегружала сервер Bitrix24 и вызывала таймаут.
-    const results = [];
-    for(let fi = 0; fi < lastFunnels.length; fi++){
-      const f = lastFunnels[fi];
-      body.innerHTML = `<div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')} (${fi+1}/${lastFunnels.length}: ${escapeHtml(f.name)})</div>`;
-      const counts = await fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod);
-      results.push({funnel: f, counts});
-    }
+    // Все воронки грузятся одновременно: история стадий теперь идёт keyset-путём (лёгкие запросы),
+    // а общую нагрузку на Bitrix24 по-прежнему ограничивает очередь REQUEST_CONCURRENCY.
+    let doneCount = 0;
+    const showProgress = () => {
+      if(document.getElementById('funnelEntryStatsBody') !== body) return;
+      body.innerHTML = `<div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')} (${doneCount}/${lastFunnels.length})</div>`;
+    };
+    showProgress();
+    const results = await Promise.all(lastFunnels.map(f =>
+      fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod)
+        .then(counts => { doneCount++; showProgress(); return {funnel: f, counts}; })
+    ));
     const sections = results.map(({funnel, counts}) => {
       const activeStages = funnel.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
       const firstEverEntered = activeStages.length > 0 ? (counts[activeStages[0].id] || 0) : 0;
@@ -8608,6 +8639,10 @@ async function renderTunnelConversionSection(){
   // показывались сразу, не дожидаясь последних
   const entryCountsMap = {};
   const stageBlockEls = [];
+  // Стартуем загрузку всех воронок сразу (параллельно, через общую очередь), а ниже всё так же
+  // рисуем их по порядку — первые воронки появляются, как только готовы. Повторный вызов
+  // fetchFunnelEntryCounts для той же воронки просто подхватит уже летящий запрос.
+  snapFunnels.forEach(f => { fetchFunnelEntryCounts(snapConn.webhook, f.id, currentPeriod).catch(() => {}); });
 
   for(let i = 0; i < snapFunnels.length; i++){
     const f = snapFunnels[i];
