@@ -2625,6 +2625,64 @@ function saveDealsToLS(connKey, monthKey, data){
     localStorage.setItem(cacheDealsKey(connKey, monthKey), serialized);
   }catch(e){}
 }
+// ─── IndexedDB-кэш сделок ─────────────────────────────────────────────────────
+// localStorage ограничен ~5–10 МБ: у крупных клиентов (100к+ сделок) кэш туда не влезал вообще,
+// и КАЖДОЕ обновление страницы/автообновление качало всю базу с нуля. IndexedDB вмещает сотни МБ.
+// Плюс инкрементальная синхронизация: при повторной загрузке докачиваются только сделки,
+// изменённые с прошлого раза (DATE_MODIFY), а полная пересинхронизация — раз в сутки
+// (заодно убирает сделки, удалённые в CRM).
+const FULL_RESYNC_TTL = 24 * 60 * 60 * 1000;
+const DELTA_MIN_AGE   = 0; // при открытии страницы всегда докачиваем изменения — это 1 лёгкий запрос на воронку
+let _idbPromise = null;
+function idbOpen(){
+  if(_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve, reject) => {
+    try{
+      const req = indexedDB.open('pulsecrm', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('kv');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    }catch(e){ reject(e); }
+  });
+  _idbPromise.catch(() => { _idbPromise = null; });
+  return _idbPromise;
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const q = db.transaction('kv', 'readonly').objectStore('kv').get(key);
+    q.onsuccess = () => resolve(q.result);
+    q.onerror = () => reject(q.error);
+  });
+}
+async function idbSet(key, value){
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function loadDealsCache(connKey, monthKey){
+  try{
+    const entry = await idbGet(cacheDealsKey(connKey, monthKey));
+    if(entry && entry.data){
+      if(!entry.fullSyncTs || Date.now() - entry.fullSyncTs > FULL_RESYNC_TTL) return null;
+      return {...entry.data, __ts: entry.ts, __fullSyncTs: entry.fullSyncTs};
+    }
+  }catch(e){}
+  const ls = loadDealsFromLS(connKey, monthKey); // старый формат / IndexedDB недоступен
+  return ls ? {...ls, __ts: Date.now() - (ls.__stale ? DEALS_CACHE_TTL + 1 : 0), __fullSyncTs: null} : null;
+}
+async function saveDealsCache(connKey, monthKey, data, fullSyncTs){
+  try{
+    await idbSet(cacheDealsKey(connKey, monthKey), {ts: Date.now(), fullSyncTs, data});
+    lsDel(cacheDealsKey(connKey, monthKey)); // не держим дубль в localStorage
+  }catch(e){
+    saveDealsToLS(connKey, monthKey, data);
+  }
+}
 // ──────────────────────────────────────────────────────────────────────────────
 let secondaryLoading = false; // звонки/задачи/лиды ещё грузятся — дашборд уже нарисован по сделкам
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
@@ -3612,6 +3670,7 @@ async function fetchDealsForCategory(webhook, categoryId, period, opts = {}){
   if(lossReasonField) DEAL_SELECT.push(lossReasonField);
   const filter = {CATEGORY_ID: categoryId};
   if(opts.wonOnly) filter.STAGE_SEMANTIC_ID = 'S';
+  if(opts.modifiedSince) filter['>=DATE_MODIFY'] = opts.modifiedSince; // инкрементальная докачка
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   // Основной, проверенный путь — сделки, СОЗДАННЫЕ в периоде. Не трогаем эту часть вообще,
@@ -4343,7 +4402,17 @@ async function loadDashboard(forceRefresh){
         structureCache = { connKey, funnels: null, stagesByFunnelId: {}, leadStatusMap: null, userNames: null, semanticsByFunnelId: {}, lossReasonOptions: null };
       }
     }
-    if(forceRefresh){
+    // Инкрементальный режим невозможен у клиентов с preciseAccounting: там в месяц подмешиваются
+    // сделки, закрытые в месяце по истории стадий, и дельта по DATE_MODIFY их не покрывает.
+    const incrementalOk = !addonEnabled('preciseAccounting');
+    const canIncremental = incrementalOk && monthDealsCache.connKey === connKey && monthDealsCache.fullSyncTs
+      && Date.now() - monthDealsCache.fullSyncTs < FULL_RESYNC_TTL;
+    if(forceRefresh && canIncremental){
+      // Обновление/автообновление: сделки оставляем и докачиваем только изменённые; звонки/задачи/лиды
+      // и счётчики — перезапрашиваем целиком (они и так идут быстрым путём).
+      monthDealsCache = {...monthDealsCache, calls: null, leads: null, tasks: null, newClients: null, prevNewClients: null, newClientsKey: null, entryCountsCache: {}, deltaNeeded: true};
+      tunnelCache = { connKey: null, periodKey: null, contactResults: null, ts: 0 };
+    } else if(forceRefresh){
       monthDealsCache = { connKey: null, monthKey: null, byFunnelId: {}, prevByFunnelId: {}, prevMonthKey: null, calls: null, leads: null, tasks: null, newClients: null, prevNewClients: null, newClientsKey: null, entryCountsCache: {} };
       tunnelCache = { connKey: null, periodKey: null, contactResults: null, ts: 0 };
       // Удаляем все LS-ключи сделок для этого подключения (перебираем, т.к. точный monthKey пока неизвестен)
@@ -4372,11 +4441,18 @@ async function loadDashboard(forceRefresh){
     if(canUseMonthCache && !monthCacheValid){
       // Пробуем поднять кэш сделок из localStorage (TTL 5 мин) — если свежий, перезагрузка
       // страницы покажет данные почти мгновенно: экономит основную долю времени загрузки.
-      const lsDeals = !forceRefresh ? loadDealsFromLS(connKey, monthKey) : null;
+      let lsDeals = (!forceRefresh || incrementalOk) ? await loadDealsCache(connKey, monthKey) : null;
+      // Старый кэш без отметки полной синхронизации (localStorage) — доверяем ему по-старому, не дольше часа
+      if(lsDeals && !lsDeals.__fullSyncTs && (!incrementalOk || Date.now() - lsDeals.__ts > DEALS_CACHE_STALE_TTL)) lsDeals = null;
+      if(lsDeals && !incrementalOk && Date.now() - lsDeals.__ts > DEALS_CACHE_STALE_TTL) lsDeals = null;
       if(lsDeals){
-        monthDealsCache = { connKey, monthKey, byFunnelId: lsDeals.byFunnelId || {}, prevByFunnelId: lsDeals.prevByFunnelId || {}, prevMonthKey: lsDeals.prevMonthKey || null, calls: lsDeals.calls || null, leads: lsDeals.leads || null, tasks: lsDeals.tasks || null, newClients: lsDeals.newClients ?? null, prevNewClients: lsDeals.prevNewClients ?? null, newClientsKey: lsDeals.newClientsKey || null, entryCountsCache: {} };
+        const needDelta = incrementalOk && !!lsDeals.__fullSyncTs && (forceRefresh || Date.now() - lsDeals.__ts > DELTA_MIN_AGE);
+        monthDealsCache = { connKey, monthKey, byFunnelId: lsDeals.byFunnelId || {}, prevByFunnelId: lsDeals.prevByFunnelId || {}, prevMonthKey: lsDeals.prevMonthKey || null,
+          calls: needDelta ? null : (lsDeals.calls || null), leads: needDelta ? null : (lsDeals.leads || null), tasks: needDelta ? null : (lsDeals.tasks || null),
+          newClients: needDelta ? null : (lsDeals.newClients ?? null), prevNewClients: needDelta ? null : (lsDeals.prevNewClients ?? null), newClientsKey: needDelta ? null : (lsDeals.newClientsKey || null),
+          entryCountsCache: {}, fullSyncTs: lsDeals.__fullSyncTs, deltaNeeded: needDelta };
       } else {
-        monthDealsCache = { connKey, monthKey, byFunnelId: {}, prevByFunnelId: {}, prevMonthKey: null, calls: null, leads: null, tasks: null, newClients: null, prevNewClients: null, newClientsKey: null, entryCountsCache: {} };
+        monthDealsCache = { connKey, monthKey, byFunnelId: {}, prevByFunnelId: {}, prevMonthKey: null, calls: null, leads: null, tasks: null, newClients: null, prevNewClients: null, newClientsKey: null, entryCountsCache: {}, fullSyncTs: Date.now() };
       }
     }
 
@@ -4517,6 +4593,18 @@ async function loadDashboard(forceRefresh){
       ? Promise.resolve(structureCache.userNames)
       : adapter.fetchUserNames(conn, []).then(m => { structureCache.userNames = m; return m; }).catch(() => null);
 
+    // Точка отсчёта для инкрементальной докачки — самое позднее DATE_MODIFY среди закэшированных
+    // сделок (строка в формате и часовом поясе самого Bitrix24, поэтому без расхождения часов).
+    let deltaSince = null;
+    const deltaIdsByFunnel = {};
+    if(canUseMonthCache && monthDealsCache.deltaNeeded){
+      let best = 0;
+      Object.values(monthDealsCache.byFunnelId).forEach(list => (list || []).forEach(d => {
+        const t = d.updatedAt ? Date.parse(d.updatedAt) : 0;
+        if(t > best){ best = t; deltaSince = d.updatedAt; }
+      }));
+      if(!deltaSince) monthDealsCache = {...monthDealsCache, byFunnelId: {}, deltaNeeded: false, fullSyncTs: Date.now()};
+    }
     _loadingRecordCount = 0;
     renderLoading(`загружаю сделки — ${funnelsToLoad.length} ${pluralRu(funnelsToLoad.length, 'воронка', 'воронки', 'воронок')}…`);
     const funnelFetches = await Promise.all(funnelsToLoad.map(fn => {
@@ -4526,9 +4614,21 @@ async function loadDashboard(forceRefresh){
 
       if(canUseMonthCache){
         // Сделки за текущий расширенный период — из кэша или с API
-        const monthDealsPromise = monthDealsCache.byFunnelId[fn.id]
-          ? Promise.resolve(monthDealsCache.byFunnelId[fn.id])
-          : adapter.fetchDeals(conn, fn.id, cacheFetchPeriod).then(d => { monthDealsCache.byFunnelId[fn.id] = d; return d; });
+        const cachedDeals = monthDealsCache.byFunnelId[fn.id];
+        const monthDealsPromise = !cachedDeals
+          ? adapter.fetchDeals(conn, fn.id, cacheFetchPeriod).then(d => { monthDealsCache.byFunnelId[fn.id] = d; return d; })
+          : (monthDealsCache.deltaNeeded && deltaSince)
+            // Докачиваем только изменённые с прошлой синхронизации сделки и вливаем в кэш по ID
+            ? adapter.fetchDeals(conn, fn.id, cacheFetchPeriod, {modifiedSince: deltaSince}).then(delta => {
+                deltaIdsByFunnel[fn.id] = new Set(delta.map(d => String(d.id)));
+                if(!delta.length) return cachedDeals;
+                const byId = new Map(cachedDeals.map(d => [String(d.id), d]));
+                delta.forEach(d => byId.set(String(d.id), d));
+                const merged = [...byId.values()];
+                monthDealsCache.byFunnelId[fn.id] = merged;
+                return merged;
+              })
+            : Promise.resolve(cachedDeals);
         // Сделки за предыдущий период — тоже кэшируем. prevMonthKey проверяем чтобы не использовать
         // устаревший кэш если вдруг смонтировались на другое подключение с тем же connKey.
         const prevMonthKeyNow = prevPeriod ? `${prevPeriod.from}_${prevPeriod.to}` : null;
@@ -4558,6 +4658,20 @@ async function loadDashboard(forceRefresh){
       return Promise.all(promises)
         .catch(e => { logError('funnel ' + fn.id, e.message, e.stack); return [structureCache.stagesByFunnelId[fn.id] || [], {__funnelError: e.message}, null, null]; });
     }));
+
+    // Сделка, перенесённая в другую воронку, пришла в дельте новой воронки — убираем её из старой
+    const movedIds = new Set();
+    Object.values(deltaIdsByFunnel).forEach(set => set.forEach(id => movedIds.add(id)));
+    if(movedIds.size){
+      funnelsToLoad.forEach((fn, i) => {
+        const r = funnelFetches[i];
+        if(!r || !Array.isArray(r[1])) return;
+        const own = deltaIdsByFunnel[fn.id] || new Set();
+        const kept = r[1].filter(d => !movedIds.has(String(d.id)) || own.has(String(d.id)));
+        if(kept.length !== r[1].length){ r[1] = kept; monthDealsCache.byFunnelId[fn.id] = kept; }
+      });
+    }
+    if(canUseMonthCache) monthDealsCache.deltaNeeded = false;
 
     const funnels = [];
     const funnelErrors = []; // воронки, которые не загрузились из-за ошибки
@@ -4929,7 +5043,7 @@ async function loadDashboard(forceRefresh){
         }).catch(() => {});
       }catch(e){}
       if(canUseMonthCache && monthDealsCache.connKey === connKey){
-        saveDealsToLS(connKey, monthKey, {
+        saveDealsCache(connKey, monthKey, {
           byFunnelId: monthDealsCache.byFunnelId,
           prevByFunnelId: monthDealsCache.prevByFunnelId,
           prevMonthKey: monthDealsCache.prevMonthKey,
@@ -4939,7 +5053,7 @@ async function loadDashboard(forceRefresh){
           newClients: monthDealsCache.newClients,
           prevNewClients: monthDealsCache.prevNewClients,
           newClientsKey: monthDealsCache.newClientsKey
-        });
+        }, monthDealsCache.fullSyncTs || Date.now());
       }
     }, 0);
 
