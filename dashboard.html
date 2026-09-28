@@ -3499,106 +3499,6 @@ async function fetchAllFast(webhook, method, params){
   return withKeyset(webhook, method, () => fetchAllKeyset(webhook, method, params), () => fetchAllPaged(webhook, method, params));
 }
 
-// ─── Серверная база сделок (sync-worker.js) ──────────────────────────────────
-// Воркер держит у себя уже выгруженную из Bitrix24 базу сделок и каждые 5 минут докачивает
-// изменения. Если он развёрнут и база портала готова — сделки берутся у него одним-двумя
-// запросами (быстро с первого открытия), а свежесть до секунды добирается лёгкой докачкой
-// изменений прямо из Bitrix24. Не развёрнут / недоступен / база ещё строится — всё как раньше.
-// Адрес можно переопределить для теста: localStorage.pCRM_syncUrl = 'https://...'
-const SYNC_URL_DEFAULT = ''; // впишите адрес воркера после развёртывания (см. sync-worker-README.md)
-function syncUrl(){
-  try{ const o = localStorage.getItem('pCRM_syncUrl'); if(o) return o.replace(/\/$/, ''); }catch(e){}
-  return SYNC_URL_DEFAULT.replace(/\/$/, '');
-}
-const syncState = {}; // webhook -> Promise<{ready, lastModified}|null>
-function syncStatus(webhook){
-  const base = syncUrl();
-  if(!base || !webhook) return Promise.resolve(null);
-  if(!syncState[webhook]){
-    syncState[webhook] = (async () => {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 5000);
-      try{
-        const res = await fetch(`${base}/status`, {headers: {'X-Webhook': webhook}, signal: ctl.signal});
-        const st = await res.json();
-        const extraFields = currentAddons.customLossReasonField ? [currentAddons.customLossReasonField] : [];
-        if(!st.registered || extraFields.length){
-          // Портала ещё нет на сервере (или нужно кастомное поле) — регистрируем; регистрация идемпотентна,
-          // база строится в фоне, а пока грузим как раньше
-          fetch(`${base}/register`, {method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({webhook, extraFields})}).catch(() => {});
-          if(!st.registered) return null;
-        }
-        return st.ready ? st : null;
-      }catch(e){ return null; }
-      finally{ clearTimeout(timer); }
-    })();
-    // статус перепроверяем не чаще раза в 2 минуты
-    setTimeout(() => { delete syncState[webhook]; }, 2 * 60 * 1000);
-  }
-  return syncState[webhook];
-}
-
-// Сделки из серверной базы в том же виде, что отдаёт crm.deal.list. null — сервер недоступен/не готов.
-async function fetchDealsFromSync(webhook, categoryId, period, opts = {}){
-  const st = await syncStatus(webhook);
-  if(!st) return null;
-  const base = syncUrl();
-  const qs = new URLSearchParams();
-  if(categoryId !== null && categoryId !== undefined) qs.set('category', categoryId);
-  if(period && period.from) qs.set('from', period.from);
-  if(period && period.to) qs.set('to', period.to);
-  if(opts.wonOnly) qs.set('won', '1');
-  const rows = [];
-  let after = 0, lastModified = st.lastModified;
-  try{
-    for(;;){
-      qs.set('after', after);
-      const res = await fetch(`${base}/deals?${qs}`, {headers: {'X-Webhook': webhook}});
-      if(!res.ok) return null;
-      const j = await res.json();
-      if(!j.ready) return null;
-      lastModified = j.lastModified || lastModified;
-      const iExtra = j.cols.indexOf('EXTRA');
-      j.rows.forEach(r => {
-        const o = {};
-        j.cols.forEach((c, i) => { if(c !== 'EXTRA') o[c] = r[i]; });
-        if(iExtra >= 0 && r[iExtra]){ try{ Object.assign(o, JSON.parse(r[iExtra])); }catch(e){} }
-        rows.push(o);
-      });
-      _updateLoadingProgress(j.rows.length);
-      if(!j.next) break;
-      after = j.next;
-    }
-  }catch(e){ return null; }
-  rows.__lastModified = lastModified;
-  rows.__total = rows.length;
-  return rows;
-}
-
-// Серверная база + докачка из Bitrix24 всего, что изменилось после последней синхронизации сервера
-// (сервер отстаёт максимум на ~5 минут — эта докачка делает данные такими же свежими, как раньше).
-async function fetchDealsServerFirst(webhook, method, params, categoryId, period, opts){
-  const server = await fetchDealsFromSync(webhook, categoryId, period, opts);
-  if(!server) return null;
-  const t0 = performance.now();
-  if(server.__lastModified){
-    try{
-      const fresh = await fetchAllFast(webhook, method, {...params, filter: {...params.filter, '>=DATE_MODIFY': server.__lastModified}});
-      if(fresh.length){
-        const byId = new Map(server.map(d => [String(d.ID), d]));
-        fresh.forEach(d => byId.set(String(d.ID), d));
-        const merged = [...byId.values()];
-        merged.__total = merged.length;
-        console.info(`[загрузка] сервер: ${server.length} сделок + ${fresh.length} свежих из Bitrix24 за ${Math.round(performance.now() - t0)} мс`);
-        return merged;
-      }
-    }catch(e){ /* не удалось докачать — отдаём серверную (отстаёт не больше ~5 мин) */ }
-  }
-  console.info(`[загрузка] сервер: ${server.length} сделок`);
-  return server;
-}
-
 async function fetchCategories(webhook){
   const data = await callMethod(webhook, 'crm.category.list', {entityTypeId: 2});
   return (data.result && data.result.categories) ? data.result.categories : [];
@@ -3710,8 +3610,7 @@ async function fetchFunnelContactIds(webhook, categoryId, period){
   const filter = {CATEGORY_ID: categoryId};
   if(period && period.from) filter['>=DATE_CREATE'] = `${period.from} 00:00:00`;
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
-  const deals = (await fetchDealsServerFirst(webhook, 'crm.deal.list', {filter, select: ['ID', 'CONTACT_ID']}, categoryId, period, {}))
-    || await fetchAllFast(webhook, 'crm.deal.list', {
+  const deals = await fetchAllFast(webhook, 'crm.deal.list', {
     filter,
     select: ['ID', 'CONTACT_ID']
   });
@@ -3776,8 +3675,7 @@ async function fetchDealsForCategory(webhook, categoryId, period, opts = {}){
   if(period && period.to) filter['<=DATE_CREATE'] = `${period.to} 23:59:59`;
   // Основной, проверенный путь — сделки, СОЗДАННЫЕ в периоде. Не трогаем эту часть вообще,
   // чтобы не рисковать уже стабильно работающим поведением.
-  const createdInPeriod = (!opts.modifiedSince && await fetchDealsServerFirst(webhook, 'crm.deal.list', { filter, select: DEAL_SELECT }, categoryId, period, opts))
-    || await fetchAllFast(webhook, 'crm.deal.list', { filter, select: DEAL_SELECT });
+  const createdInPeriod = await fetchAllFast(webhook, 'crm.deal.list', { filter, select: DEAL_SELECT });
 
   // Раньше на этом всё заканчивалось — и сделка, СОЗДАННАЯ в прошлом периоде, но ЗАКРЫТАЯ
   // (выиграна/провалена) в текущем, полностью пропадала из статистики. Отдельным, лёгким
