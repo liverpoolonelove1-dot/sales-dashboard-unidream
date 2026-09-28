@@ -3307,16 +3307,20 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
   const maxId = parseInt(lastRows[0] && lastRows[0].ID, 10);
   if(!(minId > 0) || !(maxId >= minId)) return fallback();
 
-  const segCount = Math.max(1, Math.min(REQUEST_CONCURRENCY, Math.ceil(total / 2500)));
+  // Стартовых отрезков — сколько потоков в очереди. Дальше каждый недокачанный отрезок сам делится
+  // пополам (см. fetchSegment), так что даже при сильно неравномерных ID (импорт, удалённые сделки)
+  // очередь остаётся полностью загруженной, а не качает один «толстый» отрезок по 2500 за шаг.
+  const segCount = Math.max(1, Math.min(REQUEST_CONCURRENCY, Math.ceil(total / 1000)));
   const step = Math.ceil((maxId - minId + 1) / segCount);
   const segments = [];
   for(let lo = minId; lo <= maxId; lo += step) segments.push([lo, Math.min(lo + step, maxId + 1)]);
 
   const baseParams = {...params, order: {ID: 'ASC'}, start: -1};
+  const CHAIN = 25; // страниц на batch: короче цепочка — меньше пустых хвостов и быстрее ответ сервера
   async function fetchSegment([lo, hi]){
     const rows = [];
     let afterId = lo - 1;
-    let chainLen = 50;
+    let chainLen = CHAIN;
     for(;;){
       const cmd = {};
       for(let i = 0; i < chainLen; i++){
@@ -3356,6 +3360,12 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
       // Полный первый ответ, но цепочка ни разу не продвинулась — связка $result на этом портале
       // не работает; keyset здесь медленнее обычного пути, отдаём управление fallback'у.
       if(pagesTaken <= 1 && chainLen > 1) throw new Error('keyset: цепочка batch не работает');
+      // Отрезок ещё не докачан — делим остаток пополам и качаем обе половины параллельно.
+      if(hi - afterId > 2){
+        const mid = Math.floor((afterId + 1 + hi) / 2);
+        const halves = await Promise.all([fetchSegment([afterId + 1, mid]), fetchSegment([mid, hi])]);
+        return rows.concat(halves[0], halves[1]);
+      }
     }
   }
 
