@@ -3289,14 +3289,20 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
   const rowsOf = r => itemsKey ? (r && Array.isArray(r[itemsKey]) ? r[itemsKey] : null) : r;
   const fallback = () => (opts.fallback || fetchAllPaged)(webhook, method, params);
   if(Array.isArray(params.select) && !params.select.includes("ID")) params = {...params, select: ["ID", ...params.select]};
-  const idSelect = {...params, select: ['ID'], order: {ID: 'ASC'}};
-  const [first, last] = await Promise.all([
-    callMethod(webhook, method, {...idSelect, start: 0}),
-    callMethod(webhook, method, {...idSelect, order: {ID: 'DESC'}, start: -1})
-  ]);
+  // Первый запрос — сразу полноценная первая страница: для маленьких выборок (≤ 1 страницы, а таких
+  // большинство — пустые воронки, прошлые периоды) это единственный запрос, без лишних проб.
+  const first = await callMethod(webhook, method, {...params, order: {ID: 'ASC'}, start: 0});
+  const firstRows = rowsOf(first.result) || [];
   const total = typeof first.total === 'number' ? first.total : null;
+  if(total !== null && (total <= firstRows.length || !first.next)){
+    const rows = firstRows.slice();
+    rows.__total = total;
+    _updateLoadingProgress(rows.length);
+    return rows;
+  }
   if(total === null || total < KEYSET_MIN_TOTAL) return fallback();
-  const firstRows = rowsOf(first.result) || [], lastRows = rowsOf(last.result) || [];
+  const last = await callMethod(webhook, method, {...params, select: ['ID'], order: {ID: 'DESC'}, start: -1});
+  const lastRows = rowsOf(last.result) || [];
   const minId = parseInt(firstRows[0] && firstRows[0].ID, 10);
   const maxId = parseInt(lastRows[0] && lastRows[0].ID, 10);
   if(!(minId > 0) || !(maxId >= minId)) return fallback();
@@ -3366,15 +3372,40 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
   return all;
 }
 
-async function fetchAllFast(webhook, method, params){
+// Если на портале keyset однажды не сработал — запоминаем это (на сутки) и дальше сразу идём
+// обычным путём. Иначе КАЖДАЯ загрузка тратила время на неудачную попытку + потом грузила всё
+// заново постранично, и выходило медленнее, чем было до ускорения.
+const KEYSET_OFF_TTL = 24 * 60 * 60 * 1000;
+function keysetOffKey(webhook){ try{ return 'pCRM_keysetOff_' + btoa(webhook).slice(0, 32); }catch(e){ return 'pCRM_keysetOff'; } }
+function keysetDisabled(webhook){
+  try{ const ts = +localStorage.getItem(keysetOffKey(webhook)); return ts > 0 && Date.now() - ts < KEYSET_OFF_TTL; }catch(e){ return false; }
+}
+function disableKeyset(webhook){ try{ localStorage.setItem(keysetOffKey(webhook), String(Date.now())); }catch(e){} }
+
+async function withKeyset(webhook, label, fast, slow){
+  const t0 = performance.now();
+  if(keysetDisabled(webhook)){
+    const r = await slow();
+    console.info(`[загрузка] ${label}: ${r.length} записей за ${Math.round(performance.now() - t0)} мс (обычный путь, keyset выключен для портала)`);
+    return r;
+  }
   const before = _loadingRecordCount;
   try{
-    return await fetchAllKeyset(webhook, method, params);
+    const r = await fast();
+    console.info(`[загрузка] ${label}: ${r.length} записей за ${Math.round(performance.now() - t0)} мс (keyset)`);
+    return r;
   }catch(e){
-    console.warn('keyset-загрузка не удалась, обычный путь:', e && e.message);
+    console.warn(`keyset-загрузка не удалась (${label}), обычный путь, keyset для портала выключен на сутки:`, e && e.message);
+    disableKeyset(webhook);
     _loadingRecordCount = before;
-    return fetchAllPaged(webhook, method, params);
+    const r = await slow();
+    console.info(`[загрузка] ${label}: ${r.length} записей за ${Math.round(performance.now() - t0)} мс (после неудачного keyset)`);
+    return r;
   }
+}
+
+async function fetchAllFast(webhook, method, params){
+  return withKeyset(webhook, method, () => fetchAllKeyset(webhook, method, params), () => fetchAllPaged(webhook, method, params));
 }
 
 async function fetchCategories(webhook){
@@ -3430,15 +3461,10 @@ async function fetchFieldOptions(webhook, fieldCode){
 async function fetchStageHistoryAll(webhook, params){
   // Быстрый путь (keyset, как у сделок): без COUNT/OFFSET на каждой странице. На 100к+ записей
   // истории стадий разница в разы. При любой проблеме — прежний постраничный загрузчик ниже.
-  const before = _loadingRecordCount;
-  try{
-    return await fetchAllKeyset(webhook, "crm.stagehistory.list", {entityTypeId: 2, ...params},
-      {itemsKey: "items", fallback: () => fetchStageHistoryPaged(webhook, params)});
-  }catch(e){
-    console.warn("keyset-загрузка истории стадий не удалась, обычный путь:", e && e.message);
-    _loadingRecordCount = before;
-    return fetchStageHistoryPaged(webhook, params);
-  }
+  return withKeyset(webhook, "crm.stagehistory.list",
+    () => fetchAllKeyset(webhook, "crm.stagehistory.list", {entityTypeId: 2, ...params},
+      {itemsKey: "items", fallback: () => fetchStageHistoryPaged(webhook, params)}),
+    () => fetchStageHistoryPaged(webhook, params));
 }
 
 async function fetchStageHistoryPaged(webhook, params){
