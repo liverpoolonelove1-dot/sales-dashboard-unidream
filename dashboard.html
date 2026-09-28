@@ -3656,6 +3656,15 @@ function fmtDuration(totalSeconds){
   return `${m} мин`;
 }
 
+async function fetchSourceNames(webhook){
+  try{
+    const data = await callMethod(webhook, 'crm.status.list', {filter: {ENTITY_ID: 'SOURCE'}});
+    const map = {};
+    (data.result || []).forEach(s => { if(s.STATUS_ID && s.NAME) map[s.STATUS_ID] = s.NAME; });
+    return map;
+  }catch(e){ return {}; }
+}
+
 async function fetchLeadStatuses(webhook){
   try{
     const data = await callMethod(webhook, 'crm.status.list', {filter: {ENTITY_ID: 'STATUS'}});
@@ -3796,7 +3805,10 @@ const CRM_ADAPTERS = {
       if(lossReasonField && !structureCache.lossReasonOptions){
         structureCache.lossReasonOptions = await fetchFieldOptions(conn.webhook, lossReasonField);
       }
-      const raw = await fetchDealsForCategory(conn.webhook, funnelId, period);
+      if(!structureCache.sourceNamesPromise){
+        structureCache.sourceNamesPromise = fetchSourceNames(conn.webhook).then(m => { portalSourceNames = m; return m; });
+      }
+      const [raw] = await Promise.all([fetchDealsForCategory(conn.webhook, funnelId, period), structureCache.sourceNamesPromise]);
       const mapped = raw.map(d => ({
         id: d.ID,
         title: d.TITLE || '',
@@ -3808,7 +3820,7 @@ const CRM_ADAPTERS = {
         closedAt: d.CLOSEDATE,
         updatedAt: d.DATE_MODIFY,
         actualCloseTime: d.__actualCloseTime || null, // точный момент реального перехода в выиграна/провалена (из истории стадий), в отличие от closedAt — плановой даты
-        source: d.SOURCE_ID || '',
+        source: d.SOURCE_ID ? sourceName(d.SOURCE_ID) : '',
         semantic: guessSemantic(d.STAGE_ID, semMap),
         // текст причины отказа из кастомного поля клиента (Tift) вместо названия стадии — только если addon настроен и поле заполнено на сделке
         lossReasonText: (lossReasonField && d[lossReasonField]) ? (structureCache.lossReasonOptions[d[lossReasonField]] || null) : null
@@ -4419,6 +4431,10 @@ async function loadDashboard(forceRefresh){
       if(structFetches.length > 0) await Promise.all(structFetches);
     }
 
+    // Справочник источников — нужен и когда сделки подняты из кэша (fetchDeals тогда не вызывается)
+    if(conn.webhook && !structureCache.sourceNamesPromise){
+      structureCache.sourceNamesPromise = fetchSourceNames(conn.webhook).then(m => { portalSourceNames = m; return m; });
+    }
     // Запускаем fetchUserNames параллельно с загрузкой сделок — экономит ~500ms на холодном кэше.
     const userNamesPromise = structureCache.userNames
       ? Promise.resolve(structureCache.userNames)
@@ -4621,6 +4637,8 @@ async function loadDashboard(forceRefresh){
     const activeFunnels = funnels.filter(f => f.deals > 0);
     const displayFunnels = activeFunnels.length > 0 ? activeFunnels : funnels;
 
+    // справочник источников должен быть готов до отрисовки (коды UC_*/SRC_* → названия)
+    if(structureCache.sourceNamesPromise) await structureCache.sourceNamesPromise.catch(() => {});
     // резолвим имена менеджеров
     const managerIds = Object.keys(managerMap).filter(id => id !== 'unknown');
     let nameMap = {};
@@ -5515,7 +5533,7 @@ async function openDealDetail(flatIdx, src){
       if(phone) extra += statRow(t('phoneLabel'), escapeHtml(phone));
     }
     if(company) extra += statRow(t('companyLabel'), escapeHtml(company.TITLE || `ID ${full.COMPANY_ID}`));
-    if(full.SOURCE_ID) extra += statRow(t('sourceCol'), escapeHtml(full.SOURCE_ID));
+    if(full.SOURCE_ID) extra += statRow(t('sourceCol'), escapeHtml(sourceName(full.SOURCE_ID)));
     if(full.COMMENTS) extra += `<div class="modal-note"><b>${t('commentLabel')}</b> ${escapeHtml(full.COMMENTS)}</div>`;
     const ufFields = Object.keys(full).filter(k => k.startsWith('UF_') && full[k] !== null && full[k] !== '' && !Array.isArray(full[k]));
     if(ufFields.length > 0){
@@ -6335,7 +6353,7 @@ function buildLeadsHtml(filterType, standalone){
     const mgrName = mgr ? mgr.name : (lead.ASSIGNED_BY_ID ? `ID ${lead.ASSIGNED_BY_ID}` : '—');
     const date = lead.DATE_CREATE ? new Date(lead.DATE_CREATE).toLocaleDateString('ru-RU', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
     const title = lead.TITLE ? escapeHtml(lead.TITLE) : (lead.NAME || lead.LAST_NAME ? escapeHtml(`${lead.NAME||''} ${lead.LAST_NAME||''}`.trim()) : `ID ${lead.ID}`);
-    const src = escapeHtml(lead.SOURCE_ID || '—');
+    const src = escapeHtml(lead.SOURCE_ID ? sourceName(lead.SOURCE_ID) : '—');
     return `<tr>
       <td>
         <div style="font-weight:600;font-size:12.5px;">${title}</div>
@@ -6361,7 +6379,7 @@ function buildLeadsHtml(filterType, standalone){
   const statusRows = Object.entries(c.statusCounts).sort((a,b) => b[1].count - a[1].count)
     .map(([id, s]) => `<tr><td>${escapeHtml(s.name)}</td><td>${s.count}</td></tr>`).join('');
   const sourceRows = Object.entries(c.sourceCounts).sort((a,b) => b[1] - a[1])
-    .map(([src, count]) => `<tr><td>${escapeHtml(src)}</td><td>${count}</td></tr>`).join('');
+    .map(([src, count]) => `<tr><td>${escapeHtml(sourceName(src))}</td><td>${count}</td></tr>`).join('');
 
   const breakdown = `
     <table style="width:100%;margin-top:16px;border-collapse:collapse;"><tr>
@@ -6748,7 +6766,7 @@ function generatePdfReport(currency, period, now){
         <tr style="background:#f5f5f5;"><th>Источник</th><th>Лидов</th><th>Выиграно</th><th>Конверсия</th><th>Продажи</th></tr>
         ${Object.entries(srcMap).sort((a,b)=>b[1].total-a[1].total).map(([src,s])=>{
           const c=(s.won>0&&s.total>0)?Math.round(100*s.won/s.total):0;
-          return `<tr><td>${src}</td><td>${s.total}</td><td>${s.won}</td><td>${c}%</td><td>${fmt(s.sum)}</td></tr>`;
+          return `<tr><td>${escapeHtml(sourceName(src))}</td><td>${s.total}</td><td>${s.won}</td><td>${c}%</td><td>${fmt(s.sum)}</td></tr>`;
         }).join('')}
       </table>
     </div>` : '';
@@ -8194,7 +8212,10 @@ const SOURCE_NAMES = {
   'YANDEX': 'Яндекс','GOOGLE': 'Google',''  : 'Не указан'
 };
 
-function sourceName(src){ return SOURCE_NAMES[src] || src || 'Не указан'; }
+// Названия источников с портала клиента (справочник SOURCE в Bitrix24): кастомные источники приходят
+// в сделках как коды вида UC_QZ64RX / SRC_4E8E41 — без справочника клиент видел эти коды вместо названий.
+let portalSourceNames = {};
+function sourceName(src){ return portalSourceNames[src] || SOURCE_NAMES[src] || src || 'Не указан'; }
 
 function buildSourcesTab(){
   const deals = lastDealsFlat;
@@ -9262,7 +9283,7 @@ function buildRoiTab(){
     const cpa=s.total>0?Math.round(s.wonSum/s.total):0;
     const wr=s.total>0?Math.round(100*s.won/s.total):0;
     const roi=s.lostSum>0?Math.round(100*s.wonSum/s.lostSum):null;
-    return `<tr><td>${escapeHtml(src)}</td><td>${s.total}</td><td>${s.won} (${wr}%)</td><td>${fmt(s.wonSum)}</td><td>${fmt(cpa)}${t('perLead')}</td><td>${roi!==null?`<b style="color:${roi>100?'var(--accent-strong)':'var(--red-bad)'}">${roi}%</b>`:'—'}</td></tr>`;
+    return `<tr><td>${escapeHtml(sourceName(src))}</td><td>${s.total}</td><td>${s.won} (${wr}%)</td><td>${fmt(s.wonSum)}</td><td>${fmt(cpa)}${t('perLead')}</td><td>${roi!==null?`<b style="color:${roi>100?'var(--accent-strong)':'var(--red-bad)'}">${roi}%</b>`:'—'}</td></tr>`;
   }).join('');
 
   // LTV по менеджерам
@@ -9503,7 +9524,7 @@ function buildFinanceTab(){
       const rpl = v.total>0 ? Math.round(v.sum/v.total) : 0; // Revenue per Lead
       const conv2 = v.total>0 ? Math.round(100*v.won/v.total) : 0;
       return `<tr>
-        <td>${escapeHtml(src)}</td>
+        <td>${escapeHtml(sourceName(src))}</td>
         <td>${v.total}</td>
         <td>${v.won}</td>
         <td>${conv2}%</td>
