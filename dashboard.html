@@ -401,6 +401,23 @@
   .analytics-table tbody tr{transition:background .12s ease;}
   .analytics-table tbody tr:hover{background:var(--overlay-1);}
   .analytics-table tbody tr:hover td{border-color:transparent;}
+  /* «Заявки по стадиям»: таблица всегда помещается в ширину экрана (без обрезанных столбцов
+     и налезающих заголовков), на телефоне — короткие заголовки */
+  .entry-table{table-layout:fixed;}
+  .entry-table .entry-col-stage{width:46%;}
+  .entry-table th{white-space:normal;line-height:1.35;vertical-align:bottom;}
+  .entry-table th:not(:first-child), .entry-table td:not(:first-child){padding-left:10px;}
+  .entry-table td:first-child{word-break:break-word;padding-right:6px;}
+  .entry-table .th-short{display:none;}
+  @media(max-width:640px){
+    .analytics-table.entry-table{display:table;white-space:normal;overflow:visible;font-size:12.5px;}
+    .entry-table .entry-col-stage{width:50%;}
+    .entry-table .th-long{display:none;}
+    .entry-table .th-short{display:inline;}
+    .entry-table th{font-size:9px;letter-spacing:.04em;}
+    .entry-table td{padding:9px 0;}
+    #funnelEntryStatsBody, #tunnelBody{padding-bottom:84px;} /* не прячем последние строки под плавающей кнопкой */
+  }
   .analytics-bar-cell{display:flex;align-items:center;gap:10px;}
   .analytics-bar{flex:1;height:6px;background:var(--overlay-2);border-radius:6px;overflow:hidden;min-width:60px;}
   .analytics-bar-fill{height:100%;border-radius:6px;background:var(--accent-strong);transition:width .4s ease;}
@@ -3652,6 +3669,49 @@ async function fetchFunnelContactIds(webhook, categoryId, period){
 // не будет видна, а здесь — будет учтена, потому что реально проходила через эту стадию.
 const ENTRY_COUNTS_TTL = 10 * 60 * 1000;
 
+// История стадий в IndexedDB. Она только дописывается и задним числом не меняется, поэтому:
+//  • прошедший период (например, «июнь») кэшируется навсегда — повторно не качается вообще;
+//  • текущий период кэшируется и в следующий раз докачиваются только новые записи (ID > последнего).
+// У медленных коробок (Utas) это превращает минуты ожидания в секунды со второго открытия.
+function localDayStr(d = new Date()){
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+async function fetchStageHistoryCached(webhook, categoryId, period){
+  const from = (period && period.from) || '';
+  const to = (period && period.to) || '';
+  const closed = !!to && to < localDayStr();
+  let key = null;
+  try{ key = 'hist1_' + btoa(webhook).slice(0, 24) + '_' + categoryId + '_' + from + '_' + (closed ? to : 'open'); }catch(e){}
+  const select = ['ID', 'OWNER_ID', 'STAGE_ID', 'CREATED_TIME'];
+  const filter = {'CATEGORY_ID': categoryId};
+  if(from) filter['>=CREATED_TIME'] = `${from} 00:00:00`;
+  if(closed) filter['<=CREATED_TIME'] = `${to} 23:59:59`;
+  const slim = e => ({ID: e.ID, OWNER_ID: e.OWNER_ID, STAGE_ID: e.STAGE_ID, CREATED_TIME: e.CREATED_TIME});
+  let cached = null;
+  if(key){ try{ cached = await idbGet(key); }catch(e){} }
+  let entries, changed = true;
+  if(cached && Array.isArray(cached.entries)){
+    if(closed){ entries = cached.entries; changed = false; }
+    else{
+      const delta = await fetchStageHistoryAll(webhook, {entityTypeId: 2, filter: {...filter, '>ID': cached.maxId || 0}, select});
+      entries = delta.length ? cached.entries.concat(delta.map(slim)) : cached.entries;
+      changed = delta.length > 0;
+    }
+  } else {
+    entries = (await fetchStageHistoryAll(webhook, {entityTypeId: 2, filter, select})).map(slim);
+  }
+  if(key && changed){
+    let maxId = 0;
+    entries.forEach(e => { const id = parseInt(e.ID, 10); if(id > maxId) maxId = id; });
+    idbSet(key, {ts: Date.now(), maxId, entries}).catch(() => {});
+  }
+  // В открытом кэше могут быть записи позже конца периода — отсекаем по дате перехода
+  return entries.filter(e => {
+    const d = String(e.CREATED_TIME || '').slice(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+}
+
 // Ключ «человека» для сделки. У Utas при первом контакте клиента просят зарегистрироваться на сайте,
 // и регистрация создаёт НОВУЮ сделку — по ID сделки один и тот же человек выглядит как два разных.
 // Поэтому конверсию между стадиями считаем по человеку: телефон контакта (последние 9 цифр —
@@ -3670,11 +3730,18 @@ async function fetchPersonKeys(webhook, dealIds){
   const keys = new Map();
   const ids = [...new Set(dealIds.map(String))];
   if(!ids.length) return keys;
+  // Постоянный кэш «сделка → человек» (неделя): повторно не запрашиваем контакты и телефоны
+  let pkKey = null, pkCache = null;
+  try{ pkKey = 'pk1_' + btoa(webhook).slice(0, 24); }catch(e){}
+  if(pkKey){ try{ const hit = await idbGet(pkKey); if(hit && Date.now() - hit.ts < 7 * 24 * 60 * 60 * 1000) pkCache = hit; }catch(e){} }
+  const pkMap = (pkCache && pkCache.map) || {};
+  const todo = ids.filter(id => { if(pkMap[id]){ keys.set(id, pkMap[id]); return false; } return true; });
+  if(!todo.length) return keys;
   // кэш сделок может быть поднят из IndexedDB — учитываем и его
   Object.values(monthDealsCache.byFunnelId || {}).forEach(rememberDeals);
   const deals = [];
   const missing = [];
-  ids.forEach(id => { const k = knownDeals.get(id); if(k) deals.push(k); else missing.push(id); });
+  todo.forEach(id => { const k = knownDeals.get(id); if(k) deals.push(k); else missing.push(id); });
   const idChunks = [];
   for(let i = 0; i < missing.length; i += 50) idChunks.push(missing.slice(i, i + 50));
   if(idChunks.length){
@@ -3697,7 +3764,9 @@ async function fetchPersonKeys(webhook, dealIds){
     else if(c && normPersonName(`${c.NAME || ''} ${c.LAST_NAME || ''}`)) key = 'n:' + normPersonName(`${c.NAME || ''} ${c.LAST_NAME || ''}`);
     else if(normPersonName(d.TITLE)) key = 'n:' + normPersonName(d.TITLE);
     keys.set(String(d.ID), key || 'd:' + d.ID);
+    if(key) pkMap[String(d.ID)] = key;
   });
+  if(pkKey) idbSet(pkKey, {ts: (pkCache && pkCache.ts) || Date.now(), map: pkMap}).catch(() => {});
   return keys;
 }
 // Конверсия из стадии fromId в стадию toId: какая доля сделок, побывавших на fromId, побывала и на toId.
@@ -3741,11 +3810,8 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
     const filter = {'CATEGORY_ID': categoryId};
     if(period && period.from) filter['>=CREATED_TIME'] = `${period.from} 00:00:00`;
     if(period && period.to) filter['<=CREATED_TIME'] = `${period.to} 23:59:59`;
-    const entries = await fetchStageHistoryAll(webhook, {
-      entityTypeId: 2,
-      filter,
-      select: ['OWNER_ID', 'STAGE_ID']
-    });
+    void filter; // фильтр периода теперь внутри fetchStageHistoryCached
+    const entries = await fetchStageHistoryCached(webhook, categoryId, period);
     const byStage = {};
     entries.forEach(e => {
       if(!byStage[e.STAGE_ID]) byStage[e.STAGE_ID] = new Set();
@@ -8828,12 +8894,13 @@ async function renderFunnelEntryStatsSection(){
               ${visualRows}
             </div>
             <div style="flex:2;min-width:280px;overflow-x:auto;">
-              <table class="analytics-table">
+              <table class="analytics-table entry-table">
+                <colgroup><col class="entry-col-stage"><col><col><col></colgroup>
                 <thead><tr>
                   <th>${t('stageCol')}</th>
-                  <th style="text-align:right;">${t('funnelEverEnteredCol')}</th>
-                  <th style="text-align:right;">${t('funnelCurrentlyHereCol')}</th>
-                  <th style="text-align:right;">${t('funnelConvFromPrevCol')}</th>
+                  <th style="text-align:right;"><span class="th-long">${t('funnelEverEnteredCol')}</span><span class="th-short">${currentLang === 'uz' ? 'Jami' : 'Заходило'}</span></th>
+                  <th style="text-align:right;"><span class="th-long">${t('funnelCurrentlyHereCol')}</span><span class="th-short">${currentLang === 'uz' ? 'Hozir' : 'Сейчас'}</span></th>
+                  <th style="text-align:right;"><span class="th-long">${t('funnelConvFromPrevCol')}</span><span class="th-short">${currentLang === 'uz' ? 'Konv.' : 'Конв.'}</span></th>
                 </tr></thead>
                 <tbody>${tableRows}</tbody>
               </table>
