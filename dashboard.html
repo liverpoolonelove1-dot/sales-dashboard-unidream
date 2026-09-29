@@ -3651,6 +3651,42 @@ async function fetchFunnelContactIds(webhook, categoryId, period){
 // сделка могла зайти на стадию "Звонок назначен" и уйти дальше — в обычном отчёте она там уже
 // не будет видна, а здесь — будет учтена, потому что реально проходила через эту стадию.
 const ENTRY_COUNTS_TTL = 10 * 60 * 1000;
+
+// Ключ «человека» для сделки. У Utas при первом контакте клиента просят зарегистрироваться на сайте,
+// и регистрация создаёт НОВУЮ сделку — по ID сделки один и тот же человек выглядит как два разных.
+// Поэтому конверсию между стадиями считаем по человеку: телефон контакта (последние 9 цифр —
+// +998.../8... совпадают), без телефона — имя и фамилия контакта, без контакта — название сделки
+// (регистр и порядок слов не важны: «Иванов Иван» = «иван иванов»).
+function normPersonName(str){
+  return String(str || '').toLowerCase().replace(/[^a-zа-яёўқғҳ0-9\s]/gi, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+}
+async function fetchPersonKeys(webhook, dealIds){
+  const keys = new Map();
+  const ids = [...new Set(dealIds.map(String))];
+  if(!ids.length) return keys;
+  const idChunks = [];
+  for(let i = 0; i < ids.length; i += 50) idChunks.push(ids.slice(i, i + 50));
+  const dealPages = await callBatch(webhook, idChunks.map(chunk => ({method: 'crm.deal.list', params: {filter: {'@ID': chunk}, select: ['ID', 'TITLE', 'CONTACT_ID']}})));
+  const deals = dealPages.flatMap(p => Array.isArray(p) ? p : []);
+  const contactIds = [...new Set(deals.map(d => d.CONTACT_ID).filter(c => c && c !== '0').map(String))];
+  const contacts = new Map();
+  if(contactIds.length){
+    const cChunks = [];
+    for(let i = 0; i < contactIds.length; i += 50) cChunks.push(contactIds.slice(i, i + 50));
+    const cPages = await callBatch(webhook, cChunks.map(chunk => ({method: 'crm.contact.list', params: {filter: {'@ID': chunk}, select: ['ID', 'NAME', 'LAST_NAME', 'PHONE']}})));
+    cPages.flatMap(p => Array.isArray(p) ? p : []).forEach(c => contacts.set(String(c.ID), c));
+  }
+  deals.forEach(d => {
+    const c = d.CONTACT_ID ? contacts.get(String(d.CONTACT_ID)) : null;
+    const phone = c && Array.isArray(c.PHONE) ? c.PHONE.map(p => String(p.VALUE || '').replace(/\D/g, '')).find(p => p.length >= 7) : null;
+    let key = null;
+    if(phone) key = 'p:' + phone.slice(-9);
+    else if(c && normPersonName(`${c.NAME || ''} ${c.LAST_NAME || ''}`)) key = 'n:' + normPersonName(`${c.NAME || ''} ${c.LAST_NAME || ''}`);
+    else if(normPersonName(d.TITLE)) key = 'n:' + normPersonName(d.TITLE);
+    keys.set(String(d.ID), key || 'd:' + d.ID);
+  });
+  return keys;
+}
 // Конверсия из стадии fromId в стадию toId: какая доля сделок, побывавших на fromId, побывала и на toId.
 // null — на fromId никого не было (конверсию не считаем).
 function stageConversion(counts, fromId, toId){
@@ -3678,7 +3714,7 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
     // Кэш в IndexedDB на 10 минут: у медленных коробок (Utas) история стадий грузится долго,
     // а повторный заход в раздел / переключение между разделами теперь мгновенные.
     let idbKey = null;
-    try{ idbKey = 'entry2_' + btoa(webhook).slice(0, 24) + '_' + cacheKey; }catch(e){}
+    try{ idbKey = 'entry3_' + btoa(webhook).slice(0, 24) + '_' + cacheKey; }catch(e){}
     if(idbKey){
       try{
         const hit = await idbGet(idbKey);
@@ -3705,8 +3741,20 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
     // Число сделок на стадии + сами ID сделок (__owners) — нужны для честной конверсии «из предыдущей
     // стадии в эту»: считаем только сделки, которые были на ОБЕИХ стадиях, а не просто делим количества
     // (иначе сделки, попавшие сразу на вторую стадию, давали конверсию 464%).
+    // Для конверсии — не ID сделок, а люди (см. fetchPersonKeys). Не удалось получить контакты —
+    // считаем по сделкам, как раньше, раздел не падает.
+    let personOf = null;
+    try{
+      const allOwners = [];
+      Object.values(byStage).forEach(set => set.forEach(id => allOwners.push(id)));
+      personOf = await fetchPersonKeys(webhook, allOwners);
+    }catch(e){ console.warn('Заявки по стадиям: не удалось сопоставить клиентов по телефону/имени —', e && e.message); }
     const result = {__owners: {}};
-    Object.keys(byStage).forEach(stageId => { result[stageId] = byStage[stageId].size; result.__owners[stageId] = [...byStage[stageId]]; });
+    Object.keys(byStage).forEach(stageId => {
+      result[stageId] = byStage[stageId].size;
+      const people = new Set([...byStage[stageId]].map(id => (personOf && personOf.get(String(id))) || 'd:' + id));
+      result.__owners[stageId] = [...people];
+    });
     if(monthDealsCache.entryCountsCache) monthDealsCache.entryCountsCache[cacheKey] = result;
     if(idbKey) idbSet(idbKey, {ts: Date.now(), data: result}).catch(() => {});
     delete monthDealsCache._entryCountsInflight[cacheKey];
