@@ -3188,7 +3188,9 @@ async function callMethod(webhook, method, params){
 // в лимит длины URL). Раньше 100 страниц пагинации = 100 отдельных HTTP-запросов даже с очередью
 // параллельности; теперь то же самое — всего 2 запроса по 50 команд каждый. Это главный резерв
 // скорости для клиентов с большим объёмом сделок.
-async function callBatchRaw(webhook, cmd, attempt){
+// opts.timeoutMs / opts.noAbortRetry — для keyset: медленный сервер не ждём минутами, а сразу
+// отдаём загрузку прежнему пути (у него таймауты подобраны под медленные коробки вроде Utas).
+async function callBatchRaw(webhook, cmd, attempt, opts = {}){
   const controller = new AbortController();
   // 25 сек хватало, пока проверяли на клиентах в пределах ~20к сделок (Tift, 2.83 сек на весь
   // забор). У TestBor реально оказалось 109 833 сделки — при таком объёме пагинации один из
@@ -3198,7 +3200,7 @@ async function callBatchRaw(webhook, cmd, attempt){
   // таймаут тут не значит "сломано", чаще просто "в этот раз Bitrix24 ответил медленнее".
   // 30с на один запрос (было 90с) — маленькие чанки (10 команд) укладываются легко;
   // если медленный сервер не отвечает — быстро ловим и ретраим, не ждём 4.5 минуты.
-  const timeout = setTimeout(() => controller.abort(), 60000); // 60с: Utas и другие медленные серверы отвечают за 35-50с
+  const timeout = setTimeout(() => controller.abort(), opts.timeoutMs || 60000); // 60с: Utas и другие медленные серверы отвечают за 35-50с
   try{
     const body = new URLSearchParams();
     body.append('halt', '0');
@@ -3214,29 +3216,29 @@ async function callBatchRaw(webhook, cmd, attempt){
     if(res.status === 403) throw new Error('HTTP 403 — доступ запрещён. Добавьте нужные права вебхуку.');
     if((res.status === 503 || res.status === 429) && attempt < RATE_LIMIT_MAX_ATTEMPTS){
       await sleep(rateLimitBackoff(attempt));
-      return callBatchRaw(webhook, cmd, attempt + 1);
+      return callBatchRaw(webhook, cmd, attempt + 1, opts);
     }
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < RATE_LIMIT_MAX_ATTEMPTS){
       await sleep(rateLimitBackoff(attempt));
-      return callBatchRaw(webhook, cmd, attempt + 1);
+      return callBatchRaw(webhook, cmd, attempt + 1, opts);
     }
     if(data.error) throw new Error(data.error_description || data.error);
     return data.result; // {result:{key:[...]}, result_error:{...}, ...}
   }catch(e){
     clearTimeout(timeout);
     if(e.name === 'AbortError'){
-      if(attempt < 4){
+      if(attempt < 4 && !opts.noAbortRetry){
         await sleep(1000 * (attempt + 1));
-        return callBatchRaw(webhook, cmd, attempt + 1);
+        return callBatchRaw(webhook, cmd, attempt + 1, opts);
       }
       throw new Error('Превышено время ожидания batch-запроса.');
     }
     if(e instanceof TypeError && attempt < 5){
       // Failed to fetch: сервер сбросил соединение. Экспоненциальная пауза перед ретраем.
       await sleep(Math.min(1000 * Math.pow(2, attempt), 16000));
-      return callBatchRaw(webhook, cmd, attempt + 1);
+      return callBatchRaw(webhook, cmd, attempt + 1, opts);
     }
     throw e;
   }
@@ -3355,6 +3357,7 @@ async function fetchAllPaged(webhook, method, params){
 // Для маленьких выборок и при любой ошибке — прежний проверенный fetchAllPaged.
 const KEYSET_MIN_TOTAL = 51; // порога по объёму нет: всё, что больше одной страницы, идёт быстрым путём
 const KEYSET_PAGE = 50; // размер страницы list-методов Bitrix24
+const KEYSET_BATCH_TIMEOUT = 30000;
 
 // opts.itemsKey — для методов, которые отдают не массив, а {items:[...]} / {tasks:[...]}.
 // opts.idField  — имя поля ID в строках ответа (у tasks.task.list — 'id').
@@ -3414,9 +3417,10 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
       }
       let result;
       try{
-        result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0), isLowPriority(method));
+        result = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0, {timeoutMs: KEYSET_BATCH_TIMEOUT, noAbortRetry: true}), isLowPriority(method));
       }catch(e){
-        if(chainLen > 5 && e.message && e.message.includes('время ожидания')){ chainLen = Math.ceil(chainLen / 2); continue; }
+        // Сервер не уложился — не ждём повторов по минуте, сразу уходим на прежний путь (withKeyset)
+        if(e.message && e.message.includes('время ожидания')) throw new Error('keyset: сервер отвечает слишком медленно');
         throw e;
       }
       let done = false, pagesTaken = 0;
@@ -3467,15 +3471,18 @@ async function fetchAllKeyset(webhook, method, params, opts = {}){
 // обычным путём. Иначе КАЖДАЯ загрузка тратила время на неудачную попытку + потом грузила всё
 // заново постранично, и выходило медленнее, чем было до ускорения.
 const KEYSET_OFF_TTL = 24 * 60 * 60 * 1000;
-function keysetOffKey(webhook){ try{ return 'pCRM_keysetOff_' + btoa(webhook).slice(0, 32); }catch(e){ return 'pCRM_keysetOff'; } }
-function keysetDisabled(webhook){
-  try{ const ts = +localStorage.getItem(keysetOffKey(webhook)); return ts > 0 && Date.now() - ts < KEYSET_OFF_TTL; }catch(e){ return false; }
+// Флаг — отдельно на каждый метод: сбой, например, истории стадий не должен выключать быстрый путь для сделок.
+function keysetOffKey(webhook, label){ try{ return 'pCRM_keysetOff_' + btoa(webhook).slice(0, 32) + '_' + label; }catch(e){ return 'pCRM_keysetOff_' + label; } }
+function keysetDisabled(webhook, label){
+  try{ const ts = +localStorage.getItem(keysetOffKey(webhook, label)); return ts > 0 && Date.now() - ts < KEYSET_OFF_TTL; }catch(e){ return false; }
 }
-function disableKeyset(webhook){ try{ localStorage.setItem(keysetOffKey(webhook), String(Date.now())); }catch(e){} }
+function disableKeyset(webhook, label){ try{ localStorage.setItem(keysetOffKey(webhook, label), String(Date.now())); }catch(e){} }
+// Коробочный Bitrix24 на своём сервере (не *.bitrix24.*) — старые версии REST и медленные серверы
+function isSelfHostedPortal(webhook){ try{ return !/\.bitrix24\.[a-z.]+$/i.test(new URL(webhook).hostname); }catch(e){ return false; } }
 
 async function withKeyset(webhook, label, fast, slow){
   const t0 = performance.now();
-  if(keysetDisabled(webhook)){
+  if(keysetDisabled(webhook, label)){
     const r = await slow();
     console.info(`[загрузка] ${label}: ${r.length} записей за ${Math.round(performance.now() - t0)} мс (обычный путь, keyset выключен для портала)`);
     return r;
@@ -3486,8 +3493,8 @@ async function withKeyset(webhook, label, fast, slow){
     console.info(`[загрузка] ${label}: ${r.length} записей за ${Math.round(performance.now() - t0)} мс (keyset)`);
     return r;
   }catch(e){
-    console.warn(`keyset-загрузка не удалась (${label}), обычный путь, keyset для портала выключен на сутки:`, e && e.message);
-    disableKeyset(webhook);
+    console.warn(`keyset-загрузка не удалась (${label}), обычный путь, keyset для этого метода на портале выключен на сутки:`, e && e.message);
+    disableKeyset(webhook, label);
     _loadingRecordCount = before;
     const r = await slow();
     console.info(`[загрузка] ${label}: ${r.length} записей за ${Math.round(performance.now() - t0)} мс (после неудачного keyset)`);
@@ -3550,6 +3557,8 @@ async function fetchFieldOptions(webhook, fieldCode){
 // ОПТИМИЗАЦИЯ: после получения первой страницы (которая сообщает total) запрашиваем
 // все оставшиеся страницы ПАРАЛЛЕЛЬНО через batch API, а не ждём каждую по очереди.
 async function fetchStageHistoryAll(webhook, params){
+  // Коробка (Utas): история стадий — проверенным постраничным путём, как было до ускорений
+  if(isSelfHostedPortal(webhook)) return fetchStageHistoryPaged(webhook, params);
   // Быстрый путь (keyset, как у сделок): без COUNT/OFFSET на каждой странице. На 100к+ записей
   // истории стадий разница в разы. При любой проблеме — прежний постраничный загрузчик ниже.
   return withKeyset(webhook, "crm.stagehistory.list",
