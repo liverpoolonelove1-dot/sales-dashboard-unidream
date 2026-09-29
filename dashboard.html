@@ -185,7 +185,10 @@
   .sbnav-spacer{flex:1;min-height:8px;}
   .dash-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;}
   @media(max-width:900px){
-    .dash-body{flex-direction:column;gap:12px;}
+    /* колонки друг под другом: основная колонка — строго в ширину экрана (с align-items:flex-start
+       она брала ширину по содержимому, и широкие таблицы/календарь вылезали за край) */
+    .dash-body{flex-direction:column;gap:12px;align-items:stretch;}
+    .dash-main{width:100%;}
     .dash-sidebar{position:static;width:100%;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
     .dash-sidebar::-webkit-scrollbar{display:none;}
     .sbnav-item{flex:none;white-space:nowrap;padding:8px 12px;}
@@ -401,6 +404,27 @@
   .analytics-table tbody tr{transition:background .12s ease;}
   .analytics-table tbody tr:hover{background:var(--overlay-1);}
   .analytics-table tbody tr:hover td{border-color:transparent;}
+  /* flex-колонка по умолчанию не ужимается уже своего содержимого (min-width:auto) — широкая
+     таблица растягивала всю колонку дашборда за край экрана. Разрешаем ужиматься: таблицы
+     прокручиваются внутри себя, а страница остаётся в ширину экрана. */
+  .dash-main, .dash-main > *{min-width:0;}
+  /* Отступ между столбцами во всех таблицах: без него на узких экранах текст соседних
+     столбцов слипался («СУММАОПЛАТСДЕЛОККОНВ.») */
+  .analytics-table th:not(:first-child), .analytics-table td:not(:first-child),
+  .modal-list-table th:not(:first-child), .modal-list-table td:not(:first-child),
+  .modal-table th:not(:first-child), .modal-table td:not(:first-child),
+  .mgr-day-table th:not(:first-child), .mgr-day-table td:not(:first-child),
+  .mgr-stages-table th:not(:first-child), .mgr-stages-table td:not(:first-child),
+  .stage-table th:not(:first-child), .stage-table td:not(:first-child){padding-left:12px;}
+  @media(max-width:640px){
+    .modal-summary-row{grid-template-columns:repeat(3, minmax(0, 1fr)) !important;gap:8px;}
+    .leads-breakdown, .leads-breakdown tbody, .leads-breakdown tr{display:block;width:100%;}
+    .leads-breakdown > tbody > tr > td{display:block;width:100% !important;padding:0 0 16px !important;}
+    .calls-goal-block{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+    #callsGoalInput{flex:1 1 110px;min-width:0;}
+    /* плитки звонков/лидов/задач на телефоне — во всю ширину: вдвоём в ряд им тесно */
+    .dash-tiles .tile-calls{grid-column:1 / -1;}
+  }
   /* «Заявки по стадиям»: таблица всегда помещается в ширину экрана (без обрезанных столбцов
      и налезающих заголовков), на телефоне — короткие заголовки */
   .entry-table{table-layout:fixed;}
@@ -6793,7 +6817,7 @@ function buildLeadsHtml(filterType, standalone){
     .map(([src, count]) => `<tr><td>${escapeHtml(sourceName(src))}</td><td>${count}</td></tr>`).join('');
 
   const breakdown = `
-    <table style="width:100%;margin-top:16px;border-collapse:collapse;"><tr>
+    <table class="leads-breakdown" style="width:100%;margin-top:16px;border-collapse:collapse;"><tr>
       <td style="width:48%;vertical-align:top;">
         <div class="modal-subtitle">${t('leadsByStatus')}</div>
         <table class="modal-table"><tbody>${statusRows}</tbody></table>
