@@ -3660,14 +3660,27 @@ const ENTRY_COUNTS_TTL = 10 * 60 * 1000;
 function normPersonName(str){
   return String(str || '').toLowerCase().replace(/[^a-zа-яёўқғҳ0-9\s]/gi, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
 }
+// Сделки, уже загруженные дашбордом (ID → название и контакт) — чтобы «Заявки по стадиям» не
+// запрашивали их у Bitrix24 повторно ради сопоставления по телефону/имени.
+const knownDeals = new Map();
+function rememberDeals(list){
+  (list || []).forEach(d => { if(d && d.contactId !== undefined) knownDeals.set(String(d.id), {ID: d.id, TITLE: d.title, CONTACT_ID: d.contactId}); });
+}
 async function fetchPersonKeys(webhook, dealIds){
   const keys = new Map();
   const ids = [...new Set(dealIds.map(String))];
   if(!ids.length) return keys;
+  // кэш сделок может быть поднят из IndexedDB — учитываем и его
+  Object.values(monthDealsCache.byFunnelId || {}).forEach(rememberDeals);
+  const deals = [];
+  const missing = [];
+  ids.forEach(id => { const k = knownDeals.get(id); if(k) deals.push(k); else missing.push(id); });
   const idChunks = [];
-  for(let i = 0; i < ids.length; i += 50) idChunks.push(ids.slice(i, i + 50));
-  const dealPages = await callBatch(webhook, idChunks.map(chunk => ({method: 'crm.deal.list', params: {filter: {'@ID': chunk}, select: ['ID', 'TITLE', 'CONTACT_ID']}})));
-  const deals = dealPages.flatMap(p => Array.isArray(p) ? p : []);
+  for(let i = 0; i < missing.length; i += 50) idChunks.push(missing.slice(i, i + 50));
+  if(idChunks.length){
+    const dealPages = await callBatch(webhook, idChunks.map(chunk => ({method: 'crm.deal.list', params: {filter: {'@ID': chunk}, select: ['ID', 'TITLE', 'CONTACT_ID']}})));
+    dealPages.forEach(p => { if(Array.isArray(p)) deals.push(...p); });
+  }
   const contactIds = [...new Set(deals.map(d => d.CONTACT_ID).filter(c => c && c !== '0').map(String))];
   const contacts = new Map();
   if(contactIds.length){
@@ -3769,7 +3782,7 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
 // opts.wonOnly — только выигранные сделки (фильтр на стороне Bitrix24). Для прошлых периодов дашборду
 // нужна лишь сумма выигранных, а раньше грузились ВСЕ сделки прошлого месяца — второй полный объём.
 async function fetchDealsForCategory(webhook, categoryId, period, opts = {}){
-  const DEAL_SELECT = ['ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID'];
+  const DEAL_SELECT = ['ID','CONTACT_ID','TITLE','STAGE_ID','OPPORTUNITY','CURRENCY_ID','CLOSED','DATE_CREATE','CLOSEDATE','DATE_MODIFY','ASSIGNED_BY_ID','SOURCE_ID'];
   const lossReasonField = currentAddons.customLossReasonField || null;
   if(lossReasonField) DEAL_SELECT.push(lossReasonField);
   const filter = {CATEGORY_ID: categoryId};
@@ -4061,6 +4074,7 @@ const CRM_ADAPTERS = {
         updatedAt: d.DATE_MODIFY,
         actualCloseTime: d.__actualCloseTime || null, // точный момент реального перехода в выиграна/провалена (из истории стадий), в отличие от closedAt — плановой даты
         source: d.SOURCE_ID ? sourceName(d.SOURCE_ID) : '',
+        contactId: d.CONTACT_ID || '',
         semantic: guessSemantic(d.STAGE_ID, semMap),
         // текст причины отказа из кастомного поля клиента (Tift) вместо названия стадии — только если addon настроен и поле заполнено на сделке
         lossReasonText: (lossReasonField && d[lossReasonField]) ? (structureCache.lossReasonOptions[d[lossReasonField]] || null) : null
@@ -4068,6 +4082,7 @@ const CRM_ADAPTERS = {
       // map() создаёт новый массив и теряет __truncated/__total, проставленные в fetchAllPaged — переносим их
       if(raw.__truncated) mapped.__truncated = true;
       if(raw.__total !== undefined) mapped.__total = raw.__total;
+      rememberDeals(mapped);
       return mapped;
     },
     async fetchUserNames(conn, ids){
@@ -8766,27 +8781,9 @@ async function renderFunnelEntryStatsSection(){
     return;
   }
   try{
-    // Все воронки грузятся одновременно: история стадий теперь идёт keyset-путём (лёгкие запросы),
-    // а общую нагрузку на Bitrix24 по-прежнему ограничивает очередь REQUEST_CONCURRENCY.
-    let doneCount = 0;
-    const showProgress = () => {
-      if(document.getElementById('funnelEntryStatsBody') !== body) return;
-      body.innerHTML = `<div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')} (${doneCount}/${lastFunnels.length})</div>`;
-    };
-    showProgress();
-    // Одна воронка, которую сервер не отдал, не роняет весь раздел — остальные показываем
-    const settled = await Promise.all(lastFunnels.map(f =>
-      fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod)
-        .then(counts => ({funnel: f, counts}), e => ({funnel: f, error: e && e.message || String(e)}))
-        .finally(() => { doneCount++; showProgress(); })
-    ));
-    const failed = settled.filter(r => r.error);
-    const results = settled.filter(r => !r.error);
-    if(!results.length && failed.length) throw new Error(failed[0].error);
-    const failedNote = failed.length
-      ? `<div class="modal-note" style="color:var(--red-bad);margin-bottom:12px;">Не удалось загрузить: ${failed.map(r => escapeHtml(r.funnel.name) + ' — ' + escapeHtml(r.error)).join('; ')}</div>`
-      : '';
-    const sections = results.map(({funnel, counts}) => {
+    // Воронки показываются по мере готовности (у медленных коробок вроде Utas одна большая воронка
+    // может грузиться минуты — раньше раздел висел на «Загрузка… (1/4)», пока не готовы ВСЕ).
+    const renderFunnel = ({funnel, counts}) => {
       const activeStages = funnel.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
       const maxEverEntered = Math.max(0, ...activeStages.map(s => counts[s.id] || 0));
       // Visual funnel bars (based on ever-entered counts)
@@ -8843,8 +8840,37 @@ async function renderFunnelEntryStatsSection(){
             </div>
           </div>
         </div>`;
-    }).join('');
-    body.innerHTML = `<div class="modal-note" style="margin-bottom:16px;">${t('funnelEntryStatsHint')}</div>` + failedNote + sections;
+    };
+    const slotId = f => 'entryFunnel_' + String(f.id).replace(/[^a-z0-9_-]/gi, '_');
+    body.innerHTML = `<div class="modal-note" style="margin-bottom:16px;">${t('funnelEntryStatsHint')}</div>` +
+      lastFunnels.map(f => `<div id="${slotId(f)}"><div class="analytics-section"><div class="analytics-title">${escapeHtml(f.name)}</div>
+        <div class="hint entry-loading" style="color:var(--ink-soft);">${t('loadingText')}</div></div></div>`).join('');
+    // Живой счётчик — видно, что загрузка идёт, а не зависла
+    const ticker = setInterval(() => {
+      if(!document.body.contains(body)){ clearInterval(ticker); return; }
+      body.querySelectorAll('.entry-loading').forEach(el => {
+        el.textContent = `${t('loadingText')} — загружено ${_loadingRecordCount.toLocaleString('ru-RU')} записей…`;
+      });
+    }, 1000);
+    _loadingRecordCount = 0;
+    let okCount = 0;
+    const settled = await Promise.all(lastFunnels.map(f =>
+      fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod)
+        .then(counts => {
+          okCount++;
+          const slot = document.getElementById(slotId(f));
+          if(slot && document.body.contains(body)) slot.innerHTML = renderFunnel({funnel: f, counts});
+          return {funnel: f, counts};
+        }, e => {
+          const msg = e && e.message || String(e);
+          const slot = document.getElementById(slotId(f));
+          if(slot) slot.innerHTML = `<div class="analytics-section"><div class="analytics-title">${escapeHtml(f.name)}</div>
+            <div class="modal-note" style="color:var(--red-bad)">Не удалось загрузить: ${escapeHtml(msg)}</div></div>`;
+          return {funnel: f, error: msg};
+        })
+    ));
+    clearInterval(ticker);
+    if(!okCount && settled.length) throw new Error(settled[0].error);
   }catch(e){
     body.innerHTML = `<div class="modal-note" style="color:var(--red-bad)">${escapeHtml(e.message || String(e))}</div>`;
   }
