@@ -2678,6 +2678,9 @@ let _idbPromise = null;
 function idbOpen(){
   if(_idbPromise) return _idbPromise;
   _idbPromise = new Promise((resolve, reject) => {
+    // В некоторых браузерах (приватный режим) open() не отвечает вообще — ни success, ни error.
+    // Без таймаута дашборд ждал бы кэш вечно; через 3 с считаем хранилище недоступным и работаем без него.
+    setTimeout(() => reject(new Error('IndexedDB не отвечает')), 3000);
     try{
       const req = indexedDB.open('pulsecrm', 1);
       req.onupgradeneeded = () => req.result.createObjectStore('kv');
@@ -3294,8 +3297,15 @@ async function callBatchRaw(webhook, cmd, attempt, opts = {}){
       await sleep(rateLimitBackoff(attempt));
       return callBatchRaw(webhook, cmd, attempt + 1, opts);
     }
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    if(!res.ok){
+      const err = new Error(`HTTP ${res.status}`);
+      // 500/502/504 — сервер Bitrix24 перегружен или перезапускается: это временно, повторяем
+      if([500, 502, 504].includes(res.status)) err.transient = true;
+      throw err;
+    }
+    let data;
+    try{ data = await res.json(); }
+    catch(parseErr){ const err = new Error('Некорректный ответ сервера CRM (оборванный JSON)'); err.transient = true; throw err; }
     if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < RATE_LIMIT_MAX_ATTEMPTS){
       await sleep(rateLimitBackoff(attempt));
       return callBatchRaw(webhook, cmd, attempt + 1, opts);
@@ -3311,7 +3321,7 @@ async function callBatchRaw(webhook, cmd, attempt, opts = {}){
       }
       throw new Error('Превышено время ожидания batch-запроса.');
     }
-    if(e instanceof TypeError && attempt < 5){
+    if((e instanceof TypeError || e.transient) && attempt < 5){
       // Failed to fetch: сервер сбросил соединение. Экспоненциальная пауза перед ретраем.
       await sleep(Math.min(1000 * Math.pow(2, attempt), 16000));
       return callBatchRaw(webhook, cmd, attempt + 1, opts);
@@ -3382,8 +3392,15 @@ async function callMethodRaw(webhook, method, qs, attempt){
       await sleep(rateLimitBackoff(attempt));
       return callMethodRaw(webhook, method, qs, attempt + 1);
     }
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    if(!res.ok){
+      const err = new Error(`HTTP ${res.status}`);
+      // 500/502/504 — сервер Bitrix24 перегружен или перезапускается: это временно, повторяем
+      if([500, 502, 504].includes(res.status)) err.transient = true;
+      throw err;
+    }
+    let data;
+    try{ data = await res.json(); }
+    catch(parseErr){ const err = new Error('Некорректный ответ сервера CRM (оборванный JSON)'); err.transient = true; throw err; }
     if(data.error === 'QUERY_LIMIT_EXCEEDED' && attempt < RATE_LIMIT_MAX_ATTEMPTS){
       await sleep(rateLimitBackoff(attempt));
       return callMethodRaw(webhook, method, qs, attempt + 1);
@@ -3398,7 +3415,7 @@ async function callMethodRaw(webhook, method, qs, attempt){
     }
     // Сбой на уровне самого браузера (обрыв соединения, временная блокировка CORS,
     // "Load failed" в Safari) — раньше падало сразу без повтора. Теперь пробуем ещё раз с паузой.
-    if(e instanceof TypeError && attempt < 5){
+    if((e instanceof TypeError || e.transient) && attempt < 5){
       await sleep(Math.min(1000 * Math.pow(2, attempt), 16000));
       return callMethodRaw(webhook, method, qs, attempt + 1);
     }
@@ -5254,6 +5271,9 @@ async function loadDashboard(forceRefresh){
       hideLoadingToast();
     } else {
       const [c, tk, l] = await secondary;
+      // предыдущая (отменённая сменой периода) загрузка могла оставить флаг включённым —
+      // тогда плитки звонков/задач/лидов навсегда показывали бы «загружается…»
+      secondaryLoading = false;
       applySecondary(c, tk, l);
       renderAll();
     }
