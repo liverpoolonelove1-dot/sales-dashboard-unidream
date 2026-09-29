@@ -2724,6 +2724,40 @@ async function saveDealsCache(connKey, monthKey, data, fullSyncTs){
     saveDealsToLS(connKey, monthKey, data);
   }
 }
+// Кэш сделок для ЛЮБОГО периода («Диапазон дат», «Всё время», прошлые периоды) — раньше
+// инкрементальный кэш был только у «Сегодня/Неделя/Месяц», а произвольный период при каждом
+// открытии/обновлении/переключении качался целиком заново. Теперь: первый раз — полная загрузка,
+// дальше — только сделки, изменённые с прошлого раза (DATE_MODIFY); полная пересинхронизация
+// раз в сутки (убирает удалённые в CRM). preciseAccounting — как раньше, без кэша.
+async function fetchDealsWithCache(adapter, conn, funnelId, period, opts = {}, forceRefresh = false){
+  if(!conn.webhook || addonEnabled('preciseAccounting')) return adapter.fetchDeals(conn, funnelId, period, opts);
+  let key = null;
+  try{ key = 'pdeals1_' + btoa(conn.webhook).slice(0, 24) + '_' + funnelId + '_' + ((period && period.from) || '') + '_' + ((period && period.to) || '') + (opts.wonOnly ? '_won' : ''); }catch(e){}
+  if(!key) return adapter.fetchDeals(conn, funnelId, period, opts);
+  let hit = null;
+  try{ hit = await idbGet(key); }catch(e){}
+  if(hit && Array.isArray(hit.deals) && hit.fullSyncTs && Date.now() - hit.fullSyncTs < FULL_RESYNC_TTL){
+    // Свежий кэш (меньше минуты) при обычном открытии — без запроса вообще
+    if(!forceRefresh && Date.now() - hit.ts < 60 * 1000){ rememberDeals(hit.deals); return hit.deals; }
+    let since = null, best = 0;
+    hit.deals.forEach(d => { const t = d.updatedAt ? Date.parse(d.updatedAt) : 0; if(t > best){ best = t; since = d.updatedAt; } });
+    if(since){
+      const delta = await adapter.fetchDeals(conn, funnelId, period, {...opts, modifiedSince: since});
+      let deals = hit.deals;
+      if(delta.length){
+        const byId = new Map(hit.deals.map(d => [String(d.id), d]));
+        delta.forEach(d => byId.set(String(d.id), d));
+        deals = [...byId.values()];
+      }
+      rememberDeals(deals);
+      idbSet(key, {ts: Date.now(), fullSyncTs: hit.fullSyncTs, deals}).catch(() => {});
+      return deals;
+    }
+  }
+  const deals = await adapter.fetchDeals(conn, funnelId, period, opts);
+  idbSet(key, {ts: Date.now(), fullSyncTs: Date.now(), deals: [...deals]}).catch(() => {});
+  return deals;
+}
 // ──────────────────────────────────────────────────────────────────────────────
 let lastDealsByFunnelId = {}; // сделки текущего периода по воронкам (с contactId) — «Туннель конверсии» берёт их отсюда, не качая заново
 let secondaryLoading = false; // звонки/задачи/лиды ещё грузятся — дашборд уже нарисован по сделкам
@@ -4860,11 +4894,11 @@ async function loadDashboard(forceRefresh){
       const deriveFromAll = isAllTime && !addonEnabled('preciseAccounting');
       const promises = [
         stagesPromise,
-        adapter.fetchDeals(conn, fn.id, currentPeriod),
-        (periodIsMonth || deriveFromAll) ? null : adapter.fetchDeals(conn, fn.id, thisMonthPeriod),
-        (prevIsSameAsPrevMonth || deriveFromAll) ? null : adapter.fetchDeals(conn, fn.id, prevMonthRange, {wonOnly: true})
+        fetchDealsWithCache(adapter, conn, fn.id, currentPeriod, {}, forceRefresh),
+        (periodIsMonth || deriveFromAll) ? null : fetchDealsWithCache(adapter, conn, fn.id, thisMonthPeriod, {}, forceRefresh),
+        (prevIsSameAsPrevMonth || deriveFromAll) ? null : fetchDealsWithCache(adapter, conn, fn.id, prevMonthRange, {wonOnly: true}, forceRefresh)
       ];
-      if(prevPeriod) promises.push(adapter.fetchDeals(conn, fn.id, prevPeriod, {wonOnly: true}));
+      if(prevPeriod) promises.push(fetchDealsWithCache(adapter, conn, fn.id, prevPeriod, {wonOnly: true}, forceRefresh));
       return Promise.all(promises)
         .catch(e => { logError('funnel ' + fn.id, e.message, e.stack); return [structureCache.stagesByFunnelId[fn.id] || [], {__funnelError: e.message}, null, null]; });
     }));
