@@ -3598,7 +3598,19 @@ async function fetchStageHistoryPaged(webhook, params){
       qs.set('start', s);
       cmd['c' + i] = `crm.stagehistory.list?${qs.toString()}`;
     });
-    const batchResult = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0));
+    let batchResult;
+    try{
+      // Большая пачка на медленном сервере (Utas) не укладывается в минуту — не ждём повторов,
+      // а делим пачку пополам и пробуем снова, вплоть до одной страницы (как callBatch для сделок).
+      batchResult = await enqueueRequest(() => callBatchRaw(webhook, cmd, 0, chunk.length > 1 ? {noAbortRetry: true} : {}));
+    }catch(e){
+      if(chunk.length > 1 && e.message && e.message.includes('время ожидания')){
+        const half = Math.ceil(chunk.length / 2);
+        const parts = await Promise.all([runChunk(chunk.slice(0, half)), runChunk(chunk.slice(half))]);
+        return parts[0].concat(parts[1]);
+      }
+      throw e;
+    }
     const items = [];
     chunk.forEach((s, i) => {
       const key = 'c' + i;
@@ -3639,6 +3651,17 @@ async function fetchFunnelContactIds(webhook, categoryId, period){
 // сделка могла зайти на стадию "Звонок назначен" и уйти дальше — в обычном отчёте она там уже
 // не будет видна, а здесь — будет учтена, потому что реально проходила через эту стадию.
 const ENTRY_COUNTS_TTL = 10 * 60 * 1000;
+// Конверсия из стадии fromId в стадию toId: какая доля сделок, побывавших на fromId, побывала и на toId.
+// null — на fromId никого не было (конверсию не считаем).
+function stageConversion(counts, fromId, toId){
+  const owners = counts && counts.__owners;
+  const from = owners && owners[fromId];
+  if(!from || !from.length) return null;
+  const to = new Set((owners[toId] || []).map(String));
+  let both = 0;
+  from.forEach(id => { if(to.has(String(id))) both++; });
+  return Math.round(100 * both / from.length);
+}
 async function fetchFunnelEntryCounts(webhook, categoryId, period){
   // Кеш в памяти: один и тот же funnel+period может запрашиваться дважды
   // ("Заявки по стадиям" и "Туннель конверсии" Phase 2). Второй вызов — мгновенный.
@@ -3655,7 +3678,7 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
     // Кэш в IndexedDB на 10 минут: у медленных коробок (Utas) история стадий грузится долго,
     // а повторный заход в раздел / переключение между разделами теперь мгновенные.
     let idbKey = null;
-    try{ idbKey = 'entry_' + btoa(webhook).slice(0, 24) + '_' + cacheKey; }catch(e){}
+    try{ idbKey = 'entry2_' + btoa(webhook).slice(0, 24) + '_' + cacheKey; }catch(e){}
     if(idbKey){
       try{
         const hit = await idbGet(idbKey);
@@ -3679,8 +3702,11 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
       if(!byStage[e.STAGE_ID]) byStage[e.STAGE_ID] = new Set();
       byStage[e.STAGE_ID].add(e.OWNER_ID);
     });
-    const result = {};
-    Object.keys(byStage).forEach(stageId => { result[stageId] = byStage[stageId].size; });
+    // Число сделок на стадии + сами ID сделок (__owners) — нужны для честной конверсии «из предыдущей
+    // стадии в эту»: считаем только сделки, которые были на ОБЕИХ стадиях, а не просто делим количества
+    // (иначе сделки, попавшие сразу на вторую стадию, давали конверсию 464%).
+    const result = {__owners: {}};
+    Object.keys(byStage).forEach(stageId => { result[stageId] = byStage[stageId].size; result.__owners[stageId] = [...byStage[stageId]]; });
     if(monthDealsCache.entryCountsCache) monthDealsCache.entryCountsCache[cacheKey] = result;
     if(idbKey) idbSet(idbKey, {ts: Date.now(), data: result}).catch(() => {});
     delete monthDealsCache._entryCountsInflight[cacheKey];
@@ -8714,15 +8740,14 @@ async function renderFunnelEntryStatsSection(){
       : '';
     const sections = results.map(({funnel, counts}) => {
       const activeStages = funnel.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
-      const firstEverEntered = activeStages.length > 0 ? (counts[activeStages[0].id] || 0) : 0;
+      const maxEverEntered = Math.max(0, ...activeStages.map(s => counts[s.id] || 0));
       // Visual funnel bars (based on ever-entered counts)
       const visualRows = activeStages.map((s, i) => {
         const everEntered = counts[s.id] || 0;
         const prev = i > 0 ? activeStages[i-1] : null;
-        const prevEver = prev ? (counts[prev.id] || 0) : 0;
-        const convFromPrev = (prev && prevEver > 0) ? Math.round(100 * everEntered / prevEver) : null;
-        const convFromFirst = firstEverEntered > 0 ? Math.round(100 * everEntered / firstEverEntered) : 0;
-        const barPct = firstEverEntered > 0 ? Math.round(100 * everEntered / firstEverEntered) : 0;
+        const convFromPrev = prev ? stageConversion(counts, prev.id, s.id) : null;
+        const convFromFirst = i === 0 ? (everEntered > 0 ? 100 : 0) : (stageConversion(counts, activeStages[0].id, s.id) ?? 0);
+        const barPct = maxEverEntered > 0 ? Math.round(100 * everEntered / maxEverEntered) : 0;
         const convColor = convFromPrev === null ? '' : convFromPrev >= 50 ? 'var(--accent-strong)' : convFromPrev >= 30 ? 'var(--amber)' : 'var(--red-bad)';
         const arrowHtml = convFromPrev !== null
           ? `<div style="text-align:center;font-size:11px;color:${convColor};margin:1px 0 1px;">↓ ${convFromPrev}%</div>`
@@ -8741,8 +8766,7 @@ async function renderFunnelEntryStatsSection(){
 
       const tableRows = funnel.stages.map((s, idx) => {
         const everEntered = counts[s.id] || 0;
-        const prevEverEntered = idx > 0 ? (counts[funnel.stages[idx-1].id] || 0) : null;
-        const convFromPrev = (prevEverEntered && prevEverEntered > 0) ? Math.round(100 * everEntered / prevEverEntered) : null;
+        const convFromPrev = idx > 0 ? stageConversion(counts, funnel.stages[idx-1].id, s.id) : null;
         const convColor = convFromPrev === null ? '' : convFromPrev >= 50 ? 'color:var(--accent-strong)' : convFromPrev >= 30 ? 'color:var(--amber)' : 'color:var(--red-bad)';
         return `<tr>
           <td>${escapeHtml(s.name)}</td>
@@ -8946,9 +8970,8 @@ async function renderTunnelConversionSection(){
       const stageRows = activeStages.map((s, si) => {
         const everEntered = counts[s.id] || 0;
         const prev = si > 0 ? activeStages[si-1] : null;
-        const prevEver = prev ? (counts[prev.id] || 0) : 0;
-        const convFromPrev = (prev && prevEver > 0) ? Math.round(100 * everEntered / prevEver) : null;
-        const convFromFirst = firstEver > 0 ? Math.round(100 * everEntered / firstEver) : 0;
+        const convFromPrev = prev ? stageConversion(counts, prev.id, s.id) : null;
+        const convFromFirst = si === 0 ? 100 : (stageConversion(counts, activeStages[0].id, s.id) ?? 0);
         const convColor = convFromPrev === null ? '' : convFromPrev >= 50 ? 'color:var(--accent-strong)' : convFromPrev >= 30 ? 'color:var(--amber)' : 'color:var(--red-bad)';
         const arrowHtml = convFromPrev !== null
           ? `<div style="font-size:11px;${convColor};padding:1px 0 1px 12px;">↓ ${convFromPrev}%</div>` : '';
