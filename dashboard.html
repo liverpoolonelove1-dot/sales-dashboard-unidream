@@ -2725,6 +2725,7 @@ async function saveDealsCache(connKey, monthKey, data, fullSyncTs){
   }
 }
 // ──────────────────────────────────────────────────────────────────────────────
+let lastDealsByFunnelId = {}; // сделки текущего периода по воронкам (с contactId) — «Туннель конверсии» берёт их отсюда, не качая заново
 let secondaryLoading = false; // звонки/задачи/лиды ещё грузятся — дашборд уже нарисован по сделкам
 let dataMayBeTruncated = false; // если у клиента огромный объём сделок/лидов/задач и мы упёрлись в лимит выборки — предупреждаем честно, а не молчим
 let lastManagers = [];
@@ -4883,6 +4884,7 @@ async function loadDashboard(forceRefresh){
     if(canUseMonthCache) monthDealsCache.deltaNeeded = false;
 
     const funnels = [];
+    const dealsByFunnelThisLoad = {};
     const funnelErrors = []; // воронки, которые не загрузились из-за ошибки
     dataMayBeTruncated = false;
     for(let i = 0; i < funnelsToLoad.length; i++){
@@ -4925,6 +4927,7 @@ async function loadDashboard(forceRefresh){
         prevMonthDeals = prevIsSameAsPrevMonth ? prevDeals : (results[3] || (prevMonthRange ? deals.filter(d => d.semantic === 'S' && inRange(d, prevMonthRange)) : []));
       }
 
+      dealsByFunnelThisLoad[fn.id] = deals;
       monthDealsTotal += monthDeals.length;
       monthDeals.forEach(d => {
         if(d.semantic === 'S'){
@@ -5102,6 +5105,7 @@ async function loadDashboard(forceRefresh){
     if(myRequestId !== loadRequestId) return;
 
     lastFunnels = displayFunnels;
+    lastDealsByFunnelId = dealsByFunnelThisLoad;
     lastManagers = managers;
     lastIdleEmployees = idleEmployees;
     lastDailyEntries = dailyEntries;
@@ -9011,6 +9015,27 @@ async function renderTunnelConversionSection(){
     if(cacheHit){
       contactResults = tunnelCache.contactResults;
     } else {
+      // Сделки периода уже загружены основной загрузкой дашборда — берём их (раньше туннель качал
+      // все сделки каждой воронки заново, у медленных коробок вроде Utas это минуты). Клиентов
+      // сопоставляем по телефону/имени (fetchPersonKeys): регистрация на сайте может создать новый
+      // контакт, и по CONTACT_ID один человек выглядел бы двумя разными.
+      const local = snapFunnels.every(f => Array.isArray(lastDealsByFunnelId[f.id])
+        && lastDealsByFunnelId[f.id].every(d => d.contactId !== undefined));
+      if(local){
+        const allIds = [];
+        snapFunnels.forEach(f => lastDealsByFunnelId[f.id].forEach(d => allIds.push(d.id)));
+        let personOf = null;
+        try{ personOf = await fetchPersonKeys(snapConn.webhook, allIds); }catch(e){}
+        contactResults = snapFunnels.map(f => {
+          const deals = lastDealsByFunnelId[f.id];
+          const people = new Set();
+          deals.forEach(d => {
+            const k = (personOf && personOf.get(String(d.id))) || (d.contactId && d.contactId !== '0' ? 'c:' + d.contactId : null);
+            if(k) people.add(k);
+          });
+          return {funnel: f, total: deals.length, contacts: people, error: null};
+        });
+      } else
       // Загружаем каждую воронку независимо — ошибка одной не роняет всё
       contactResults = await Promise.all(snapFunnels.map(f =>
         fetchFunnelContactIds(snapConn.webhook, f.id, currentPeriod)
@@ -9093,8 +9118,8 @@ async function renderTunnelConversionSection(){
     b.innerHTML = `
       <div class="modal-note" style="margin-bottom:16px;">
         ${uz
-          ? `Tunnel — CONTACT_ID bo'yicha klientlar bir nechta voronkada birlashtiriladi. Davr: ${periodLabel}.`
-          : `Туннель: клиенты сопоставляются по CONTACT_ID через несколько воронок. Период: ${periodLabel}.`}
+          ? `Tunnel — klientlar telefon raqami / ism bo'yicha bir nechta voronkada birlashtiriladi. Davr: ${periodLabel}.`
+          : `Туннель: клиенты сопоставляются по телефону / имени через несколько воронок. Период: ${periodLabel}.`}
       </div>
       <div style="margin-bottom:28px;" id="tunnelFunnelRows">${buildTunnelRows(contactResults)}</div>
       <div style="font-weight:700;font-size:15px;margin-bottom:12px;padding-top:8px;border-top:1px solid var(--line);">
