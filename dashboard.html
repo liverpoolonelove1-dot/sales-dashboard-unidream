@@ -3294,7 +3294,9 @@ async function callBatch(webhook, calls, chunkSize){
 
 async function callMethodRaw(webhook, method, qs, attempt){
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000); // 15 сек таймаут
+  // 60 сек, как у batch: у коробочных серверов (Utas) первый запрос списка с подсчётом total —
+  // например, crm.stagehistory.list за месяц — идёт дольше 15 сек, и раздел падал с ошибкой.
+  const timeout = setTimeout(() => controller.abort(), 60000);
   try{
     const res = await fetch(`${webhook}${method}.json?${qs.toString()}`, {signal: controller.signal});
     clearTimeout(timeout);
@@ -3314,7 +3316,10 @@ async function callMethodRaw(webhook, method, qs, attempt){
     return data;
   }catch(e){
     clearTimeout(timeout);
-    if(e.name === 'AbortError') throw new Error('Превышено время ожидания (15 сек). Проверьте соединение.');
+    if(e.name === 'AbortError'){
+      if(attempt < 1){ await sleep(1000); return callMethodRaw(webhook, method, qs, attempt + 1); }
+      throw new Error('Превышено время ожидания (60 сек) — сервер CRM отвечает слишком медленно.');
+    }
     // Сбой на уровне самого браузера (обрыв соединения, временная блокировка CORS,
     // "Load failed" в Safari) — раньше падало сразу без повтора. Теперь пробуем ещё раз с паузой.
     if(e instanceof TypeError && attempt < 5){
@@ -3633,6 +3638,7 @@ async function fetchFunnelContactIds(webhook, categoryId, period){
 // "По стадиям", который показывает только ТЕКУЩИЙ снимок (где сделки сейчас). Это разные вещи:
 // сделка могла зайти на стадию "Звонок назначен" и уйти дальше — в обычном отчёте она там уже
 // не будет видна, а здесь — будет учтена, потому что реально проходила через эту стадию.
+const ENTRY_COUNTS_TTL = 10 * 60 * 1000;
 async function fetchFunnelEntryCounts(webhook, categoryId, period){
   // Кеш в памяти: один и тот же funnel+period может запрашиваться дважды
   // ("Заявки по стадиям" и "Туннель конверсии" Phase 2). Второй вызов — мгновенный.
@@ -3646,6 +3652,20 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
     return monthDealsCache._entryCountsInflight[cacheKey];
   }
   const promise = (async () => {
+    // Кэш в IndexedDB на 10 минут: у медленных коробок (Utas) история стадий грузится долго,
+    // а повторный заход в раздел / переключение между разделами теперь мгновенные.
+    let idbKey = null;
+    try{ idbKey = 'entry_' + btoa(webhook).slice(0, 24) + '_' + cacheKey; }catch(e){}
+    if(idbKey){
+      try{
+        const hit = await idbGet(idbKey);
+        if(hit && Date.now() - hit.ts < ENTRY_COUNTS_TTL){
+          if(monthDealsCache.entryCountsCache) monthDealsCache.entryCountsCache[cacheKey] = hit.data;
+          delete monthDealsCache._entryCountsInflight[cacheKey];
+          return hit.data;
+        }
+      }catch(e){}
+    }
     const filter = {'CATEGORY_ID': categoryId};
     if(period && period.from) filter['>=CREATED_TIME'] = `${period.from} 00:00:00`;
     if(period && period.to) filter['<=CREATED_TIME'] = `${period.to} 23:59:59`;
@@ -3662,6 +3682,7 @@ async function fetchFunnelEntryCounts(webhook, categoryId, period){
     const result = {};
     Object.keys(byStage).forEach(stageId => { result[stageId] = byStage[stageId].size; });
     if(monthDealsCache.entryCountsCache) monthDealsCache.entryCountsCache[cacheKey] = result;
+    if(idbKey) idbSet(idbKey, {ts: Date.now(), data: result}).catch(() => {});
     delete monthDealsCache._entryCountsInflight[cacheKey];
     return result;
   })();
@@ -8679,10 +8700,18 @@ async function renderFunnelEntryStatsSection(){
       body.innerHTML = `<div class="hint" style="color:var(--ink-soft);padding:20px 0;">${t('loadingText')} (${doneCount}/${lastFunnels.length})</div>`;
     };
     showProgress();
-    const results = await Promise.all(lastFunnels.map(f =>
+    // Одна воронка, которую сервер не отдал, не роняет весь раздел — остальные показываем
+    const settled = await Promise.all(lastFunnels.map(f =>
       fetchFunnelEntryCounts(currentConn.webhook, f.id, currentPeriod)
-        .then(counts => { doneCount++; showProgress(); return {funnel: f, counts}; })
+        .then(counts => ({funnel: f, counts}), e => ({funnel: f, error: e && e.message || String(e)}))
+        .finally(() => { doneCount++; showProgress(); })
     ));
+    const failed = settled.filter(r => r.error);
+    const results = settled.filter(r => !r.error);
+    if(!results.length && failed.length) throw new Error(failed[0].error);
+    const failedNote = failed.length
+      ? `<div class="modal-note" style="color:var(--red-bad);margin-bottom:12px;">Не удалось загрузить: ${failed.map(r => escapeHtml(r.funnel.name) + ' — ' + escapeHtml(r.error)).join('; ')}</div>`
+      : '';
     const sections = results.map(({funnel, counts}) => {
       const activeStages = funnel.stages.filter(s => s.semantic !== 'S' && s.semantic !== 'F');
       const firstEverEntered = activeStages.length > 0 ? (counts[activeStages[0].id] || 0) : 0;
@@ -8743,7 +8772,7 @@ async function renderFunnelEntryStatsSection(){
           </div>
         </div>`;
     }).join('');
-    body.innerHTML = `<div class="modal-note" style="margin-bottom:16px;">${t('funnelEntryStatsHint')}</div>` + sections;
+    body.innerHTML = `<div class="modal-note" style="margin-bottom:16px;">${t('funnelEntryStatsHint')}</div>` + failedNote + sections;
   }catch(e){
     body.innerHTML = `<div class="modal-note" style="color:var(--red-bad)">${escapeHtml(e.message || String(e))}</div>`;
   }
